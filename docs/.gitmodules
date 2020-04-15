@@ -1,0 +1,4 @@
+
+[submodule "themes/docsy/assets/vendor/Font-Awesome"]
+	path = themes/docsy/assets/vendor/Font-Awesome
+	url = https://github.com/FortAwesome/Font-Awesome.git
