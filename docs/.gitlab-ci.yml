@@ -1,6 +1,6 @@
 variables:
   DOCKER_TAG: latest #0.66.0 #${CI_COMMIT_REF_NAME}
-  DOCKER_IMAGE: trenton/hugo-extended #rwthacs/hugo-ext
+  DOCKER_IMAGE: peaceiris/hugo #trenton/hugo-extended #rwthacs/hugo-ext
 
 before_script:
   - git config --local core.longpaths true
