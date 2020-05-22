@@ -21,6 +21,7 @@ docker:
  tags:
    - shell
    - linux
+   - docker
 
 hugo:
   stage: build
