@@ -1,6 +1,6 @@
 variables:
-  DOCKER_TAG: latest #0.66.0 #${CI_COMMIT_REF_NAME}
-  DOCKER_IMAGE: peaceiris/hugo #trenton/hugo-extended #rwthacs/hugo-ext
+  DOCKER_TAG: ${CI_COMMIT_REF_NAME}
+  DOCKER_IMAGE: rwthacs/hugo-ext
 
 before_script:
   - git config --local core.longpaths true
@@ -8,19 +8,19 @@ before_script:
   - git submodule update --init --recursive
 
 stages:
-#  - prepare
+ - prepare
   - build
   - deploy
 
-#docker:
-#  stage: prepare
-#  script:
-#    - docker build
-#        --tag ${DOCKER_IMAGE}:${DOCKER_TAG}
-#        --tag ${DOCKER_IMAGE}:latest .
-#  tags:
-#    - shell
-#    - linux
+docker:
+ stage: prepare
+ script:
+   - docker build
+       --tag ${DOCKER_IMAGE}:${DOCKER_TAG}
+       --tag ${DOCKER_IMAGE}:latest .
+ tags:
+   - shell
+   - linux
 
 hugo:
   stage: build
