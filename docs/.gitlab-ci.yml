@@ -27,7 +27,7 @@ hugo:
   script:
 #    - npm install -D --save autoprefixer
 #    - npm install -D --save postcss-cli
-    - hugo -v
+    - hugo version
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
     paths:
