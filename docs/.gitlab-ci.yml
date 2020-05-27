@@ -19,9 +19,9 @@ docker:
        --tag ${DOCKER_IMAGE}:${DOCKER_TAG}
        --tag ${DOCKER_IMAGE}:latest .
  tags:
-  #  - shell
+   - shell
   #  - linux
-   - docker
+  # - docker
 
 hugo:
   stage: build
