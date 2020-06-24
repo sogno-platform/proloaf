@@ -26,8 +26,8 @@ docker:
 hugo:
   stage: build
   script:
-#    - npm install -D --save autoprefixer
-#    - npm install -D --save postcss-cli
+    - npm install -D --save autoprefixer
+    - npm install -D --save postcss-cli
     - hugo -v
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
