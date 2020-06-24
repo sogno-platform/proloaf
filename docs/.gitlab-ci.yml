@@ -47,5 +47,5 @@ pages:
     - master
   tags:
     - shell
-    - linux
+    #- linux
 
