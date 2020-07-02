@@ -13,9 +13,9 @@ RUN wget https://github.com/gohugoio/hugo/releases/download/v0.71.0/hugo_extende
   tar -xvf hugo_extended_0.71.0_Linux-64bit.tar.gz && \
   install hugo /usr/bin
 
-WORKDIR /website
-RUN  npm install -D -g --save autoprefixer && \
-  npm install -D -g --save postcss-cli
+# WORKDIR /website
+# RUN  npm install -D -g --save autoprefixer && \
+#   npm install -D -g --save postcss-cli
   # npm audit fix
 
 EXPOSE 1313
