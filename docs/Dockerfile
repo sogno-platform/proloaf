@@ -14,7 +14,7 @@ RUN wget https://github.com/gohugoio/hugo/releases/download/v0.71.0/hugo_extende
   install hugo /usr/bin
 
 WORKDIR /website
-RUN  npm install -D --save autoprefixer && \
+RUN  npm install -D -g --save autoprefixer && \
   npm install -D -g --save postcss-cli
   # npm audit fix
 
