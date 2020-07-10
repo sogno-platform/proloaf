@@ -1,0 +1,112 @@
+{
+    "DATA_PATH": "./eon-data/last_ystad.csv",
+    "MODEL_PATH": "./output/model_ystad",
+    "target_column": "Net_Load",
+    "CHANGE_OS": 0,
+    "col_list": null,
+    "irrelevant": [
+        "Time",
+        "From E.ON (kWh)",
+        "To E.ON (kWh)"
+    ],
+    "cyclical_features": [
+        "hour_sin",
+        "hour_cos",
+        "mnth_sin",
+        "mnth_cos"
+    ],
+    "res_features": [
+        "windspeedKmph"
+    ],
+    "main_scaler": [
+        "standard",
+        0.0,
+        0.0
+    ],
+    "features": [
+        "Net_Load",
+        "MEVA_VALUE",
+        "tempC",
+        "windspeedKmph"
+    ],
+    "past": [
+        "Net_Load",
+        "MEVA_VALUE"
+    ],
+    "RAW_PATH": "./eon-data/ystad-energi/",
+    "WEATHER_FILES": [
+        {
+            "file_name": "weather_forecast_2017.csv",
+            "date_column": "time",
+            "dayfirst": false,
+            "sep": ",",
+            "combine": true,
+            "use_columns": [
+                0,
+                1,
+                2
+            ]
+        },
+        {
+            "file_name": "weather_forecast_2018.csv",
+            "date_column": "time",
+            "dayfirst": false,
+            "sep": ",",
+            "combine": true,
+            "use_columns": [
+                0,
+                1,
+                2
+            ]
+        },
+        {
+            "file_name": "weather_forecast_2019.csv",
+            "date_column": "time",
+            "dayfirst": false,
+            "sep": ",",
+            "combine": true,
+            "use_columns": [
+                0,
+                1,
+                2
+            ]
+        }
+    ],
+    "MAX_EPOCHS": 50,
+    "LEARNING_RATE": 0.0001,
+    "BATCH_SIZE": 24,
+    "SPLIT_RATIO": 0.7,
+    "SUBSPLIT_TEST_RATIO": 0.85,
+    "SENSOR_ERROR_LIMITER": 5128,
+    "HISTORY_HORIZON": 24,
+    "FORECAST_HORIZON": 40,
+    "dropout_fc": 0.3,
+    "dropout_lstm": 0.2,
+    "FORECAST_PATH": "./output/load_forecast_ystad.csv",
+    "EVALUATION_DIR": "./output/evaluation_ystad/",
+    "FC_LOCATION": "YSTAD",
+    "CAP_LIMIT": 1000.0,
+    "SCALING": true,
+    "TEMPERATURE_NAME": "tempC",
+    "LOAD_FILES": [
+        {
+            "file_name": "20190805_Ystad.xlsx",
+            "date_column": "Date",
+            "time_zone": "UTC",
+            "sheet_name": "Ystad Energi",
+            "combine": false,
+            "start_column": null,
+            "end_column": null
+        },
+        {
+            "file_name": "Trafik.xlsx",
+            "date_column": "MEVA_DATETO",
+            "time_zone": "CET",
+            "sheet_name": "Trafikverket Ystad",
+            "combine": false,
+            "start_column": null,
+            "end_column": null
+        }
+    ],
+    "DATA_ABS": false
+}

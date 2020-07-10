@@ -1,0 +1,56 @@
+{
+    "data_path": "eon-data/last_sege.csv",
+    "raw_path": "eon-data/sege-arrie/",
+    "csv_files": [
+        {
+            "file_name": "smhi-malmoeA_temp.csv",
+            "date_column": "Date",
+            "time_zone": "UTC",
+            "dayfirst": true,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        },
+        {
+            "file_name": "smhi-malmoeA_humidity.csv",
+            "date_column": "Date",
+            "time_zone": "UTC",
+            "dayfirst": true,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        },
+        {
+            "file_name": "smhi-malmoeA_windspeed.csv",
+            "date_column": "Date",
+            "time_zone": "UTC",
+            "dayfirst": true,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1,
+                2
+            ]
+        }
+    ],
+    "xlsx_files": [
+        {
+            "file_name": "Historical data 2019-04-23 one hour avg 4 years.xlsx",
+            "date_column": "Time",
+            "time_zone": "CET",
+            "dayfirst": false,
+            "sheet_name": 0,
+            "combine": false,
+            "start_column": "Load",
+            "end_column": "Export cable",
+            "data_abs": false
+        }
+    ]
+}

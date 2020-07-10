@@ -1,0 +1,90 @@
+{
+    "data_path": "eon-data/last_clusters.csv",
+    "raw_path": "eon-data/customer-load/",
+    "csv_files": [
+        {
+            "file_name": "cluster_sum1.csv",
+            "date_column": "datetime(utc)",
+            "time_zone": "UTC",
+            "dayfirst": false,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        },
+        {
+            "file_name": "cluster_sum2.csv",
+            "date_column": "datetime(utc)",
+            "time_zone": "UTC",
+            "dayfirst": false,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        },
+        {
+            "file_name": "cluster_sum3.csv",
+            "date_column": "datetime(utc)",
+            "time_zone": "UTC",
+            "dayfirst": false,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        },
+        {
+            "file_name": "cluster_sum4.csv",
+            "date_column": "datetime(utc)",
+            "time_zone": "UTC",
+            "dayfirst": false,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        },
+        {
+            "file_name": "cluster_sum5.csv",
+            "date_column": "datetime(utc)",
+            "time_zone": "UTC",
+            "dayfirst": false,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        },
+        {
+            "file_name": "all_customers.csv",
+            "date_column": "datetime(utc)",
+            "time_zone": "UTC",
+            "dayfirst": false,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        },
+        {
+            "file_name": "smhi-opendata_1_52350_20200609_140906.csv",
+            "date_column": "Date",
+            "time_zone": "UTC",
+            "dayfirst": true,
+            "sep": ";",
+            "combine": false,
+            "use_columns": [
+                0,
+                1
+            ]
+        }
+    ]
+}
