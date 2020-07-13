@@ -1,5 +1,5 @@
 {
-    "data_path": "./open_data/gefcom2017/Stations/ct_data_clean.csv",
+    "data_path": "./open_data/Gefcom2017/Stations/ct_data_clean.csv",
     "output_path": "./oracles/",
     "exploration_path": "./targets/gefcom2017/ct_data/tuning.json",
     "evaluation_path": "./oracles/eval_gc2017_ct/",
