@@ -5,8 +5,8 @@ import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 import torch
-import fc_util.fc_network as fc_net
-import fc_util.eval_metrics as metrics
+import plf_util.fc_network as fc_net
+import plf_util.eval_metrics as metrics
 import shutil
 import matplotlib
 matplotlib.use('svg')
