@@ -24,13 +24,13 @@ from itertools import product
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-import fc_util.datatuner as dt
-import fc_util.tensorloader as dl
-import fc_util.fc_network as fc_net
-import fc_util.modelhandler as mh
-import fc_util.parameterhandler as ph
-import fc_util.eval_metrics as metrics
-from fc_util.config_util import read_config, write_config, parse_with_loss, query_true_false
+import plf_util.datatuner as dt
+import plf_util.tensorloader as dl
+import plf_util.fc_network as fc_net
+import plf_util.modelhandler as mh
+import plf_util.parameterhandler as ph
+import plf_util.eval_metrics as metrics
+from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false
 
 torch.manual_seed(1)
 
@@ -47,9 +47,9 @@ class flag_and_store(argparse._StoreAction):
             nargs_store = nargs+len(self.val)
         else:
             nargs_store = nargs
-        super(flag_and_store, self).__init__(option_strings, dest, const = None, nargs = nargs_store, **kwargs) 
+        super(flag_and_store, self).__init__(option_strings, dest, const = None, nargs = nargs_store, **kwargs)
         self.nargs = nargs
-        
+
     def __call__(self, parser, namespace, values, option_strings = None):
         setattr(namespace, self.dest_const,self.flag)
         if isinstance(values,list):
@@ -109,7 +109,7 @@ def make_model(df:pd.DataFrame, scalers, encoder_features, decoder_features, bat
                                         history_horizon=history_horizon, forecast_horizon=forecast_horizon, batch_size=1).to(DEVICE)
 
     in_size1 = train_data_loader.number_features1()
-    in_size2 = train_data_loader.number_features2() 
+    in_size2 = train_data_loader.number_features2()
     net = fc_net.EncoderDecoder(input_size1 = in_size1,
                                 input_size2 = in_size2,
                                 out_size = ARGS.num_pred,
@@ -196,7 +196,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             for name, weight in net.decoder.named_parameters():
                 tb.add_histogram(name, weight, epoch+1)
                 tb.add_histogram(f'{name}.grad', weight.grad, epoch+1)
-        
+
         early_stopping(validation_loss, net)
         if early_stopping.early_stop:
             print("Stop in earlier epoch. Loading best model state_dict.")

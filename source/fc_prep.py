@@ -4,13 +4,13 @@ import sys
 import json
 import os
 
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) 
+MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-from fc_util.config_util import read_config, parse_basic
+from plf_util.config_util import read_config, parse_basic
 #Import customized functions below this point
 
-import fc_util.datatuner as dt
+import plf_util.datatuner as dt
 
 def load_raw_data_xlsx(files):
     # files is an array of maps
@@ -72,11 +72,11 @@ def load_raw_data_csv(files):
     # ('sep') separator used in this file
     # ('combine') boolean, all datasheets with true are combined into one, all others are read individually
     # ('use_columns') list of columns that are loaded
-  
+
     '''Read i.e. temperature data. The source files are assumed to be csv, in hourly resolution. Windspeed and temperature'''
     print('Importing CSV Data...')
 
-        
+
     combined_files = []
     individual_files = []
 
@@ -117,7 +117,7 @@ def set_to_hours(df):
 
 
 if __name__ == '__main__':
-    
+
     ARGS = parse_basic()
     config_file = os.path.join(MAIN_PATH, 'targets', ARGS.station, 'preprocessing.json')
     PAR = read_config(config_path=config_file)
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     print(df_list)
     # When concatenating the arrays are filled with NaNs if the index is not available.
     # since the dataframes were already interpolated there are non "natural" NaNs left so
-    # droping all rows with NaNs finds the maximum overlapp in indices 
+    # droping all rows with NaNs finds the maximum overlapp in indices
     # # Merge load and weather data to one df
     df = pd.concat(df_list, axis = 1)
 

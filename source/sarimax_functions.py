@@ -22,13 +22,13 @@ from itertools import product
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-import fc_util.datatuner as dt
-import fc_util.tensorloader as dl
-import fc_util.fc_network as fc_net
-import fc_util.modelhandler as mh
-import fc_util.parameterhandler as ph
-import fc_util.eval_metrics as metrics
-from fc_util.config_util import read_config, write_config, parse_with_loss
+import plf_util.datatuner as dt
+import plf_util.tensorloader as dl
+import plf_util.fc_network as fc_net
+import plf_util.modelhandler as mh
+import plf_util.parameterhandler as ph
+import plf_util.eval_metrics as metrics
+from plf_util.config_util import read_config, write_config, parse_with_loss
 
 from fc_evaluate import results_table, evaluate_hours, plot_metrics
 
@@ -54,9 +54,9 @@ class flag_and_store(argparse._StoreAction):
             nargs_store = nargs+len(self.val)
         else:
             nargs_store = nargs
-        super(flag_and_store, self).__init__(option_strings, dest, const = None, nargs = nargs_store, **kwargs) 
+        super(flag_and_store, self).__init__(option_strings, dest, const = None, nargs = nargs_store, **kwargs)
         self.nargs = nargs
-        
+
     def __call__(self, parser, namespace, values, option_strings = None):
         setattr(namespace, self.dest_const,self.flag)
         if isinstance(values,list):
@@ -111,24 +111,24 @@ class flag_and_store(argparse._StoreAction):
 # =============================================================================
 
 def constructDf(data, columns, season, train_split, time_steps, number_forecasts, intervall, history_horizon):
-    
+
     """
     Construcs and reorders data for training
-    
+
     Parameters
     ----------
     data                     : DataFrame with all data
-    
+
     columns                  : columns used in model target+exog
-    
+
     forecast_time            : str Time where forecasts should start
-    
+
     time_steps               : number of time_steps
-    
+
     number_forecasts         : number od forecasts
-    
+
     intervall                : number of time_steps between every forecast
-    
+
     window_size              : number of past time_steps if None all past data is used
 
 
@@ -138,15 +138,15 @@ def constructDf(data, columns, season, train_split, time_steps, number_forecasts
     2)output_matrix         : list of DataFrames for output
 
     """
-    
+
     input_matrix = []
     output_matrix = []
-    
+
     forecast_start = int(train_split * len(data))
-    
+
     if number_forecasts == 0:
         number_forecasts = len(data)
-    
+
     if history_horizon==0:
         if season=='gesamt':
             df = data[columns]
@@ -157,7 +157,7 @@ def constructDf(data, columns, season, train_split, time_steps, number_forecasts
                     break
                 input_matrix.append(new_input)
                 output_matrix.append(new_output)
-                
+
         elif season=='winter':
             df = data[columns].get(data['s_w']==0)
             for i in range(number_forecasts):
@@ -167,52 +167,52 @@ def constructDf(data, columns, season, train_split, time_steps, number_forecasts
                     break
                 input_matrix.append(new_input)
                 output_matrix.append(new_output)
-                
+
         elif season=='sommer':
             df = data[columns].get(data['s_w']==1)
             for i in range(number_forecasts):
                 new_input = df.iloc[:forecast_start+1 + intervall*i]
                 new_output = df.iloc[forecast_start+1 + intervall*i:forecast_start+1 + intervall*i + time_steps]
                 if len(new_output)<time_steps:
-                    break                
+                    break
                 input_matrix.append(new_input)
                 output_matrix.append(new_output)
-                
+
     elif history_horizon!=0:
         window = forecast_start - history_horizon
         if window < 0:
             window = 0
-        
+
         if season=='gesamt':
             df = data[columns]
             for i in range(number_forecasts):
                 new_input = df.iloc[window:forecast_start+1 + intervall*i]
                 new_output = df.iloc[forecast_start+1 + intervall*i:forecast_start+1 + intervall*i + time_steps]
                 if len(new_output)<time_steps:
-                    break                
+                    break
                 input_matrix.append(new_input)
                 output_matrix.append(new_output)
-                
+
         elif season=='winter':
             df = data[columns].get(data['s_w']==0)
             for i in range(number_forecasts):
                 new_input = df.iloc[window:forecast_start+1 + intervall*i]
                 new_output = df.iloc[forecast_start+1 + intervall*i:forecast_start+1 + intervall*i + time_steps]
                 if len(new_output)<time_steps:
-                    break                
+                    break
                 input_matrix.append(new_input)
                 output_matrix.append(new_output)
-                
+
         elif season=='sommer':
             df = data[columns].get(data['s_w']==1)
             for i in range(number_forecasts):
                 new_input = df.iloc[window:forecast_start+1 + intervall*i]
                 new_output = df.iloc[forecast_start+1 + intervall*i:forecast_start+1 + intervall*i + time_steps]
                 if len(new_output)<time_steps:
-                    break                
+                    break
                 input_matrix.append(new_input)
                 output_matrix.append(new_output)
-                
+
     return input_matrix, output_matrix
 
 
@@ -220,8 +220,8 @@ def constructDf(data, columns, season, train_split, time_steps, number_forecasts
 # train model
 # =============================================================================
 
-def train_SARIMAX(input_matrix, target, output_matrix, exog, order, seasonal_order, trend, number_set=0):  
-    
+def train_SARIMAX(input_matrix, target, output_matrix, exog, order, seasonal_order, trend, number_set=0):
+
     """
     Trains a SRAMIAX model
 
@@ -230,19 +230,19 @@ def train_SARIMAX(input_matrix, target, output_matrix, exog, order, seasonal_ord
     input_matrix            : List of input values
 
     output_matrix           : List of true output values Values
-    
+
     target                  : str target column
-    
+
     exog                    : str features
-    
+
     order                   : order of model
-    
+
     seasonal_order          : seasonal order of model
-    
+
     trend                   : trend method used for training
-        
+
     time_steps              : number of time_steps
-    
+
     number_set              : choose index of input_matrix and output_matrix for training
 
     Returns
@@ -252,12 +252,12 @@ def train_SARIMAX(input_matrix, target, output_matrix, exog, order, seasonal_ord
 
     """
 
-    model = SARIMAX(input_matrix[number_set][target], 
+    model = SARIMAX(input_matrix[number_set][target],
                     exog = input_matrix[number_set][exog],
-                    order=order, seasonal_order=seasonal_order, trend=trend, 
-    #                simple_differencing=True, 
-    #                enforce_stationarity=False, 
-    #                enforce_invertibility=False, 
+                    order=order, seasonal_order=seasonal_order, trend=trend,
+    #                simple_differencing=True,
+    #                enforce_stationarity=False,
+    #                enforce_invertibility=False,
     #                mle_regression=False
                     )
     fitted = model.fit(disp=-1)
@@ -272,7 +272,7 @@ def train_SARIMAX(input_matrix, target, output_matrix, exog, order, seasonal_ord
 
 
 def make_forecasts(input_matrix, output_matrix, target, exog, fitted, time_steps):
-    
+
     """
     Calculates a numberr of forecasts
 
@@ -280,14 +280,14 @@ def make_forecasts(input_matrix, output_matrix, target, exog, fitted, time_steps
     ----------
     input_matrix            : List of input values
 
-    output_matrix           : List of True output Values 
-    
+    output_matrix           : List of True output Values
+
     target                  : str target column
-    
+
     exog                    : str features
-    
-    fitted                  : trained model             
-        
+
+    fitted                  : trained model
+
     time_steps              : number of time_steps
 
     Returns
@@ -317,11 +317,11 @@ def naive_predictionintervall(forecasts, output_matrix, target, sigma_factor, ti
     forecasts               : List of forecasts
 
     output_matrix           : List of True Values for given forecasts
-    
+
     target                  : str target column
-    
+
     alpha                   :
-        
+
     time_steps              : number of time_steps
 
     Returns
@@ -330,30 +330,30 @@ def naive_predictionintervall(forecasts, output_matrix, target, sigma_factor, ti
     2)lower_limits          : List of lower intervall for given forecasts
 
     """
-    
+
     upper_limits = []
     lower_limits = []
-        
+
     for i in range(len(forecasts)):
         sigma = np.std(output_matrix[i][target].values-forecasts[i].values)
         sigma_h = []
-        
+
         for r in range(time_steps):
             sigma_h.append(sigma * np.sqrt(r+1))
-            
+
         sigma_hn = pd.Series(sigma_h)
         sigma_hn.index = forecasts[i].index
-        
-        fc_u = forecasts[i] + sigma_factor * sigma_hn   
+
+        fc_u = forecasts[i] + sigma_factor * sigma_hn
         fc_l = forecasts[i] - sigma_factor * sigma_hn
-        
+
         upper_limits.append(fc_u)
-        lower_limits.append(fc_l)    
-  
+        lower_limits.append(fc_l)
+
     return upper_limits, lower_limits
-        
+
 def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog):
- 
+
     """
     Calculates custom predictionintervall --> Konfidenzintervalle werden für die Modellparameter. Parameterintervalle werden für forecasts genutzt.
 
@@ -362,13 +362,13 @@ def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog):
     model                   : model instance
 
     fitted                 : fitted model instance
-    
+
     input_matrix           : list of DataFrames for input
-    
+
     output_matrix          : list of DataFrames for output
-    
+
     target                  : str target column
-    
+
     exog                    : str features
 
 
@@ -378,53 +378,53 @@ def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog):
     2)lower_limits          : List of lower intervall for given forecasts
 
     """
-    
+
     lower_limits = []
     upper_limits = []
-    
+
     # params = fitted.params
-        
+
     params_conf = fitted.conf_int()
-    
+
     lower_params = params_conf[0]
     upper_params = params_conf[1]
-    
+
     m_l = copy.deepcopy(fitted)
     m_u = copy.deepcopy(fitted)
-    
+
     m_l.initialize(model=model, params=lower_params)
     m_u.initialize(model=model, params=upper_params)
-    
+
     for i in range(len(input_matrix)):
         m_l = m_l.apply(input_matrix[i][target], exog = input_matrix[i][exog])
         fc_l = m_l.forecast(time_steps, exog= output_matrix[i][exog])
         lower_limits.append(fc_l)
-        
+
         m_u = m_u.apply(input_matrix[i][target], exog = input_matrix[i][exog])
         fc_u = m_u.forecast(time_steps, exog= output_matrix[i][exog])
         upper_limits.append(fc_u)
-        
+
     return upper_limits, lower_limits
-    
+
 # =============================================================================
 # evaluate forecasts
 # =============================================================================
 
 def eval_SARIMX(forecasts, output_matrix, target, upper_limits, lower_limits):
-    
+
     """
-    Calculates evaluation mmetrics 
+    Calculates evaluation mmetrics
 
     Parameters
     ----------
     forecasts               : List of calculated forecasts
-    
+
     output_matrix           : list of DataFrames for output
-    
+
     target                  : str target column
-    
+
     upper_limits            : List of upper intervall for given forecasts
-    
+
     lower_limits            : List of lower intervall for given forecasts
 
 
@@ -442,13 +442,13 @@ def eval_SARIMX(forecasts, output_matrix, target, upper_limits, lower_limits):
     true_values = torch.tensor([i[target].T.values for i in output_matrix]).reshape(forecasts.shape).type(torch.FloatTensor)
     upper_limits = torch.tensor(upper_limits)
     lower_limits = torch.tensor(lower_limits)
-    
+
     mse_horizon = metrics.mse(true_values, [forecasts], total=False)
     rmse_horizon = metrics.rmse(true_values, [forecasts], total=False)
     sharpness_horizon = metrics.sharpness(None,[upper_limits, lower_limits],total=False)
     coverage_horizon = metrics.picp(true_values, [upper_limits, lower_limits],total=False)
     mis_horizon = metrics.mis(true_values, [upper_limits, lower_limits], alpha=0.05,total=False)
-    
+
     return mse_horizon, rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon
 
 # #plot metrics
@@ -464,7 +464,7 @@ def save_SARIMAX(path, fitted):
 
 def load_SARIMAX(path):
     fitted = SARIMAXResults.load(path)
-    return fitted 
+    return fitted
 
 # =============================================================================
 # test run
@@ -494,12 +494,12 @@ def main(infile, outmodel, target_column, logging_csv = False, log_path = None):
     # selected_features, scalers = dt.scale_all(df, **PAR) #TODO: nicht relevant für SARIMAX
 
     print('creating/reading parameters ...')
-    
-  #  if PAR['exploration']: 
+
+  #  if PAR['exploration']:
         # hyperparam_path = os.path.join(MAIN_PATH, PAR['exploration_config_path'])
-        #parameter_combination = ph.make_from_config(model_name=ARGS.station, config_path=PAR['exploration_config_path'], main_path = MAIN_PATH) 
-        #TODO: apply parameter tuning script for SARIMAX, 
-    
+        #parameter_combination = ph.make_from_config(model_name=ARGS.station, config_path=PAR['exploration_config_path'], main_path = MAIN_PATH)
+        #TODO: apply parameter tuning script for SARIMAX,
+
     print('done')
     # print(parameter_combination.parameters)
     if logging_csv:
@@ -515,7 +515,7 @@ def main(infile, outmodel, target_column, logging_csv = False, log_path = None):
     else:
         min_val_loss = np.inf
     try:
-        if PAR['exploration']: #TODO: apply parameter tuning script for SARIMAX, 
+        if PAR['exploration']: #TODO: apply parameter tuning script for SARIMAX,
             for params in parameter_combination:
                 print('training with ', params)
                 PAR.update(params)
@@ -529,9 +529,9 @@ def main(infile, outmodel, target_column, logging_csv = False, log_path = None):
             print('Read inputs')
             input_matrix, output_matrix = constructDf(df, PAR['target']+PAR['features'], PAR['season'], PAR['train_split'], PAR['time_steps'], PAR['number_forecasts'], PAR['intervall'], PAR['history_horizon'])
             print('training with standard hyper parameters')
-            model, untrained_model, val_loss = train_SARIMAX(input_matrix, PAR['target'], output_matrix, PAR['features'], 
-                                                             (PAR['my_order'].get('p'),PAR['my_order'].get('d'),PAR['my_order'].get('q')), 
-                                                             (PAR['my_seasonal_order'].get('p'),PAR['my_seasonal_order'].get('d'),PAR['my_seasonal_order'].get('q'),PAR['my_seasonal_order'].get('s')), 
+            model, untrained_model, val_loss = train_SARIMAX(input_matrix, PAR['target'], output_matrix, PAR['features'],
+                                                             (PAR['my_order'].get('p'),PAR['my_order'].get('d'),PAR['my_order'].get('q')),
+                                                             (PAR['my_seasonal_order'].get('p'),PAR['my_seasonal_order'].get('d'),PAR['my_seasonal_order'].get('q'),PAR['my_seasonal_order'].get('s')),
                                                              PAR['trend'], number_set=0)
             if min_val_loss > val_loss:
                 min_model = model
@@ -548,7 +548,7 @@ def main(infile, outmodel, target_column, logging_csv = False, log_path = None):
             #plot metrics
             OUTDIR = os.path.join(MAIN_PATH, PAR['EVALUATION_DIR'])
             plot_metrics(rmse_horizon.numpy(), sharpness_horizon.numpy(), coverage_horizon.numpy(), mis_horizon.numpy(), OUTDIR, 'metrics-evaluation')
-            
+
     except KeyboardInterrupt:
         print()
         print('manual interrupt')
@@ -567,5 +567,3 @@ if __name__ == '__main__':
     PAR = read_config(model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH, suffix='SARIMAX')
     main(infile = os.path.join(MAIN_PATH, PAR['data_path']), outmodel = os.path.join(MAIN_PATH, PAR['model_path']),
             target_column = PAR['target_column'], log_path=PAR['log_path'],logging_csv = True)
-
-

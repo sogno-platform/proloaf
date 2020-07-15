@@ -1,5 +1,5 @@
 {
-    "data_path": "./open_data/Gefcom2017/Stations/wcmass_data_clean.csv",
+    "data_path": "./data/Gefcom2017/Stations/wcmass_data_clean.csv",
     "output_path": "./oracles/",
     "exploration_path": null,
     "evaluation_path": "./oracles/eval_gc2017_wcmass/",

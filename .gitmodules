@@ -1,6 +1,6 @@
 [submodule "open_data"]
-	path = open_data
+	path = data
 	url = https://git.rwth-aachen.de/acs/public/automation/plf/plf-data.git
 [submodule "plf-util"]
-	path = fc_util
+	path = plf_util
 	url = https://git.rwth-aachen.de/acs/public/automation/plf/plf-util.git
