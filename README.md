@@ -1,6 +1,7 @@
 # CoordiNet Load Forecasting
 
-Development of a t+40 hourly load prediction on the basis of the data provided by EON Sverige in the context of the H2020 EU CoordiNet project.
+Development of a t+40 hourly load prediction in the context of the H2020 EU CoordiNet project. This Repository includes preprocessed Gefcom2017 Data on which
+a Model can be trained.
 
 ## Getting Started
 
@@ -13,7 +14,7 @@ To install all required packages run:
 pip install -r requirements.txt
 ```
 
-On low RAM machines the option 
+On low RAM machines the option
 ```
 pip install -r requirements.txt --no-cache-dir
 ```
@@ -23,7 +24,7 @@ might be necessary.
 
 The repo contains following modules:
 * All scripts are located in the source folder.
-* To start one of the scripts use 'python3 fc_script.py argument', where the argument is either the name of a station (e.g. 'sege', 'kraftringen') or the path of the correspondig config file located in the model_ folders.
+* To start one of the scripts use 'python3 fc_script.py -s argument', where the argument is the path of the correspondig config file located in the model_ folders.
 * To prepare input data (e.g. load and weather) from selected stations run ./source/fc_prep.py
 * To train a recurrent model specifically with the current training setup optionally including hyperparameter exploration for the selected station run ./scripts/fc_train.py
 * To predict the next 40 hours in reference to the current time and print the result in a csv file run ./source/fc_run.py
@@ -31,7 +32,7 @@ The repo contains following modules:
 
 
 ## Scripts
-This project contains 4 scripts that can be used in conjunction with one another or separatly. 
+This project contains 4 scripts that can be used in conjunction with one another or separatly.
 
 ### fc_prep.py
 fc_prep.py transforms the data to a common format(pandas dataframe to csv) for all stations. It is no pre-requisite for training and only support to sort the input data, if desired.
@@ -58,26 +59,15 @@ The prep config defines 4 parameters:
     7. "end_column": (str) first column not affected by data_abs anymore
     8. "data_abs": (boolean) column between start_column and end_column.
 
-#### inputs
-* ./eon_data/STATION_NAME/Historical data ... one hour avg 4 years
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2015
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2016
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2017
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2018
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2019
-
-#### outputs
-* ./eon-data/last_station.csv
-
 ### fc_train.py
-Trains a neural net on prepared data loaded as pandas dataframe from a csv and/or xlsx file. 
-Holds hyperparameter exploration&tuning options if desired. 
-The trained net is saved afterwards and can be loaded via torch.load(). 
+Trains a neural net on prepared data loaded as pandas dataframe from a csv and/or xlsx file.
+Holds hyperparameter exploration&tuning options if desired.
+The trained net is saved afterwards and can be loaded via torch.load().
 This script scales the data, then loads a custom datastructure and then generates and trains a neural net.
 
 #### Hyper parameter exploration
-Any training parameter is considered a hyper parameter as long as it is specified in either *config.json* or *tuning.json*. 
-The latter is the standard file where the so far best found configuartion is saved and should usually not be manually adapted unless new tests are for some reason not compareable to older ones (e.g. after changing the loss function). 
+Any training parameter is considered a hyper parameter as long as it is specified in either *config.json* or *tuning.json*.
+The latter is the standard file where the so far best found configuartion is saved and should usually not be manually adapted unless new tests are for some reason not compareable to older ones (e.g. after changing the loss function).
 
 #### config
 *config.json*
@@ -100,7 +90,7 @@ Here all settings considering hyperparameter exploration can be adjusted. Any hy
     2. A list of values, the list is cycled over for each test.
     3. A dict defining:
         1. "function": (str) a string defining the import to a function e.g "random.gauss" will import the fucntion gauss from the random module. This function will be called multiple times if necessary to generate values. If the function generates a list each value will be used exactly once before generating new values, making random.choices() a candidate to prevent to much repitition. This should work with custom functions but this is not tested.
-        2. "kwargs": (dict) a dict conatining all necassary arguments to call the function. 
+        2. "kwargs": (dict) a dict conatining all necassary arguments to call the function.
 
 Example
 ```
@@ -134,7 +124,7 @@ relu_leak, dropout_fc, dropout_core,
 rel_linear_hidden_size, rel_core_hidden_size
 
 #### inputs
-* ./eon-data/last_station.csv
+* ./data/Gefcom2017/Stations/station_data_clean.csv
 
 #### outputs
 * ./oracles/model_station
@@ -144,7 +134,7 @@ rel_linear_hidden_size, rel_core_hidden_size
 This script loads a trained net and input data and generates a prediction based on the data
 
 ### fc_evaluate.py
-Runs the the trained net on test data and evaluates the result. 
+Runs the the trained net on test data and evaluates the result.
 
 
 #### inputs
@@ -159,7 +149,7 @@ Runs the the trained net on test data and evaluates the result.
 * The script use per default config.json. There is an additional one concerning hyperparameter exploration/tuning.
 
 * To adapt the behavior of the scipts for a certain station, change options in the config files located in the targets folders.
-* Parameters can be added to the config files by adding or removing them by hand (standard json format) or using the config_maker.py. Add a line 
+* Parameters can be added to the config files by adding or removing them by hand (standard json format) or using the config_maker.py. Add a line
 ```
 par['parameter_name'] = value
 ```
@@ -169,7 +159,7 @@ Then use
 python3 config_maker.py --mod path_to_config
 ```
 to apply the changes. The argument again is a station name or the already existing config file.
-* Using 
+* Using
 ```
 python3 config_maker.py --new path_to_config
 ```
@@ -191,8 +181,8 @@ Will clear the config file before applying changes so be careful with that.
 
 ## Acknowledgments
 
-This project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement n° 824414. 
+This project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement n° 824414.
 
-[The CoordiNet Project](https://coordinet-project.eu/) 
+[The CoordiNet Project](https://coordinet-project.eu/)
 
 "TSO – DSO – Consumer: Large-scale demostrations of innovative grid services through demand response, storage and small-scale (RES) generation"
