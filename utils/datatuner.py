@@ -134,6 +134,51 @@ def rescale(values, scaler):
     df_rescaled = pd.DataFrame(scaler.inverse_transform(values))
     return df_rescaled
 
+def rescale_manually(net, output, targets, target_position=0, **PAR):
+    #TODO: isn't this also in a function of datatuner
+    #get parameters 'scale' and 'center'
+    for group in PAR['feature_groups']:
+        if group['features'] is not None and PAR['target_id'] in group['features']:
+            scaler_name = group['name']
+            scaler = net.scalers[scaler_name]
+            scale = scaler.scale_.take(target_position)
+            break  # assuming target column can only be scaled once
+
+    if type(scaler) == RobustScaler:
+        # customized inversion robust_scaler
+        if scaler.center_.any() == False:  # no center shift applied
+            center = 0
+        else:
+            center = scaler.center_.take(target_position)
+        scale = scaler.scale_.take(
+            target_position)  # The (scaled) interquartile range for each feature in the training set
+    elif type(scaler) == StandardScaler:
+        if scaler.mean_.take(target_position) == None:
+            center = 0
+        else:
+            center = scaler.mean_.take(target_position)
+        scale = scaler.scale_.take(target_position)
+    elif type(scaler) == MinMaxScaler:
+        range_min = scaler.feature_range[0]
+        range_max = scaler.feature_range[1]
+        data_max = scaler.data_max_.take(target_position)
+        data_min = scaler.data_min_.take(target_position)
+        scale = (data_max - data_min) / (range_max - range_min)
+        center = data_min - range_min * scale
+
+    #rescale
+    loss_type = net.criterion # check the name here
+    targets_rescaled = (targets * scale) + center
+    if loss_type == 'pinball':
+        expected_values = (output[1]* scale)+center
+        quantiles = (output[0]* scale)+center
+    elif loss_type == 'nll_gauss' or loss_type == 'crps':
+        expected_values = (output[0]* scale)+center
+        variances = output[1]* (scale**2)
+    #TODO: else options
+
+    return expected_values, targets
+
 def scale_all(df:pd.DataFrame, feature_groups, start_date = None, **_):
     # grouping should be an array of dicts.
     # each dict defines a scaler and the featrues to be scaled
@@ -147,7 +192,8 @@ def scale_all(df:pd.DataFrame, feature_groups, start_date = None, **_):
         scaler = None
 
         if (group['scaler'] is None or group['scaler'][0] is None):
-            print(group['name'] + ' features were not scaled, if this was unintentional check the config file.')
+            if (group['name'] != 'aux'):
+                print(group['name'] + ' features were not scaled, if this was unintentional check the config file.')
         elif(group['scaler'][0] == 'standard'):
             scaler = StandardScaler()
         elif(group['scaler'][0] == 'robust'):

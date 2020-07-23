@@ -26,6 +26,7 @@ def nll_gauss(target, predictions:list, total = True):
                     predicted expected values of the target variable
     variance        : torch.Tensor
                     predicted variance values of the target variable
+    log_variance    : approx. equal to log(2*pi*sigma^2)
     total           : bool
                     if true returns 1) otherwise returns 2)
 
@@ -36,9 +37,8 @@ def nll_gauss(target, predictions:list, total = True):
                 --- it is expected to increase as we move along the horizon
 
     """
-
     # y, y_pred, var_pred must have the same shape
-    assert target.shape == expected_value.shape
+    assert target.shape == expected_value.shape # target.shape = torch.Size([batchsize, horizon, # of target variables]) e.g.[64,40,1]
     assert target.shape == log_variance.shape
 
     squared_errors = (target - expected_value) ** 2
@@ -72,14 +72,24 @@ def pinball_loss(target, predictions:list, quantiles:list, total = True):
     if not total:
         raise NotImplementedError("Pinball_loss does not support loss over the horizon")
     loss = 0.0
-    for i,quantile in enumerate(quantiles):
+
+    for i, quantile in enumerate(quantiles):
         assert 0 < quantile
         assert quantile < 1
         assert target.shape == predictions[i].shape
         errors = (target - predictions[i])
-        loss += torch.mean(torch.max(quantile * errors, (quantile - 1) * errors))
+        loss += (torch.mean(torch.max(quantile * errors, (quantile - 1) * errors)))/len(quantiles)
 
-    return loss / len(quantiles)
+    return loss
+
+def quantile_score(target, predictions:list, quantiles:list, total = True):
+    #the quantile score builds upon the pinball loss,
+    # we use the MSE to adjust the mean. one could also use 0.5 as third quantile,
+    # but further code adjustments would be necessary then
+    loss1 = pinball_loss(target, predictions, quantiles, total)
+    loss2 = mse(target, [predictions[len(quantiles)]])
+
+    return loss1+loss2
 
 def crps_gaussian(target, predictions:list, total = True):
     assert len(predictions) == 2
@@ -145,8 +155,7 @@ def mse(target, predictions:list, total = True):
                     --- it is expected to increase as we move along the horizon
 
         """
-
-    if predictions[0].shape != target.shape: 
+    if predictions[0].shape != target.shape:
         raise ValueError('dimensions of predictions and targets need to be compatible')
 
     squared_errors = (target - predictions[0]) ** 2
