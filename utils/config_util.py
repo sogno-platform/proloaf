@@ -63,7 +63,7 @@ def parse_with_loss(args = sys.argv[1:]):
 
     losses = parser.add_mutually_exclusive_group()
     losses.add_argument("--nll_gauss", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.nll_gauss,2], help = "train with nll guassian loss", action=flag_and_store)
-    losses.add_argument("--pinball", dest_const='loss', dest='quantiles',metavar='Q', nargs='+', type=float, const=metrics.pinball_loss, help = "train with pinball loss with Q being the quantiles", action=flag_and_store)
+    losses.add_argument("--quantiles", dest_const='loss', dest='quantiles',metavar=' q1 q2', nargs='+', type=float, const=metrics.quantile_score, help = "train with pinball loss and MSE with q1 and q2 being the upper and lower quantiles", action=flag_and_store)
     losses.add_argument("--crps","--crps_gaussian", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.crps_gaussian,2], help = "train with crps gaussian loss", action=flag_and_store)
     losses.add_argument("--mse", "--mean_squared_error", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.mse,1], help = "train with mean squared error", action=flag_and_store)
     losses.add_argument("--rmse", "--root_mean_squared_error", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.rmse,1], help = "train with root mean squared error", action=flag_and_store)
@@ -79,7 +79,7 @@ def parse_with_loss(args = sys.argv[1:]):
     if ret.loss == metrics.mis:
         ret.num_pred = 2
         options = dict(alpha=ret.alpha)
-    if ret.loss == metrics.pinball_loss:
+    if ret.loss == metrics.quantile_score:
         ret.num_pred = len(ret.quantiles) + 1
         options = dict(quantiles = ret.quantiles)
     else:

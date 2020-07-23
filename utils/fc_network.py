@@ -98,6 +98,7 @@ class EncoderDecoder(nn.Module):
     def __init__(self,
                 input_size1: int,
                 input_size2: int,
+                criterion: 'gnll',
                 out_size: int = 1,
                 rel_linear_hidden_size : float = 1.,
                 rel_core_hidden_size : float = 1.,
@@ -114,6 +115,7 @@ class EncoderDecoder(nn.Module):
         super(EncoderDecoder, self).__init__()
         self.encoder = Encoder(input_size1, core_hidden_size, core_layers,  dropout_core, core_net)
         self.decoder = Decoder(input_size2, linear_hidden_size, core_hidden_size, out_size, core_layers, dropout_fc, dropout_core, core_net, relu_leak)
+        self.criterion = criterion
 
     def forward(self, inputs_encoder, inputs_decoder):
         states_encoder = self.encoder(inputs_encoder)
