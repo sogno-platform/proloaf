@@ -1,6 +1,7 @@
 variables:
   DOCKER_TAG: ${CI_COMMIT_REF_NAME}
   DOCKER_IMAGE: rwthacs/hugo-ext
+  DOCKER_IMAGE_DEV: rwthacs/plf-docs
 
 before_script:
   - git config --local core.longpaths true
@@ -12,29 +13,48 @@ stages:
   - build
   - deploy
 
-docker:
- stage: prepare
- script:
-   - docker build
-       --tag ${DOCKER_IMAGE}:${DOCKER_TAG}
-       --tag ${DOCKER_IMAGE}:latest .
- tags:
-   - shell
-  #  - linux
-  # - docker
+docker:dev:
+  stage: prepare
+  script:
+    - docker build
+      --file Dockerfile_dev
+      --tag ${DOCKER_IMAGE_DEV}:${DOCKER_TAG}
+      --tag ${DOCKER_IMAGE_DEV}:latest .
+  tags:
+    - shell
+  only:
+    - develop
+  
 
-hugo:master:
+
+
+docker:master:
+  stage: prepare
+  script:
+    - docker build
+      --file Dockerfile_master
+      --tag ${DOCKER_IMAGE}:${DOCKER_TAG}
+      --tag ${DOCKER_IMAGE}:latest .
+  tags:
+    - shell
+  only:
+    - master
+  
+
+hugo:
   stage: build
   script:
-    - npm install -D --save autoprefixer
-    - npm install -D --save postcss-cli
-    - npm audit fix --force
+    # - npm install -D --save autoprefixer
+    # - npm install -D --save postcss-cli
+    # - npm audit fix --force
     - hugo -v
     - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
     paths:
       - public
+  only:
+    - master
   tags:
     - docker
 
