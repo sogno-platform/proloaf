@@ -30,6 +30,7 @@ hugo:master:
     - npm install -D --save postcss-cli
     - npm audit fix --force
     - hugo -v
+    - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
     name: "master"
@@ -45,6 +46,8 @@ hugo:dev:
     - npm install -D --save postcss-cli
     - npm audit fix --force
     - hugo -v
+    - ls -l
+    - ls -l ./public
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
     name: "dev"
