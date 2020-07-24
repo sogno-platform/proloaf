@@ -20,9 +20,9 @@ docker:dev:
       --file Dockerfile_dev
       --tag ${DOCKER_IMAGE_DEV}:${DOCKER_TAG}
       --tag ${DOCKER_IMAGE_DEV}:latest .
-  artifacts:
-    paths:
-      - public
+#  artifacts:
+#    paths:
+#      - public
   tags:
     - shell
   only:
@@ -38,9 +38,9 @@ docker:master:
       --file Dockerfile_master
       --tag ${DOCKER_IMAGE}:${DOCKER_TAG}
       --tag ${DOCKER_IMAGE}:latest .
-  artifacts:
-    paths:
-      - public
+#  artifacts:
+#    paths:
+#      - public
   tags:
     - shell
   only:
@@ -50,9 +50,9 @@ docker:master:
 hugo:
   stage: build
   script:
-    # - npm install -D --save autoprefixer
-    # - npm install -D --save postcss-cli
-    # - npm audit fix --force
+    - npm install -D --save autoprefixer
+    - npm install -D --save postcss-cli
+    - npm audit fix --force
     - hugo -v
     - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
