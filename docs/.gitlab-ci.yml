@@ -32,7 +32,7 @@ hugo:master:
     - hugo -v
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
-    #name: "master"
+    name: "master"
     paths:
       - public
   tags:
@@ -47,7 +47,7 @@ hugo:dev:
     - hugo -v
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
-    name:"dev"
+    name: "dev"
     paths:
       - public
     expire_in: 1 week
@@ -60,7 +60,7 @@ pages:
   script:
     - ls -l
   artifacts:
-    name:"master"
+    name: "master"
     paths:
       - public
   only:
@@ -74,7 +74,7 @@ pages:
   script:
     - ls -l
   artifacts:
-    name:"dev"
+    name: "dev"
     paths:
       - public
     expire_in: 1 week
