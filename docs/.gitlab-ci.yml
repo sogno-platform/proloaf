@@ -33,33 +33,10 @@ hugo:master:
     - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
-    name: "master"
     paths:
       - public
   tags:
     - docker
- 
-hugo:dev:
-  stage: build
-  script:
-    - npm install -D --save autoprefixer
-    - npm install -D --save postcss-cli
-    - npm audit fix --force
-    - hugo -v
-    #- ls -l
-    #- mkdir ./tmp
-    #- mv ./public/* ./tmp
-    #- mkdir ./public/dev
-    #- mv ./tmp ./public/dev
-    #- ls -l ./public
-  image: ${DOCKER_IMAGE}:${DOCKER_TAG}
-  artifacts:
-    name: "dev"
-    paths:
-      - public
-    expire_in: 1 week
-  tags:
-    - docker   
 
 
 pages:
@@ -67,7 +44,6 @@ pages:
   script:
     - ls -l
   artifacts:
-    name: "master"
     paths:
       - public
   only:
@@ -76,18 +52,5 @@ pages:
     - shell
     #- linux
     
-pages:
-  stage: deploy
-  script:
-    - ls -l
-  artifacts:
-    name: "dev"
-    paths:
-      - public
-    expire_in: 1 week
-  only:
-    - develop
-  tags:
-    - shell
-    #- linux
+
 
