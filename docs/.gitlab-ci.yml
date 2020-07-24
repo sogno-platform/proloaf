@@ -23,19 +23,21 @@ docker:
   #  - linux
   # - docker
 
-hugo:
+hugo:master:
   stage: build
   script:
     - npm install -D --save autoprefixer
     - npm install -D --save postcss-cli
     - npm audit fix --force
     - hugo -v
+    - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
     paths:
       - public
   tags:
     - docker
+
 
 pages:
   stage: deploy
@@ -49,4 +51,6 @@ pages:
   tags:
     - shell
     #- linux
+    
+
 
