@@ -1,0 +1,52 @@
+variables:
+  DOCKER_TAG: ${CI_COMMIT_REF_NAME}
+  DOCKER_IMAGE: rwthacs/hugo-ext
+
+before_script:
+  - git config --local core.longpaths true
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+
+stages:
+  - prepare
+  - build
+  - deploy
+
+docker:
+ stage: prepare
+ script:
+   - docker build
+       --tag ${DOCKER_IMAGE}:${DOCKER_TAG}
+       --tag ${DOCKER_IMAGE}:latest .
+ tags:
+   - shell
+  #  - linux
+  # - docker
+
+hugo:
+  stage: build
+  script:
+    - npm install -D --save autoprefixer
+    - npm install -D --save postcss-cli
+    - npm audit fix --force
+    - hugo -v
+  image: ${DOCKER_IMAGE}:${DOCKER_TAG}
+  artifacts:
+    paths:
+      - public
+  tags:
+    - docker
+
+pages:
+  stage: deploy
+  script:
+    - ls -l
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
+  tags:
+    - shell
+    #- linux
+
