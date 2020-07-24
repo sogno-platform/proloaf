@@ -1,4 +1,4 @@
-baseURL = "/acs/public/automation/plf/plf-docs/"
+baseURL = "/public/automation/plf/plf-docs/"
 title = "Load Forecasting"
 
 enableRobotsTXT = true
