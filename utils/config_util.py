@@ -2,20 +2,20 @@ import os
 import json
 import sys
 import argparse
-import plf_util.eval_metrics as metrics
+import fc_util.eval_metrics as metrics
 
 #TODO test if configmaker is still working after refactoring the directories
 
 def read_config(model_name = None, config_path = None, main_path=''):
     if config_path is None:
         config_path = os.path.join(main_path, 'targets',  model_name, 'config.json')
-    with open(config_path,'r') as input:
+    with open(config_path,'r') as input: 
         return json.load(input)
 
 def write_config(config, model_name = None, config_path = None, main_path=''):
     if config_path is None:
         config_path = os.path.join(main_path, 'targets',  model_name, 'config.json')
-    with open(config_path,'w') as output:
+    with open(config_path,'w') as output: 
         return json.dump(config, output, indent=4)
 
 class flag_and_store(argparse._StoreAction):
@@ -31,9 +31,9 @@ class flag_and_store(argparse._StoreAction):
             nargs_store = nargs+len(self.val)
         else:
             nargs_store = nargs
-        super(flag_and_store, self).__init__(option_strings, dest, const = None, nargs = nargs_store, **kwargs)
+        super(flag_and_store, self).__init__(option_strings, dest, const = None, nargs = nargs_store, **kwargs) 
         self.nargs = nargs
-
+        
     def __call__(self, parser, namespace, values, option_strings = None):
         setattr(namespace, self.dest_const,self.flag)
         if isinstance(values,list):
@@ -71,11 +71,11 @@ def parse_with_loss(args = sys.argv[1:]):
     # losses.add_argument("--mase", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.mase,2], help = "train with root mean absolute scaled error", action=flag_and_store)
     # losses.add_argument("--picp", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.picp_loss,2], help = "train with 1 - prediction intervall coverage",action=flag_and_store)
     losses.add_argument("--sharpness", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.sharpness,1], help = "train with sharpness", action=flag_and_store)
-    losses.add_argument("--mis", "--mean_interval_score", dest_const='loss', dest='alpha', nargs=1,metavar = 'A', type=float, const=metrics.mis, help = "train with mean intervall score, A corresponding to the inverse weight", action=flag_and_store)
+    losses.add_argument("--mis", "--mean_interval_score", dest_const='loss', dest='alpha', nargs=1,metavar = 'A', type=float, const=metrics.mis, help = "train with mean intervall score, A corresponding to the inverse weight", action=flag_and_store)    
     #TODO write mis as default argument as soon as evaluate works with it
     parser.set_defaults(loss=metrics.nll_gauss, num_pred=2)
     ret = parser.parse_args(args)
-
+    
     if ret.loss == metrics.mis:
         ret.num_pred = 2
         options = dict(alpha=ret.alpha)

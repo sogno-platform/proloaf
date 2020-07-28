@@ -1,7 +1,7 @@
 '''modelhandler.py holds the functions and classes of the general model architecture'''
 import numpy as np
 import torch
-import plf_util.eval_metrics as metrics
+import fc_util.eval_metrics as metrics
 import shutil
 import matplotlib
 # matplotlib.use('svg') #svg can be used for easy when working on VMs

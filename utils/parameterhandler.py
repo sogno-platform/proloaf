@@ -7,7 +7,7 @@ import numpy as np
 import importlib
 import os
 import pandas as pd
-from plf_util.config_util import read_config
+from fc_util.config_util import read_config
 
 
 class parameter_combination:
@@ -43,9 +43,9 @@ class parameter_combination:
         #         print(self.base_path, ' does not exist, no basic configuration was loaded.')
         #for key in param_settings.keys():
         self.settings.update(param_settings)
-
+        
         self.generate(num)
-
+    
     def add_parameters(self, param_settings:dict):
         """
         :param param_settings: keys and values are added to the settings of the parameter handler
@@ -133,7 +133,7 @@ class parameter_combination:
                         single_call_params = generator()
                 else:
                     single_call_params = self.settings[key]
-
+                
                 if isinstance(single_call_params,list):
                     parameters += single_call_params
                 else:
@@ -156,7 +156,7 @@ class parameter_combination:
     #     config = dict(settings = params, best_loss=best_loss)
     #     if path is None:
     #         path = self.base_path
-    #     with open(path,'w') as output:
+    #     with open(path,'w') as output: 
     #         json.dump(config, output, indent = 4)
 
     def read_json(self, path):
@@ -164,7 +164,7 @@ class parameter_combination:
         reads settings from json
         """
         with open(path,'r') as input:
-            base = json.load(input)
+            base = json.load(input) 
             return base
 
     def __len__(self):
@@ -184,26 +184,26 @@ class parameter_combination:
         return self
 
     def __next__(self):
-        if(self.iter_index < self.parameters.shape[0]):
+        if(self.iter_index < self.parameters.shape[0]):  
             ret = self[self.iter_index]
             self.iter_index += 1
             return ret
         else:
             raise StopIteration
-
-
+    
+    
 def make_from_config(model_name, config_path, main_path):
     """
     generates a parameter configuration from a json file defining a path to the base values 'rel_base_path':str, and optional 'number_of_test': int
     and a 'setting' that defines parameter settings as defined in __init__.
     """
-    with open(config_path,'r') as input:
+    with open(config_path,'r') as input: 
         config = json.load(input)
 
     config = read_config(model_name, config_path, main_path, suffix = 'parameterhandler')
     # base = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     # base = os.path.join(base, config['rel_base_path'])
-
+    
     if 'number_of_tests' in config.keys():
         num = config['number_of_tests']
     else:
