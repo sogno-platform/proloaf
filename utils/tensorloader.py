@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import sklearn
 
-import fc_util.datatuner as dt
+import plf_util.datatuner as dt
 
 class CustomTensorData:
     def __init__(self, inputs1, inputs2, targets):
@@ -67,7 +67,7 @@ class CustomTensorDataLoader:
 
 
 def make_dataloader(df, target_id, encoder_features, decoder_features, history_horizon,
-                    forecast_horizon, batch_size = 1, shuffle = True, drop_last = True, **_): 
+                    forecast_horizon, batch_size = 1, shuffle = True, drop_last = True, **_):
 
     x_enc = dt.extract(df[encoder_features].iloc[:-forecast_horizon, :], history_horizon)
     # shape input data that is known for the Future, here take perfect hourly temp-forecast
@@ -77,4 +77,3 @@ def make_dataloader(df, target_id, encoder_features, decoder_features, history_h
 
     custom_tensor_data = CustomTensorData(x_enc, x_dec, y)
     return CustomTensorDataLoader(custom_tensor_data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
-
