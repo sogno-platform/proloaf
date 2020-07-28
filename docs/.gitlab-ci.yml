@@ -72,6 +72,5 @@ pages:
   tags:
     - shell
     #- linux
-    
-
-
+  environment:
+    name: production
