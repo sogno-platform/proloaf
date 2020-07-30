@@ -62,9 +62,9 @@ def parse_with_loss(args = sys.argv[1:]):
     ident.add_argument("-c", "--config", help = "path to the config file relative to the project root")
 
     losses = parser.add_mutually_exclusive_group()
-    losses.add_argument("--ask", help="ask true/false queries in command line? (int: 1=True, else=False)", type=int, default=1)
-    losses.add_argument("--hyper", help="turn hyperparam-tuning on/off next time (int: 1=on, else=off)", type=int, default=0)
-    losses.add_argument("-o", "--overwrite", help = "overwrite config with new training parameter (int: 1=True=default/else=False)", type=int, default=0)
+    losses.add_argument("--ci", help="Enables execution mode optimized for GitLab's CI", action='store_true', default=False)
+    #losses.add_argument("--hyper", help="turn hyperparam-tuning on/off next time (int: 1=on, else=off)", type=int, default=0)
+    #losses.add_argument("-o", "--overwrite", help = "overwrite config with new training parameter (int: 1=True=default/else=False)", type=int, default=0)
     losses.add_argument("--nll_gauss", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.nll_gauss,2], help = "train with nll guassian loss", action=flag_and_store)
     losses.add_argument("--quantiles", dest_const='loss', dest='quantiles',metavar=' q1 q2', nargs='+', type=float, const=metrics.quantile_score, help = "train with pinball loss and MSE with q1 and q2 being the upper and lower quantiles", action=flag_and_store)
     losses.add_argument("--crps","--crps_gaussian", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.crps_gaussian,2], help = "train with crps gaussian loss", action=flag_and_store)
