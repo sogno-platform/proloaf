@@ -72,7 +72,7 @@ class flag_and_store(argparse._StoreAction):
 # import data
 # =============================================================================
 
-#df = pd.read_csv(r'C:\Users\Harman\OneDrive - rwth-aachen.de\Work\Arbeit\Aufgabe_Sarimax\fc\eon-data\last_sege.csv', sep=';',index_col=0)
+#df = pd.read_csv(r'C:\Users\Harman\OneDrive - rwth-aachen.de\Work\Arbeit\Aufgabe_Sarimax\fc\data\last_sege.csv', sep=';',index_col=0)
 
 # =============================================================================
 # Parameter TODO: Remove params

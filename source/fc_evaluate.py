@@ -1,14 +1,10 @@
 #TODO: find workaround for PICP numpy issue
-#import sys
-#sys.path.append('../')
 import numpy as np
 import pandas as pd
 import torch
 import warnings
-import sklearn as sk
 import matplotlib.pyplot as plt
 import sys
-import json
 import os
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -17,6 +13,7 @@ sys.path.append(MAIN_PATH)
 import plf_util.datatuner as dt
 import plf_util.tensorloader as dl
 import plf_util.eval_metrics as metrics
+import plf_util.modelhandler as mh
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
@@ -42,16 +39,6 @@ def results_table(models, mse, rmse, sharpness, coverage, mis):
         'Mean IS': mis}
     results_df = pd.DataFrame(data, index=models)
     return results_df
-
-# def gaussian_nll_loss2(target, expected_value, variance):
-#     """y, y_pred, var_pred must have the same shape."""
-#     assert target.shape == expected_value.shape
-#     assert target.shape == variance.shape
-
-#     squared_errors = (target - expected_value) ** 2
-#     loss = squared_errors / (2 * variance) + variance.sqrt().log()
-#     return loss
-
 
 def evaluate_hours(target, pred ,y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
     fig, ax = plt.subplots(1)
@@ -127,11 +114,9 @@ def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,
         plt.savefig(OUTPATH + 'metrics_plot')
         #plt.show()
 
-
 if __name__ == '__main__':
     ARGS = parse_basic()
     PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
-
 
     # DEFINES
     torch.manual_seed(1)
@@ -140,7 +125,6 @@ if __name__ == '__main__':
     # after training
     INMODEL = os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name'])
     OUTDIR = os.path.join(MAIN_PATH, PAR['evaluation_path'])
-
 
     target_id = PAR['target_id']
     DEVICE = 'cpu'
@@ -161,100 +145,63 @@ if __name__ == '__main__':
         if(PAR['target_list'] != None):
             df[target_id] = df[PAR['target_list']].sum(axis=1)
 
-
     # reload trained NN
-    net = torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
-
-    df_new, _ = dt.scale_all(df, **PAR)
-
-    target_index = df_new.columns.get_loc(target_id)
-
-    split_index = int(len(df_new.index) * SPLIT_RATIO)
-    test_df = df_new.iloc[split_index:]
-
-    test_data_loader = dl.make_dataloader(test_df, shuffle=False, **PAR).to(DEVICE)
-
-    # check performance
-    horizon = test_data_loader.dataset.targets.shape[1]
-    number_of_targets = test_data_loader.dataset.targets.shape[2]
-
-    record_expected_values = torch.zeros((len(test_data_loader), horizon, number_of_targets), device = DEVICE)
-    record_variances = torch.zeros((len(test_data_loader), horizon, number_of_targets), device = DEVICE)
-    record_targets = torch.zeros((len(test_data_loader), horizon, number_of_targets), device = DEVICE)
-
-    net.eval()
     with torch.no_grad():
-        for i, (inputs1, inputs2, targets) in enumerate(test_data_loader):
-            (expected_values, log_variances), _ = net(inputs1, inputs2)
-            record_expected_values = expected_values
-            record_variances = log_variances.exp()
-            record_targets = targets
+        net = torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
 
-    for group in PAR['feature_groups']:
-        if group['features'] is not None and PAR['target_id'] in group['features']:
-            scaler_name = group['name']
-            scaler = net.scalers[scaler_name]
-            scale = scaler.scale_.take(target_index)
-            break # assuming target column can only be scaled once
+        df_new, _ = dt.scale_all(df, **PAR)
 
-    if type(scaler) == RobustScaler:
-        # customized inversion robust_scaler
-        if scaler.center_.any() == False:  # no center shift applied
-            center = 0
-        else:
-            center = scaler.center_.take(target_index)
-        scale = scaler.scale_.take(target_index)  # The (scaled) interquartile range for each feature in the training set
-    elif type(scaler) == StandardScaler:
-        if scaler.mean_.take(target_index) == None:
-            center = 0
-        else:
-            center = scaler.mean_.take(target_index)
-        scale = scaler.scale_.take(target_index)
-    elif type(scaler) == MinMaxScaler:
-        range_min = scaler.feature_range[0]
-        range_max = scaler.feature_range[1]
-        data_max = scaler.data_max_.take(target_index)
-        data_min = scaler.data_min_.take(target_index)
-        scale = (data_max - data_min) / (range_max - range_min)
-        center = data_min - range_min * scale
-    #TODO: use get_prediction from mondelhandler instead
-    y_pred_upper = record_expected_values + 1.96 * record_variances.sqrt()
-    y_pred_lower = record_expected_values - 1.96 * record_variances.sqrt()
+        target_index = df_new.columns.get_loc(target_id)
 
-    #rescale values
-    #record_expected_values_rescaled = (record_expected_values * scale) + center
-    #record_targets_rescaled = (record_targets * scale) + center
-    #y_pred_upper_rescaled = record_expected_values_rescaled + 1.96 * record_variances.sqrt() * scale
-    #y_pred_lower_rescaled = record_expected_values_rescaled - 1.96 * record_variances.sqrt() * scale
+        split_index = int(len(df_new.index) * SPLIT_RATIO)
+        test_df = df_new.iloc[split_index:]
 
-    #calculate the metrics
+        test_data_loader = dl.make_dataloader(test_df, target_id, PAR['encoder_features'], PAR['decoder_features'],
+                                              history_horizon=PAR['history_horizon'], forecast_horizon=PAR['forecast_horizon'],
+                                              shuffle=False).to(DEVICE)
 
-    mse_horizon = metrics.mse(record_targets, [record_expected_values],total=False)
-    rmse_horizon = metrics.rmse(record_targets, [record_expected_values],total=False)
-    sharpness_horizon = metrics.sharpness(None, [y_pred_upper, y_pred_lower],total=False)
-    coverage_horizon = metrics.picp(record_targets, [y_pred_upper,
-                                                    y_pred_lower],total=False)
-    mis_horizon = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05,total=False)
+        # check performance
+        horizon = test_data_loader.dataset.targets.shape[1]
+        number_of_targets = test_data_loader.dataset.targets.shape[2]
 
-    #collect metrics by disregarding the development over the horizon
-    mse = metrics.mse(record_targets, [record_expected_values])
-    rmse = metrics.rmse(record_targets, [record_expected_values])
-    sharpness = metrics.sharpness(None, [y_pred_upper, y_pred_lower])
-    coverage = metrics.picp(record_targets, [y_pred_upper,
-                                                    y_pred_lower])
-    mis = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05)
+        record_targets, record_output = mh.get_prediction(net, test_data_loader, horizon, number_of_targets)
 
-    #plot metrics
-    plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTDIR, 'metrics-evaluation')
+        net.eval()
+        #TODO: check model type (e.g gnll)
+        criterion = net.criterion
+        #get metrics parameters
+        y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(record_output, criterion)
 
-    #plot forecast for sample days
-    testhours = [0, 12, 24, 48, 100, 112]
-    actual_time = pd.to_datetime(df.loc[split_index:, 'Time'])
-    for i in testhours:
-        hours = actual_time.iloc[i:i + FORECAST_HORIZON]
-        evaluate_hours(record_targets[i].cpu().numpy(), record_expected_values[i].cpu().numpy(), y_pred_upper[i].cpu().numpy(), y_pred_lower[i].cpu().numpy(), i, OUTDIR, PAR['cap_limit'], hours)
+        #rescale(test_output, test_targets)
+        #dt.rescale_manually(..)
 
-    target_stations = [PAR['model_name']]
-    print(results_table(target_stations, mse.cpu().numpy(), rmse.cpu().numpy(), sharpness.cpu().numpy(), coverage.cpu().numpy(), mis.cpu().numpy()))
+        #calculate the metrics
+        mse_horizon = metrics.mse(record_targets, [record_expected_values],total=False)
+        rmse_horizon = metrics.rmse(record_targets, [record_expected_values],total=False)
+        sharpness_horizon = metrics.sharpness(None, [y_pred_upper, y_pred_lower],total=False)
+        coverage_horizon = metrics.picp(record_targets, [y_pred_upper,
+                                                        y_pred_lower],total=False)
+        mis_horizon = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05,total=False)
+
+        #collect metrics by disregarding the development over the horizon
+        mse = metrics.mse(record_targets, [record_expected_values])
+        rmse = metrics.rmse(record_targets, [record_expected_values])
+        sharpness = metrics.sharpness(None, [y_pred_upper, y_pred_lower])
+        coverage = metrics.picp(record_targets, [y_pred_upper,
+                                                        y_pred_lower])
+        mis = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05)
+
+        #plot metrics
+        plot_metrics(rmse_horizon.detach().numpy(), sharpness_horizon.detach().numpy(), coverage_horizon.detach().numpy(), mis_horizon.detach().numpy(), OUTDIR, 'metrics-evaluation')
+
+        #plot forecast for sample days
+        testhours = [0, 12, 24, 48, 100, 112]
+        actual_time = pd.to_datetime(df.loc[split_index:, 'Time'])
+        for i in testhours:
+            hours = actual_time.iloc[i:i + FORECAST_HORIZON]
+            evaluate_hours(record_targets[i].detach().numpy(), record_expected_values[i].detach().numpy(), y_pred_upper[i].detach().numpy(), y_pred_lower[i].detach().numpy(), i, OUTDIR, PAR['cap_limit'], hours)
+
+        target_stations = [PAR['model_name']]
+        print(results_table(target_stations, mse.detach().numpy(), rmse.detach().numpy(), sharpness.detach().numpy(), coverage.detach().numpy(), mis.detach().numpy()))
 
     print('Done!!')

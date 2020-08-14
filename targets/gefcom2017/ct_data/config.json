@@ -142,7 +142,7 @@
         "weekday_5",
         "weekday_6"
     ],
-    "max_epochs": 100,
+    "max_epochs": 3,
     "batch_size": 103,
     "learning_rate": 0.0003720068247101349,
     "core_layers": 3,
@@ -151,5 +151,5 @@
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
     "best_loss": -2.1164116117689344,
-    "best_score": 4.695767402648926
+    "best_score": null
 }

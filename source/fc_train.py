@@ -15,9 +15,11 @@ import numpy as np
 import plotly
 import optuna
 
+import tempfile
+
 torch.set_printoptions(linewidth=120) # Display option for output
 torch.set_grad_enabled(True)
-# from torch.utils.tensorboard import SummaryWriter
+#from torch.utils.tensorboard import SummaryWriter
 from time import perf_counter,localtime
 from itertools import product
 
@@ -120,7 +122,8 @@ def make_model(df:pd.DataFrame, scalers, encoder_features, decoder_features, bat
                                 scalers = scalers,
                                 core_net = core_net,
                                 relu_leak = relu_leak,
-                                core_layers = core_layers)
+                                core_layers = core_layers,
+                                criterion = ARGS.loss)
 
     return net, train_data_loader, validation_data_loader, test_data_loader
 
@@ -201,12 +204,12 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         if early_stopping.early_stop:
             print("Stop in earlier epoch. Loading best model state_dict.")
             # load the last checkpoint with the best model
-            net.load_state_dict(torch.load('checkpoint.pt'))
+            net.load_state_dict(torch.load(early_stopping.temp_dir+'checkpoint.pt'))
             break
     # Now we are working with the best net and want to save the best score with respect to new test data
     with torch.no_grad():
         net.eval()
-        best_score = mh.performance_test(net,data_loader=test_data_loader).item()
+        best_score = mh.performance_test(net,data_loader=test_data_loader,score_type='mis', horizon=forecast_horizon).item()
     log_df = log_df.append(
         {
             'time_stamp': pd.Timestamp.now(),
@@ -231,11 +234,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
              'optimizer': optimizer,
              'activation_param': relu_leak,
              'lin_size': rel_linear_hidden_size,
-             'main_scaler': PAR['feature_groups'][0]['scaler'],
-             'main_scaler_features': PAR['feature_groups'][0]['features'],
-             'add_scaler': PAR['feature_groups'][1]['scaler'],
-             'add_scaler_features': PAR['feature_groups'][1]['features'],
-             'aux_features': PAR['feature_groups'][2]['features'],
+             'scalers': PAR['feature_groups'],
              'encoder_features': PAR['encoder_features'],
              'decoder_features': PAR['decoder_features'],
              'station': ARGS.station,
@@ -290,8 +289,7 @@ def main(infile, outmodel, target_id, log_path = None):
                                        'cuda_id', 'max_epochs', 'lr', 'batch_size', 'train_split',
                                        'validation_split', 'history_horizon', 'forecast_horizon', 'cap_limit',
                                        'drop_lin', 'drop_core', 'core', 'core_layers', 'core_size', 'optimizer_name',
-                                       'activation_param', 'lin_size', 'main_scaler', 'main_scaler_features', 'add_scaler',
-                                       'add_scaler_features', 'aux_features', 'encoder_features', 'decoder_features',
+                                       'activation_param', 'lin_size', 'scalers', 'encoder_features', 'decoder_features',
                                        'station', 'criterion', 'loss_options', 'score'])
 
     min_net = None
@@ -302,6 +300,7 @@ def main(infile, outmodel, target_id, log_path = None):
         min_val_loss = np.inf
     try:
         if PAR['exploration']:
+            timeout = None
             hyper_param = read_config(model_name=ARGS.station, config_path=PAR['exploration_path'],
                                       main_path=MAIN_PATH)
             if 'number_of_tests' in hyper_param.keys():
@@ -312,7 +311,11 @@ def main(infile, outmodel, target_id, log_path = None):
             sampler = optuna.samplers.TPESampler(seed=10)  # Make the sampler behave in a deterministic way.
             study = optuna.create_study(sampler=sampler, direction="minimize", pruner=optuna.pruners.MedianPruner())
             print('Max. number of iteration trials for hyperparameter tuning: ', n_trials)
-            study.optimize(objective(selected_features, scalers,hyper_param,log_df=log_df,**PAR), n_trials=n_trials)
+            if 'parallel_jobs' in hyper_param.keys():
+                parallel_jobs = hyper_param['parallel_jobs']
+                study.optimize(objective(selected_features, scalers,hyper_param,log_df=log_df,**PAR), n_trials=n_trials,n_jobs=parallel_jobs, timeout=timeout) #,timeout=timeout
+            else:
+                study.optimize(objective(selected_features, scalers,hyper_param,log_df=log_df,**PAR), n_trials=n_trials, timeout=timeout)
 
             print("Number of finished trials: ", len(study.trials))
             trials_df = study.trials_dataframe()
@@ -342,11 +345,15 @@ def main(infile, outmodel, target_id, log_path = None):
                 print("    {}: {}".format(key, value))
 
             if min_val_loss > study.best_value:
-                PAR.update(trial.params)
-                PAR['best_loss'] = study.best_value
+                if (ARGS.ci == False):
+                    if (query_true_false("Overwrite config with new parameters?")):
+                        PAR['best_loss'] = study.best_value
+                        PAR.update(trial.params)
                 #TODO: check if one can retrieve a checkpoint/model from best trial in optuna, to ommit redundant training
-        else:
-            print('training with standard hyper parameters')
+                    else:
+                        print('Training with hyper parameters fetched from config.json')
+                else:
+                    print('Training with hyper parameters fetched from config.json')
 
         model, train_dl, validation_dl, test_dl = make_model(selected_features,scalers,**PAR)
         net, log_df, loss, new_score = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
@@ -361,8 +368,20 @@ def main(infile, outmodel, target_id, log_path = None):
             min_net = net
             PAR['best_score'] = new_score
             PAR['best_loss'] = loss
+
+            if(ARGS.ci == False):
+                if (query_true_false("Overwrite config with new parameters?")):
+                    print("study best value: ",study.best_value)
+                    print("current loss: ", loss)
+                    PAR['best_loss'] = study.best_value
+                    PAR.update(trial.params)
+
             print("Model improvement achieved. Save "+ ARGS.station+"-file in "+ PAR['output_path']+".")
-            PAR['exploration'] = query_true_false("Parameters tuned and updated. Do you wish to turn off hyperparameter tuning for future training?")
+            if PAR['exploration'] == True:
+                if ARGS.ci == False:
+                    PAR['exploration'] = query_true_false("Parameters tuned and updated. Do you wish to turn off hyperparameter tuning for future training?")
+        else:
+            print("Existing model for this target did not improve in current run. Discard temporary model files.")
 
     except KeyboardInterrupt:
         print('manual interrupt')
@@ -372,10 +391,12 @@ def main(infile, outmodel, target_id, log_path = None):
             torch.save(min_net, outmodel)
             write_config(PAR, model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
             print('saving log')
-            log_df.to_csv(log_path, sep=';')
+            #if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station)):
+            #    os.mkdir(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station))
+            #log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station + '_training.csv'), sep=';')
 
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
     PAR = read_config(model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
     main(infile = os.path.join(MAIN_PATH, PAR['data_path']), outmodel = os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name']),
-            target_id = PAR['target_id'], log_path=os.path.join(MAIN_PATH,PAR['log_path'],ARGS.station+'_training.csv'))
+            target_id = PAR['target_id'], log_path=os.path.join(MAIN_PATH,PAR['log_path']))
