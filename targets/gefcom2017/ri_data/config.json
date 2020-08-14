@@ -19,29 +19,29 @@
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
-      {
-          "name": "main",
-          "scaler": [
-              "robust",
-              15,
-              85
-          ],
-          "features": [
-              "demand"
-          ]
-      },
-      {
-          "name": "add",
-          "scaler": [
-              "minmax",
-              -1.0,
-              1.0
-          ],
-          "features": [
-              "drybulb",
-              "dewpnt"
-          ]
-      },
+        {
+            "name": "main",
+            "scaler": [
+                "robust",
+                15,
+                85
+            ],
+            "features": [
+                "demand"
+            ]
+        },
+        {
+            "name": "add",
+            "scaler": [
+                "minmax",
+                -1.0,
+                1.0
+            ],
+            "features": [
+                "drybulb",
+                "dewpnt"
+            ]
+        },
         {
             "name": "aux",
             "scaler": null,
@@ -142,7 +142,7 @@
         "weekday_5",
         "weekday_6"
     ],
-    "max_epochs": 100,
+    "max_epochs": 3,
     "batch_size": 103,
     "learning_rate": 0.0003720068247101349,
     "core_layers": 3,
@@ -150,6 +150,6 @@
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
-    "best_loss": -1.0173205137252808,
-    "best_score": 7.290472984313965
+    "best_loss": -1.8351114127371035,
+    "best_score": null
 }
