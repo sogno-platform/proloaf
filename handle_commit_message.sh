@@ -8,10 +8,10 @@ then
     then
         echo "No path to station defined, skiping..."
     else
-        echo "Starting evaluation for ${HOLD}"
+        echo "Starting training for ${HOLD}"
         python3 source/fc_train.py -s ${HOLD} --ci
     fi
 else
-    echo "Starting evaluation for ${STATION}"
+    echo "Starting training for ${STATION}"
     python3 source/fc_train.py -s ${STATION} --ci
 fi
