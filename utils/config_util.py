@@ -50,7 +50,7 @@ def parse_basic(args = sys.argv[1:]):
     parser = argparse.ArgumentParser()
     # TODO this should be a requiered argument (also remove default below)
     ident = parser.add_mutually_exclusive_group()#required=True)
-    ident.add_argument("-s","--station", help = "station to be trained for (e.g. sege)", default='sege')
+    ident.add_argument("-s","--station", help = "station to be trained for (e.g. gefcom2017/nh_data)", default='gefcom2017/nh_data')
     ident.add_argument("-c", "--config", help = "path to the config file relative to the project root")
     return parser.parse_args(args)
 
