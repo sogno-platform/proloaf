@@ -39,7 +39,7 @@ train_on_api_call:
         - ./handle_commit_message.sh
     artifacts:
         when: on_success
-        expire_in: never
+        #expire_in: never
         paths:
             - ./oracles/*
     image: plf:${CI_COMMIT_REF_NAME}
@@ -59,7 +59,7 @@ train_on_commit_message:
         #- python3 ./source/fc_train.py -s "gefcom2017/nh_data" --ci
     artifacts:
         when: on_success
-        expire_in: never
+        #expire_in: never
         paths:
             - ./oracles/*
     image: plf:${CI_COMMIT_REF_NAME}
@@ -80,7 +80,7 @@ eval_on_api_call:
         - ./execute_evaluation.sh
     artifacts:
         when: on_success
-        expire_in: never
+        #expire_in: never
         paths:
             - oracles/**/*
     image: plf:${CI_COMMIT_REF_NAME}
@@ -98,7 +98,7 @@ eval_on_commit_message:
         #- python3 ./source/fc_evaluate.py -s "gefcom2017/nh_data"
     artifacts:
         when: on_success
-        expire_in: never
+        #expire_in: never
         paths:
             - oracles/**/*
     image: plf:${CI_COMMIT_REF_NAME}
