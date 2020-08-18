@@ -42,7 +42,7 @@ docker:
     - master
   
 
-hugo:
+hugo:master:
   stage: build
   script:
     - npm install -D --save autoprefixer
@@ -72,6 +72,5 @@ pages:
   tags:
     - shell
     #- linux
-    
-
-
+  environment:
+    name: production
