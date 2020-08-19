@@ -69,6 +69,6 @@ pages:
       - public
   #only:
   #  - master
-  #tags:
-  #  - shell
+  tags:
+    - shell
     #- linux
