@@ -27,7 +27,7 @@ stages:
 #    - shell
 #  only:
 #    - develop
-  
+
 
 docker:
   stage: prepare
@@ -38,9 +38,9 @@ docker:
       --tag ${DOCKER_IMAGE}:latest .
   tags:
     - shell
-  only:
-    - master
-  
+  #only:
+  #  - master
+
 
 hugo:
   stage: build
@@ -54,8 +54,8 @@ hugo:
   artifacts:
     paths:
       - public
-  only:
-    - master
+  #only:
+  #  - master
   tags:
     - docker
 
@@ -67,11 +67,8 @@ pages:
   artifacts:
     paths:
       - public
-  only:
-    - master
-  tags:
-    - shell
+  #only:
+  #  - master
+  #tags:
+  #  - shell
     #- linux
-    
-
-

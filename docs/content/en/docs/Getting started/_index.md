@@ -3,7 +3,7 @@ title: "Getting Started"
 linkTitle: "Getting Started"
 weight: 2
 description: >
-  An introduction to the load forecasting subproject of the CoordiNet project.
+  An introduction to ProLoaF.
 ---
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
@@ -17,31 +17,31 @@ To install all required packages using pip run:
 pip install -r requirements.txt
 ```
 
-On low RAM machines the option 
+On low RAM machines the option
 ```
 pip install -r requirements.txt --no-cache-dir
 ```
-might be necessary. Depending on your machine it might be necessary to use pip3 instead of pip. 
+might be necessary. Depending on your machine it might be necessary to use pip3 instead of pip.
 
 
 ## Running the code
-This project contains 4 scripts that can be used in conjunction with one another or separatly. For each one there is a corresponding config file in the JSON format.
+This project contains 3 scripts that can be used in conjunction with one another or separatly. Configuration for these scripts is given in a config.json file in the targets/ folder.
 
-* All scripts are located in the scripts folder.
-* To start one of the scripts use 'Python3 fc_script.py argument', where the argument is either the name of a station (e.g. 'sege', 'kraftringen') or the path of the correspondig config file located in the model_ folders.
-* To prepare load and weather data from selected stations run ./scripts/fc_prep.py
-* To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./scripts/fc_train.py
-* To predict the next 40 hours in reference to the current time and print the result in a csv file run ./scripts/fc_run.py
-* *27.10.2019* To analyze the performance of the forecast: ./model_station/evaluation.py
+* All scripts are located in the source folder.
+* To start one of the scripts use 'Python3 fc_script.py argument', where the argument is either the name of a station (-s) (e.g. 'gefcom2017/ct_data') or the path (-c) of the correspondig config file located in the model_ folders.
+* To prepare load and weather data from selected stations run ./source/fc_prep.py
+* To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./source/fc_train.py
+* To analyze the performance of the forecast: ./source/fc_evaluate.py
 
-For further information use the links in the navigation bar on the left.
+## Config
+* The scripts use a config.json file located in the targets/ folder. This file is used to give further information and settings needed to train a model.
+* In addition, a tuning.json file is used to define settings regarding hyperparameter tuning. This file is only required when using hyperparameter tuning.
 
-## Configs
-* Each script has its own config file and there are two additional ones concerning hyperparameter exploration.
-* Each config only defines variables needed in the corresponding script changes in a different context. Some settings (like model_path) can occur in more than one config, this is necessary to keep the scripts independent. Make sure to apply changes to all relevant configs.
 
-* To adapt the behavior of the scipts for a certain station change options in the config files located in the model_ folders.
-* Parameters can be added to the config files by adding or removing them by hand (standard json format) or using the config_maker.py. Add a line 
+* To adapt the behavior of the scipts for a certain station change options in the correspondig config file.
+* Parameters can be added to the config file by adding or removing them by hand (standard json format) or using the config_maker.py.
+
+Add a line
 ```
 par['parameter_name'] = value
 ```
@@ -51,10 +51,9 @@ Then use
 python3 config_maker.py --mod path_to_config
 ```
 to apply the changes. The argument again is a station name or the already existing config file.
-* Using 
+
+Using
 ```
 python3 config_maker.py --new path_to_config
 ```
 Will clear the config file before applying changes so be careful with that.
-
-

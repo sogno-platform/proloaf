@@ -1,7 +1,8 @@
 ---
 title: "fc_prep.py"
-linkTitle: "fc_prep"
+linkTitle: "fc_prep.py"
 date: 2020-03-09
+weight: 1
 description: >
   Basic information on the script for data preparation.
 ---
@@ -32,14 +33,7 @@ The prep config defines 4 parameters:
     8. "data_abs": (boolean) column between start_column and end_column.
 
 ### inputs
-* ./eon_data/STATION_NAME/Historical data ... one hour avg 4 years
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2015
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2016
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2017
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2018
-* ./eon_data/STATION_NAME/Historical data ... weather_forecast_2019
+* historical data provided by the user
 
 ### outputs
-* ./eon-data/last_station.csv
-
-
+* data path as defined in the used config.json
