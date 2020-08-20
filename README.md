@@ -14,16 +14,16 @@ ProLoaF is a t+40 hour probabilistic load forecasting system in the context of t
 
 ProLoaF comes with the following scripts
 
-- [fc_prep.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/fc_prep/): Preprocess your input data for use with ProLoaF.
-- [fc_train.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/fc_train/): Train an RNN model for load forecasting based on provided data.
-- [fc_evaluate.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/fc_evaluate/): Evaluate a previously trained model.
+- [fc_prep.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/fc_prep/): Preprocess your input data for use with ProLoaF.
+- [fc_train.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/fc_train/): Train an RNN model for load forecasting based on provided data.
+- [fc_evaluate.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/fc_evaluate/): Evaluate a previously trained model.
 
 
 ## Example Workflow
 
 * Add the data a model should be trained on to the data/ folder
-* Preprocess the data using [fc_prep.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/fc_prep/) or custom scripts if needed.
-* Specify all required and desired settings and values in [config.json](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/config/) in the targets/ folder
+* Preprocess the data using [fc_prep.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/fc_prep/) or custom scripts if needed.
+* Specify all required and desired settings and values in [config.json](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/config/) in the targets/ folder
 * Train a model using `python3 ./source/fc_train.py -s <path_to_config_in_targets_folder>`
 * Evaluate the model using fc_evaluate.py in the same fashion.
 
