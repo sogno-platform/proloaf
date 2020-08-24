@@ -36,16 +36,16 @@ This Repository contains the following submodules:
 ## Installation
 
 First, clone this Repository and initialize the submodules:
-```
-git clone --recurse-submodule --depth=1 https://git.rwth-aachen.de/acs/public/automation/plf/plf-training.git
+```bash
+git clone --recurse-submodule https://git.rwth-aachen.de/acs/public/automation/plf/plf-training.git
 ```
 To install all required packages first run:
-```
+```bash
 pip install -r requirements.txt
 ```
 
 On low RAM machines the option
-```
+```bash
 pip install -r requirements.txt --no-cache-dir
 ```
 might be necessary.
