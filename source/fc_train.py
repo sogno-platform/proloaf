@@ -19,7 +19,7 @@ import tempfile
 
 torch.set_printoptions(linewidth=120) # Display option for output
 torch.set_grad_enabled(True)
-#from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from time import perf_counter,localtime
 from itertools import product
 
@@ -130,7 +130,7 @@ def make_model(df:pd.DataFrame, scalers, encoder_features, decoder_features, bat
 def train(train_data_loader, validation_data_loader, test_data_loader, net,
           learning_rate=None, batch_size=None, history_horizon=None, forecast_horizon=None,
           core_net=None, relu_leak=None, dropout_fc=None, dropout_core=None, rel_linear_hidden_size=None,
-          rel_core_hidden_size=None, cuda_id=None, log_df=None, optimizer_name=None,max_epochs=None, logging_tb = False,**_):
+          rel_core_hidden_size=None, cuda_id=None, log_df=None, optimizer_name=None,max_epochs=None, logging_tb = True,**_):
 
     if torch.cuda.is_available():
         DEVICE = 'cuda'
@@ -153,8 +153,10 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         #TODO: update this piece of code to enable tensorboard utilization again
         tb = SummaryWriter(log_dir=f'runs/leakyrelu/cuda{cuda_id}/m_epochs{max_epochs}/lr{learning_rate}/'
                                 f'bs{batch_size}/h_h{history_horizon}/f_h{forecast_horizon}/'
-                                f'core_{core_net}/opt_{optimizer}/relu{relu_leak}/drop_fc{dropout_fc}/'
+                                f'core_{core_net}/opt_{optimizer_name}/relu{relu_leak}/drop_fc{dropout_fc}/'
                                 f'drop_core{dropout_core}/lin_hidden{rel_linear_hidden_size}/core_hidden{rel_core_hidden_size}')
+        #tb = SummaryWriter(log_dir='runs/test1')
+
         print('Begin training,\t logged here:\t', tb.log_dir)
         tb.add_graph(net, [inputs1, inputs2])
     else:
@@ -319,13 +321,16 @@ def main(infile, outmodel, target_id, log_path = None):
 
             print("Number of finished trials: ", len(study.trials))
             trials_df = study.trials_dataframe()
+
             if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'])):
                 os.mkdir(os.path.join(MAIN_PATH, PAR['log_path']))
-            trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station+ '_tuning.csv'), sep=';')
+            # trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station + '_tuning.csv'), sep=';')
+            trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
 
             # optuna.visualization.plot_optimization_history(study).show()
-            # opt_history_fig = optuna.visualization.plot_optimization_history(study)
+            opt_history_fig = optuna.visualization.plot_optimization_history(study)
             # opt_history_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'opt_history_fig.png'))
+            opt_history_fig.write_image('opt_history_fig.png')
 
             # Select parameters to visualize.
             # optuna.visualization.plot_slice(study).show()
@@ -334,8 +339,8 @@ def main(infile, outmodel, target_id, log_path = None):
 
             # Visualize high-dimensional parameter relationships.
             # optuna.visualization.plot_parallel_coordinate(study).show()
-            # parallel_coordinate_fig =optuna.visualization.plot_parallel_coordinate(study)
-            # parallel_coordinate_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'parallel_coordinate_fig.png'))
+            parallel_coordinate_fig = optuna.visualization.plot_parallel_coordinate(study)
+            parallel_coordinate_fig.write_image('parallel_coordinate_fig.png')
 
             print("Best trial:")
             trial = study.best_trial

@@ -3,3 +3,8 @@ oracles/
 dist/
 plf_util.egg-info/
 old-yml.yml
+.python-version
+runs/
+logs/
+opt_history_fig.png
+parallel_coordinate_fig.png
