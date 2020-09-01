@@ -24,6 +24,8 @@ from time import perf_counter,localtime
 from itertools import product
 from datetime import datetime
 
+from tensorboard.plugins.hparams import api as hp
+
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
@@ -162,6 +164,15 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
         tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
 
+        # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
+        params = {
+            'max_epochs' : max_epochs,
+            'learning_rate': learning_rate,
+            'batch_size': batch_size,
+            'optimizer_name': optimizer_name,
+            'dropout_fc': dropout_fc
+        }
+
         print('Begin training,\t logged here:\t', tb.log_dir)
         tb.add_graph(net, [inputs1, inputs2])
     else:
@@ -202,6 +213,15 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             tb.add_scalar('train_time', t1_stop - t1_start, epoch+1)
             tb.add_scalar('total_time', t1_stop - t0_start, epoch+1)
             tb.add_scalar('val_loss_steps', validation_loss, step_counter)
+
+            values = {
+                'hparam/train_loss': epoch_loss,
+                'hparam/val_loss': validation_loss,
+                'hparam/train_time': t1_stop - t1_start,
+                'hparam/total_time': t1_stop - t0_start
+            }
+
+            tb.add_hparams(params, values)
 
             for name, weight in net.decoder.named_parameters():
                 tb.add_histogram(name, weight, epoch+1)
@@ -314,6 +334,7 @@ def main(infile, outmodel, target_id, log_path = None):
                 n_trials = hyper_param['number_of_tests']
             if 'timeout' in hyper_param.keys():
                 timeout = hyper_param['timeout']
+
             # Set up the median stopping rule as the pruning condition.
             sampler = optuna.samplers.TPESampler(seed=10)  # Make the sampler behave in a deterministic way.
             study = optuna.create_study(sampler=sampler, direction="minimize", pruner=optuna.pruners.MedianPruner())
