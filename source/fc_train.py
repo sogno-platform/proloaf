@@ -24,7 +24,7 @@ from time import perf_counter,localtime
 from itertools import product
 from datetime import datetime
 
-from tensorboard.plugins.hparams import api as hp
+#from tensorboard.plugins.hparams import api as hp
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
