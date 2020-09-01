@@ -56,13 +56,16 @@ def parse_basic(args = sys.argv[1:]):
 
 def parse_with_loss(args = sys.argv[1:]):
     parser = argparse.ArgumentParser()
+
+    parser.add_argument("--ci", help="Enables execution mode optimized for GitLab's CI", action='store_true', default=False)
+    parser.add_argument("--logname", help="Name of the run, displayed in Tensorboard", type=str, action='store', default="")
+
     # TODO this should be a requiered argument (also remove default below)
     ident = parser.add_mutually_exclusive_group()#required=True)
     ident.add_argument("-s","--station", help = "station to be trained for (e.g. gefcom2017/nh_data)", default='gefcom2017/nh_data')
     ident.add_argument("-c", "--config", help = "path to the config file relative to the project root")
 
     losses = parser.add_mutually_exclusive_group()
-    losses.add_argument("--ci", help="Enables execution mode optimized for GitLab's CI", action='store_true', default=False)
     #losses.add_argument("--hyper", help="turn hyperparam-tuning on/off next time (int: 1=on, else=off)", type=int, default=0)
     #losses.add_argument("-o", "--overwrite", help = "overwrite config with new training parameter (int: 1=True=default/else=False)", type=int, default=0)
     losses.add_argument("--nll_gauss", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.nll_gauss,2], help = "train with nll guassian loss", action=flag_and_store)
