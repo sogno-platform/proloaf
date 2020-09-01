@@ -22,6 +22,7 @@ torch.set_grad_enabled(True)
 from torch.utils.tensorboard import SummaryWriter
 from time import perf_counter,localtime
 from itertools import product
+from datetime import datetime
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
@@ -151,11 +152,15 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
     if logging_tb:
         #TODO: update this piece of code to enable tensorboard utilization again
-        tb = SummaryWriter(log_dir=f'runs/leakyrelu/cuda{cuda_id}/m_epochs{max_epochs}/lr{learning_rate}/'
-                                f'bs{batch_size}/h_h{history_horizon}/f_h{forecast_horizon}/'
-                                f'core_{core_net}/opt_{optimizer_name}/relu{relu_leak}/drop_fc{dropout_fc}/'
-                                f'drop_core{dropout_core}/lin_hidden{rel_linear_hidden_size}/core_hidden{rel_core_hidden_size}')
+        #tb = SummaryWriter(log_dir=f'runs/leakyrelu/cuda{cuda_id}/m_epochs{max_epochs}/lr{learning_rate}/'
+        #                        f'bs{batch_size}/h_h{history_horizon}/f_h{forecast_horizon}/'
+        #                        f'core_{core_net}/opt_{optimizer_name}/relu{relu_leak}/drop_fc{dropout_fc}/'
+        #                        f'drop_core{dropout_core}/lin_hidden{rel_linear_hidden_size}/core_hidden{rel_core_hidden_size}')
         #tb = SummaryWriter(log_dir='runs/test1')
+        if not ARGS.logname:
+            ARGS.logname = str(datetime.now()).replace(":", "-").split(".")[0]
+
+        tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
 
         print('Begin training,\t logged here:\t', tb.log_dir)
         tb.add_graph(net, [inputs1, inputs2])
@@ -402,6 +407,7 @@ def main(infile, outmodel, target_id, log_path = None):
 
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
+    print(ARGS.logname)
     PAR = read_config(model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
     main(infile = os.path.join(MAIN_PATH, PAR['data_path']), outmodel = os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name']),
             target_id = PAR['target_id'], log_path=os.path.join(MAIN_PATH,PAR['log_path']))

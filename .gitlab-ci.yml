@@ -88,7 +88,7 @@ eval_on_api_call:
         - docker
     only:
         variables:
-            - $CI_PIPELINE_SOURCE == 'api'
+            - $CI_PIPELINE_SOURCE == 'api' # for webUI it's 'web'
 
 eval_on_commit_message:
     stage: evaluation
