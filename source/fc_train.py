@@ -215,10 +215,10 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             tb.add_scalar('val_loss_steps', validation_loss, step_counter)
 
             values = {
-                'hparam/train_loss': epoch_loss,
-                'hparam/val_loss': validation_loss,
-                'hparam/train_time': t1_stop - t1_start,
-                'hparam/total_time': t1_stop - t0_start
+                'hparam/hp_train_loss': epoch_loss,
+                'hparam/hp_val_loss': validation_loss,
+                'hparam/hp_train_time': t1_stop - t1_start,
+                'hparam/hp_total_time': t1_stop - t0_start
             }
 
             tb.add_hparams(params, values)
@@ -400,12 +400,13 @@ def main(infile, outmodel, target_id, log_path = None):
             PAR['best_score'] = new_score
             PAR['best_loss'] = loss
 
-            if(ARGS.ci == False):
-                if (query_true_false("Overwrite config with new parameters?")):
-                    print("study best value: ",study.best_value)
-                    print("current loss: ", loss)
-                    PAR['best_loss'] = study.best_value
-                    PAR.update(trial.params)
+            if PAR['exploration']:
+                if(ARGS.ci == False):
+                    if (query_true_false("Overwrite config with new parameters?")):
+                        print("study best value: ",study.best_value)
+                        print("current loss: ", loss)
+                        PAR['best_loss'] = study.best_value
+                        PAR.update(trial.params)
 
             print("Model improvement achieved. Save "+ ARGS.station+"-file in "+ PAR['output_path']+".")
             if PAR['exploration'] == True:
