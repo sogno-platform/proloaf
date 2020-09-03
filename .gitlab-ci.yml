@@ -11,10 +11,13 @@ variables:
 
 workflow:
     rules:
-        - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE # =~ /\[[^\[\]]*?\]\n/
-        - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "api"
-        - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "web"
-        - when: never
+        - if: $CI_COMMIT_BRANCH == "test-new-ci" && $CI_COMMIT_MESSAGE
+        - if: $CI_COMMIT_BRANCH == "test-new-ci" && $CI_PIPELINE_SOURCE == "api"
+        - if: $CI_COMMIT_BRANCH == "test-new-ci" && $CI_PIPELINE_SOURCE == "web"
+        # - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE ==~ /\[[^\[\]]*?\]\n/
+        # - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "api"
+        # - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "web"
+        # - when: never
 
 stages:
     - prepare
