@@ -39,7 +39,7 @@ docker:
 train_on_api_call:
     stage: training
     script:
-        - chmod +y ./trigger_training.sh
+        - chmod +x ./trigger_training.sh
         - ./trigger_training.sh
         # - chmod +x ./handle_commit_message.sh
         # - ./handle_commit_message.sh
@@ -59,7 +59,7 @@ train_on_api_call:
 train_on_web_call:
     stage: training
     script:
-        - chmod +y ./trigger_training.sh
+        - chmod +x ./trigger_training.sh
         - ./trigger_training.sh
         # - chmod +x ./handle_commit_message.sh
         # - ./handle_commit_message.sh
