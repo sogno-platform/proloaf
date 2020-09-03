@@ -221,6 +221,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
                 'hparam/hp_total_time': t1_stop - t0_start
             }
 
+            # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
             tb.add_hparams(params, values)
 
             for name, weight in net.decoder.named_parameters():
