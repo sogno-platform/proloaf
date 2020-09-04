@@ -1,7 +1,7 @@
 {
-    "data_path": "./data/test_data_clean.csv",
+    "data_path": "./targets/ci_tests/test_data_clean.csv",
     "output_path": "./oracles/",
-    "exploration_path": "./targets/ci_test_hp/tuning.json",
+    "exploration_path": "./targets/ci_tests/ci_test_hp/tuning.json",
     "evaluation_path": "./oracles/eval_gc2017_test_hp/",
     "log_path": "./logs/",
     "model_name": "gc17ct_GRU_gnll_test_hp",
