@@ -181,8 +181,8 @@ test_eval_hp:
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
-    dependencies:
-        - test_train_hp
+    needs:
+        - job: test_train_hp
     only:
         variables:
             - $CI_PIPELINE_SOURCE == 'push'
@@ -200,8 +200,8 @@ test_eval_no_hp:
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
-    dependencies:
-        - test_train_no_hp
+    needs:
+        - job: test_train_no_hp
     only:
         variables:
             - $CI_PIPELINE_SOURCE == 'push'
