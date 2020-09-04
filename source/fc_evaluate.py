@@ -195,7 +195,13 @@ if __name__ == '__main__':
         plot_metrics(rmse_horizon.detach().numpy(), sharpness_horizon.detach().numpy(), coverage_horizon.detach().numpy(), mis_horizon.detach().numpy(), OUTDIR, 'metrics-evaluation')
 
         #plot forecast for sample days
-        testhours = [0, 12, 24, 48, 100, 112]
+        #testhours = [0, 12, 24, 48, 100, 112]
+
+        if PAR['ci_test'] is None:
+            testhours = [0, 12, 24, 48, 100, 112]
+        else:
+            testhours = [0, 12]
+
         actual_time = pd.to_datetime(df.loc[split_index:, 'Time'])
         for i in testhours:
             hours = actual_time.iloc[i:i + FORECAST_HORIZON]
