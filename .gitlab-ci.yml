@@ -80,7 +80,7 @@ train_on_web_call:
 test_train_no_hp:
     stage: training
     script:
-        - python3 source/fc_train.py -s ci_test/ci_test_no_hp
+        - python3 source/fc_train.py -s ci_tests/ci_test_no_hp --ci
     artifacts:
         when: on_success
         expire_in: 1 hour
@@ -97,7 +97,7 @@ test_train_no_hp:
 test_train_hp:
     stage: training
     script:
-        - python3 source/fc_train.py -s ci_tests/ci_test_hp
+        - python3 source/fc_train.py -s ci_tests/ci_test_hp --ci
     artifacts:
         when: on_success
         expire_in: 1 hour
