@@ -369,6 +369,7 @@ def main(infile, outmodel, target_id, log_path = None):
                 # slice_fig= optuna.visualization.plot_slice(study)
                 # slice_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'slice_fig.png'))
 
+
                 # Visualize high-dimensional parameter relationships.
                 # optuna.visualization.plot_parallel_coordinate(study).show()
                 parallel_coordinate_fig = optuna.visualization.plot_parallel_coordinate(study)
