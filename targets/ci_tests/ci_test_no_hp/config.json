@@ -150,6 +150,6 @@
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
-    "best_loss": 0.0,
-    "best_score": 3.6151726245880127
+    "best_loss": null,
+    "best_score": null
 }
