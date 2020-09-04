@@ -162,6 +162,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         if not ARGS.logname:
             ARGS.logname = str(datetime.now()).replace(":", "-").split(".")[0]
 
+        print("Test!!")
         tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
 
         # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
