@@ -152,6 +152,9 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
     inputs1, inputs2, targets = next(iter(train_data_loader))
 
+    if ARGS.ci:
+        logging_tb = False
+
     if logging_tb:
         #TODO: update this piece of code to enable tensorboard utilization again
         #tb = SummaryWriter(log_dir=f'runs/leakyrelu/cuda{cuda_id}/m_epochs{max_epochs}/lr{learning_rate}/'
@@ -355,20 +358,21 @@ def main(infile, outmodel, target_id, log_path = None):
             # trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station + '_tuning.csv'), sep=';')
             trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
 
-            # optuna.visualization.plot_optimization_history(study).show()
-            opt_history_fig = optuna.visualization.plot_optimization_history(study)
-            # opt_history_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'opt_history_fig.png'))
-            opt_history_fig.write_image('opt_history_fig.png')
+            if not ARGS.ci:
+                # optuna.visualization.plot_optimization_history(study).show()
+                opt_history_fig = optuna.visualization.plot_optimization_history(study)
+                # opt_history_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'opt_history_fig.png'))
+                opt_history_fig.write_image('opt_history_fig.png')
 
-            # Select parameters to visualize.
-            # optuna.visualization.plot_slice(study).show()
-            # slice_fig= optuna.visualization.plot_slice(study)
-            # slice_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'slice_fig.png'))
+                # Select parameters to visualize.
+                # optuna.visualization.plot_slice(study).show()
+                # slice_fig= optuna.visualization.plot_slice(study)
+                # slice_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'slice_fig.png'))
 
-            # Visualize high-dimensional parameter relationships.
-            # optuna.visualization.plot_parallel_coordinate(study).show()
-            parallel_coordinate_fig = optuna.visualization.plot_parallel_coordinate(study)
-            parallel_coordinate_fig.write_image('parallel_coordinate_fig.png')
+                # Visualize high-dimensional parameter relationships.
+                # optuna.visualization.plot_parallel_coordinate(study).show()
+                parallel_coordinate_fig = optuna.visualization.plot_parallel_coordinate(study)
+                parallel_coordinate_fig.write_image('parallel_coordinate_fig.png')
 
             print("Best trial:")
             trial = study.best_trial
