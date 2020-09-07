@@ -116,9 +116,11 @@ test_train_hp:
 lint_fc_train:
     stage: testing_train
     script:
+        - echo "Test"
+        - pip3 list | grep flake
         - flake8 --output-file fc_train_lint.txt source/fc_train.py
         #- flake8_junit fc_train_lint.txt fc_train_lint.xml
-        - pip3 list | grep flake
+        - echo "after"
     artifacts:
         when: on_success
         expire_in: 1 hour
