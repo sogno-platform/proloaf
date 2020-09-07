@@ -197,10 +197,10 @@ if __name__ == '__main__':
         #plot forecast for sample days
         #testhours = [0, 12, 24, 48, 100, 112]
 
-        if PAR['ci_test'] is None:
-            testhours = [0, 12, 24, 48, 100, 112]
-        else:
+        if 'ci_tests' in PAR['data_path']:
             testhours = [0, 12]
+        else:
+            testhours = [0, 12, 24, 48, 100, 112]
 
         actual_time = pd.to_datetime(df.loc[split_index:, 'Time'])
         for i in testhours:
