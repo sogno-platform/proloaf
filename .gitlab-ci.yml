@@ -22,6 +22,7 @@ workflow:
 stages:
     - prepare
     - training
+    - testing
     - evaluation
 
 docker:
@@ -78,7 +79,7 @@ train_on_web_call:
 
 # testing taining jobs
 test_train_no_hp:
-    stage: training
+    stage: testing
     script:
         - python3 source/fc_train.py -s ci_tests/ci_test_no_hp --ci
     artifacts:
@@ -95,7 +96,7 @@ test_train_no_hp:
 
 
 test_train_hp:
-    stage: training
+    stage: testing
     script:
         - python3 source/fc_train.py -s ci_tests/ci_test_hp --ci
     artifacts:
@@ -103,6 +104,27 @@ test_train_hp:
         expire_in: 1 hour
         paths:
             - ./oracles/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'push'
+
+
+lint_fc_train:
+    stage: testing
+    script:
+        - flake8 --output-file fc_train_lint.txt source/fc_train.py
+        - flake8_junit fc_train_lint.txt fc_train_lint.xml
+    artifacts:
+        when: on_success
+        expire_in: 1 hour
+        reports:
+            junit: ./fc_train_lint.xml
+        paths:
+            - ./oracles/*
+            - ./fc_train_lint.xml
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
@@ -170,7 +192,7 @@ eval_on_web_call:
 
 
 test_eval_hp:
-    stage: evaluation
+    stage: testing
     script:
         - python3 source/fc_evaluate.py -s ci_tests/ci_test_hp
     artifacts:
@@ -189,7 +211,7 @@ test_eval_hp:
 
 
 test_eval_no_hp:
-    stage: evaluation
+    stage: testing
     script:
         - python3 source/fc_evaluate.py -s ci_tests/ci_test_no_hp
     artifacts:
@@ -202,6 +224,27 @@ test_eval_no_hp:
         - docker
     needs:
         - job: test_train_no_hp
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'push'
+
+
+lint_fc_evaluate:
+    stage: testing
+    script:
+        - flake8 --output-file fc_evaluate_lint.txt source/fc_evaluate.py
+        - flake8_junit fc_evaluate_lint.txt fc_evaluate_lint.xml
+    artifacts:
+        when: on_success
+        expire_in: 1 hour
+        reports:
+            junit: ./fc_evaluate_lint.xml
+        paths:
+            - ./oracles/*
+            - ./fc_evaluate_lint.xml
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
     only:
         variables:
             - $CI_PIPELINE_SOURCE == 'push'
