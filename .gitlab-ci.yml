@@ -22,7 +22,8 @@ workflow:
 stages:
     - prepare
     - training
-    - testing
+    - testing_train
+    - testing_eval
     - evaluation
 
 docker:
@@ -79,7 +80,7 @@ train_on_web_call:
 
 # testing taining jobs
 test_train_no_hp:
-    stage: testing
+    stage: testing_train
     script:
         - python3 source/fc_train.py -s ci_tests/ci_test_no_hp --ci
     artifacts:
@@ -96,7 +97,7 @@ test_train_no_hp:
 
 
 test_train_hp:
-    stage: testing
+    stage: testing_train
     script:
         - python3 source/fc_train.py -s ci_tests/ci_test_hp --ci
     artifacts:
@@ -113,7 +114,7 @@ test_train_hp:
 
 
 lint_fc_train:
-    stage: testing
+    stage: testing_train
     script:
         - flake8 --output-file fc_train_lint.txt source/fc_train.py
         - flake8_junit fc_train_lint.txt fc_train_lint.xml
@@ -192,7 +193,7 @@ eval_on_web_call:
 
 
 test_eval_hp:
-    stage: testing
+    stage: testing_eval
     script:
         - python3 source/fc_evaluate.py -s ci_tests/ci_test_hp
     artifacts:
@@ -211,7 +212,7 @@ test_eval_hp:
 
 
 test_eval_no_hp:
-    stage: testing
+    stage: testing_eval
     script:
         - python3 source/fc_evaluate.py -s ci_tests/ci_test_no_hp
     artifacts:
@@ -230,7 +231,7 @@ test_eval_no_hp:
 
 
 lint_fc_evaluate:
-    stage: testing
+    stage: testing_eval
     script:
         - flake8 --output-file fc_evaluate_lint.txt source/fc_evaluate.py
         - flake8_junit fc_evaluate_lint.txt fc_evaluate_lint.xml
