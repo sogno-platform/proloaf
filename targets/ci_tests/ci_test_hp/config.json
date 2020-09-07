@@ -151,6 +151,5 @@
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
     "best_loss": null,
-    "best_score": null,
-    "ci_test": 1
+    "best_score": null
 }
