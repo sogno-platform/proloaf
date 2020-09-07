@@ -116,11 +116,8 @@ test_train_hp:
 lint_fc_train:
     stage: testing_train
     script:
-        - echo "Test"
-        - pip3 list | grep flake
-        - flake8 --output-file fc_train_lint.txt source/fc_train.py
-        #- flake8_junit fc_train_lint.txt fc_train_lint.xml
-        - echo "after"
+        - chmod +x ./lint_script.sh
+        - ./lint_script.sh fc_train
     artifacts:
         when: on_success
         expire_in: 1 hour
@@ -236,8 +233,8 @@ test_eval_no_hp:
 lint_fc_evaluate:
     stage: testing_eval
     script:
-        - flake8 --output-file fc_evaluate_lint.txt source/fc_evaluate.py
-        - flake8_junit fc_evaluate_lint.txt fc_evaluate_lint.xml
+        - chmod +x ./lint_script.sh
+        - ./lint_script.sh fc_evaluate
     artifacts:
         when: on_success
         expire_in: 1 hour
