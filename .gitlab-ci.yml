@@ -118,6 +118,7 @@ lint_fc_train:
     script:
         - flake8 --output-file fc_train_lint.txt source/fc_train.py
         - flake8_junit fc_train_lint.txt fc_train_lint.xml
+        - pip3 list | grep flake
     artifacts:
         when: on_success
         expire_in: 1 hour
