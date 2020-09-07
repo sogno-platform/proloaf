@@ -117,7 +117,7 @@ lint_fc_train:
     stage: testing_train
     script:
         - flake8 --output-file fc_train_lint.txt source/fc_train.py
-        - flake8_junit fc_train_lint.txt fc_train_lint.xml
+        #- flake8_junit fc_train_lint.txt fc_train_lint.xml
         - pip3 list | grep flake
     artifacts:
         when: on_success
