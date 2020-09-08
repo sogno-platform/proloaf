@@ -41,8 +41,8 @@ docker:
 train_on_api_call:
     stage: training
     script:
-        - chmod +x ./trigger_training.sh
-        - ./trigger_training.sh
+        - chmod +x ./shell/trigger_training.sh
+        - ./shell/trigger_training.sh
         # - chmod +x ./handle_commit_message.sh
         # - ./handle_commit_message.sh
     artifacts:
@@ -61,8 +61,8 @@ train_on_api_call:
 train_on_web_call:
     stage: training
     script:
-        - chmod +x ./trigger_training.sh
-        - ./trigger_training.sh
+        - chmod +x ./shell/trigger_training.sh
+        - ./shell/trigger_training.sh
         # - chmod +x ./handle_commit_message.sh
         # - ./handle_commit_message.sh
     artifacts:
@@ -116,8 +116,8 @@ test_train_hp:
 lint_fc_train:
     stage: testing_train
     script:
-        - chmod +x ./lint_script.sh
-        - ./lint_script.sh fc_train
+        - chmod +x ./shell/lint_script.sh
+        - ./shell/lint_script.sh fc_train
     artifacts:
         when: on_success
         expire_in: 1 hour
@@ -159,8 +159,8 @@ lint_fc_train:
 eval_on_api_call:
     stage: evaluation
     script:
-         - chmod +x ./execute_evaluation.sh
-         - ./execute_evaluation.sh
+         - chmod +x ./shell/execute_evaluation.sh
+         - ./shell/execute_evaluation.sh
     artifacts:
         when: on_success
         #expire_in: never
@@ -177,8 +177,8 @@ eval_on_api_call:
 eval_on_web_call:
     stage: evaluation
     script:
-         - chmod +x ./execute_evaluation.sh
-         - ./execute_evaluation.sh
+         - chmod +x ./shell/execute_evaluation.sh
+         - ./shell/execute_evaluation.sh
     artifacts:
         when: on_success
         #expire_in: never
@@ -233,8 +233,8 @@ test_eval_no_hp:
 lint_fc_evaluate:
     stage: testing_eval
     script:
-        - chmod +x ./lint_script.sh
-        - ./lint_script.sh fc_evaluate
+        - chmod +x ./shell/lint_script.sh
+        - ./shell/lint_script.sh fc_evaluate
     artifacts:
         when: on_success
         expire_in: 1 hour
