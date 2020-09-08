@@ -3,4 +3,4 @@ public/
 resources/
 node_modules/
 tech-doc-hugo
-
+content/en/docs/Tutorials/test_*
