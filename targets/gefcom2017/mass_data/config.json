@@ -1,7 +1,7 @@
 {
     "data_path": "./data/Gefcom2017/Stations/mass_data_clean.csv",
     "output_path": "./oracles/",
-    "exploration_path": null,
+    "exploration_path": "./targets/gefcom2017/mass_data/tuning.json",
     "evaluation_path": "./oracles/eval_gc2017_mass/",
     "log_path": "./logs/",
     "model_name": "gc17mass_GRU_gnll",
@@ -15,33 +15,33 @@
     "validation_split": 0.85,
     "core_net": "torch.nn.GRU",
     "optimizer_name": "adam",
-    "exploration": null,
+    "exploration": "True",
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
-      {
-          "name": "main",
-          "scaler": [
-              "robust",
-              15,
-              85
-          ],
-          "features": [
-              "demand"
-          ]
-      },
-      {
-          "name": "add",
-          "scaler": [
-              "minmax",
-              -1.0,
-              1.0
-          ],
-          "features": [
-              "drybulb",
-              "dewpnt"
-          ]
-      },
+        {
+            "name": "main",
+            "scaler": [
+                "robust",
+                15,
+                85
+            ],
+            "features": [
+                "demand"
+            ]
+        },
+        {
+            "name": "add",
+            "scaler": [
+                "minmax",
+                -1.0,
+                1.0
+            ],
+            "features": [
+                "drybulb",
+                "dewpnt"
+            ]
+        },
         {
             "name": "aux",
             "scaler": null,
@@ -150,6 +150,6 @@
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
-    "best_loss": -1.0173205137252808,
-    "best_score": null
+    "best_loss": -1.8666056407822502,
+    "best_score": 0.7450859546661377
 }

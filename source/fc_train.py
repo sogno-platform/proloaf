@@ -168,15 +168,6 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         #print("Test!!")
         tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
 
-        # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
-        params = {
-            'max_epochs' : max_epochs,
-            'learning_rate': learning_rate,
-            'batch_size': batch_size,
-            'optimizer_name': optimizer_name,
-            'dropout_fc': dropout_fc
-        }
-
         print('Begin training,\t logged here:\t', tb.log_dir)
         tb.add_graph(net, [inputs1, inputs2])
     else:
@@ -217,16 +208,6 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             tb.add_scalar('train_time', t1_stop - t1_start, epoch+1)
             tb.add_scalar('total_time', t1_stop - t0_start, epoch+1)
             tb.add_scalar('val_loss_steps', validation_loss, step_counter)
-
-            values = {
-                'hparam/hp_train_loss': epoch_loss,
-                'hparam/hp_val_loss': validation_loss,
-                'hparam/hp_train_time': t1_stop - t1_start,
-                'hparam/hp_total_time': t1_stop - t0_start
-            }
-
-            # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
-            tb.add_hparams(params, values)
 
             for name, weight in net.decoder.named_parameters():
                 tb.add_histogram(name, weight, epoch+1)
@@ -276,6 +257,30 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         }, ignore_index=True)
 
     if logging_tb:
+        # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
+        if PAR['exploration']:
+            #print("Exploration is set to True, reading hyperparameters from path: " + PAR['exploration_path'])
+            params = PAR['hyper_params']#read_config(model_name=ARGS.station, config_path=PAR['exploration_path'],
+                                      #main_path=MAIN_PATH)['settings']
+        else:
+            params = {
+                'max_epochs' : max_epochs,
+                'learning_rate': learning_rate,
+                'batch_size': batch_size,
+                'optimizer_name': optimizer_name,
+                'dropout_fc': dropout_fc
+                }
+        print(params)
+        values = {
+            #'hparam/hp_train_loss': epoch_loss,
+            #'hparam/hp_val_loss': validation_loss,
+            #'hparam/hp_train_time': t1_stop - t1_start,
+            'hparam/hp_total_time': t1_stop - t0_start,
+            'hparam/score' : best_score
+        }
+
+        # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
+        tb.add_hparams(params, values)
         tb.close()
 
     return net, log_df, early_stopping.val_loss_min, best_score
@@ -292,6 +297,11 @@ def objective(selected_features, scalers,hyper_param, log_df, **_):
                 param[key] = func_generator(**(hyper_param['settings'][key]['kwargs']))
 
         PAR.update(param)
+        PAR['hyper_params'] = param
+        print("param:")
+        print(param)
+        print("PARAM:")
+        print(PAR['hyper_params'])
         model, train_dl, validation_dl, test_dl = make_model(selected_features, scalers, **PAR)
         _, _, val_loss,_ = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
                                test_data_loader=test_dl, log_df=log_df, net=model, **PAR)
