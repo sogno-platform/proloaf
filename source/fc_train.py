@@ -152,6 +152,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
     inputs1, inputs2, targets = next(iter(train_data_loader))
 
+    # always have logging disabled for ci to avoid failed jobs because of tensorboard
     if ARGS.ci:
         logging_tb = False
 
@@ -162,6 +163,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         #                        f'core_{core_net}/opt_{optimizer_name}/relu{relu_leak}/drop_fc{dropout_fc}/'
         #                        f'drop_core{dropout_core}/lin_hidden{rel_linear_hidden_size}/core_hidden{rel_core_hidden_size}')
         #tb = SummaryWriter(log_dir='runs/test1')
+
+        # if no run_name is given in command line with --logname, use timestamp
         if not ARGS.logname:
             ARGS.logname = str(datetime.now()).replace(":", "-").split(".")[0]
 
@@ -258,10 +261,10 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
     if logging_tb:
         # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
+        # if hyperparam tuning is True, use hparams as defined in tuning.json
         if PAR['exploration']:
-            #print("Exploration is set to True, reading hyperparameters from path: " + PAR['exploration_path'])
-            params = PAR['hyper_params']#read_config(model_name=ARGS.station, config_path=PAR['exploration_path'],
-                                      #main_path=MAIN_PATH)['settings']
+            params = PAR['hyper_params']
+        # else use predefined hparams
         else:
             params = {
                 'max_epochs' : max_epochs,
@@ -270,7 +273,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
                 'optimizer_name': optimizer_name,
                 'dropout_fc': dropout_fc
                 }
-        print(params)
+        # print(params)
+        # metrics to evaluate the model by
         values = {
             #'hparam/hp_train_loss': epoch_loss,
             #'hparam/hp_val_loss': validation_loss,
