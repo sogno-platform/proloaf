@@ -226,6 +226,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     with torch.no_grad():
         net.eval()
         best_score = mh.performance_test(net,data_loader=test_data_loader,score_type='mis', horizon=forecast_horizon).item()
+    # TODO: Move log_df part to plf-util
     log_df = log_df.append(
         {
             'time_stamp': pd.Timestamp.now(),
@@ -284,6 +285,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         }
 
         # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
+        # https://pytorch.org/docs/master/tensorboard.html
         tb.add_hparams(params, values)
         tb.close()
 
@@ -302,10 +304,10 @@ def objective(selected_features, scalers,hyper_param, log_df, **_):
 
         PAR.update(param)
         PAR['hyper_params'] = param
-        print("param:")
-        print(param)
-        print("PARAM:")
-        print(PAR['hyper_params'])
+        #print("param:")
+        #print(param)
+        #print("PARAM:")
+        #print(PAR['hyper_params'])
         model, train_dl, validation_dl, test_dl = make_model(selected_features, scalers, **PAR)
         _, _, val_loss,_ = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
                                test_data_loader=test_dl, log_df=log_df, net=model, **PAR)
@@ -365,12 +367,12 @@ def main(infile, outmodel, target_id, log_path = None):
                 study.optimize(objective(selected_features, scalers,hyper_param,log_df=log_df,**PAR), n_trials=n_trials, timeout=timeout)
 
             print("Number of finished trials: ", len(study.trials))
-            trials_df = study.trials_dataframe()
+            #trials_df = study.trials_dataframe()
 
             if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'])):
                 os.mkdir(os.path.join(MAIN_PATH, PAR['log_path']))
-            # trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station + '_tuning.csv'), sep=';')
-            trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
+
+            #trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
 
             if not ARGS.ci:
                 # optuna.visualization.plot_optimization_history(study).show()
@@ -432,7 +434,7 @@ def main(infile, outmodel, target_id, log_path = None):
             print("Model improvement achieved. Save "+ ARGS.station+"-file in "+ PAR['output_path']+".")
             if PAR['exploration'] == True:
                 if ARGS.ci == False:
-                    PAR['exploration'] = query_true_false("Parameters tuned and updated. Do you wish to turn off hyperparameter tuning for future training?")
+                    PAR['exploration'] = not query_true_false("Parameters tuned and updated. Do you wish to turn off hyperparameter tuning for future training?")
         else:
             print("Existing model for this target did not improve in current run. Discard temporary model files.")
 
