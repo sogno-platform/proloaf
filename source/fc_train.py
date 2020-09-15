@@ -462,7 +462,7 @@ def main(infile, outmodel, target_id, log_path = None):
             write_config(PAR, model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
             print('saving log')
             if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
-                os.mkdir(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
+                os.makedirs(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
             log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + '_training.csv'), sep=';')
 
 if __name__ == '__main__':
