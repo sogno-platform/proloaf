@@ -463,7 +463,7 @@ def main(infile, outmodel, target_id, log_path = None):
             print('saving log')
             if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
                 os.mkdir(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
-            log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_training.csv'), sep=';')
+            log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + '_training.csv'), sep=';')
 
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
