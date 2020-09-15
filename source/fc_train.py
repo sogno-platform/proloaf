@@ -294,12 +294,15 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         tb.close()
 
         # move hparam logs out of subfolders
-        subdir_list = [x[0] for x in os.walk(run_dir)]  # gets a list of all subdirectories in the run directory
+        subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
 
         for dir in subdir_list:
-            files = os.listdir(os.path.join(run_dir, dir))  # get all files in current subdir
+            subdir = os.path.join(run_dir, dir)
+            files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
             for f in files:
-                shutil.move(os.path.join(os.path.join(run_dir, dir),f), run_dir)  # move all files out of subdir
+                shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
+            shutil.rmtree(subdir)  # removes the now empty subdir
+            # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
 
     return net, log_df, early_stopping.val_loss_min, best_score
 
@@ -464,7 +467,6 @@ def main(infile, outmodel, target_id, log_path = None):
 
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
-    print(ARGS.logname)
     PAR = read_config(model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
     main(infile = os.path.join(MAIN_PATH, PAR['data_path']), outmodel = os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name']),
             target_id = PAR['target_id'], log_path=os.path.join(MAIN_PATH,PAR['log_path']))
