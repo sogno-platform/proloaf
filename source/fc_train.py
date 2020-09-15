@@ -2,7 +2,6 @@
 #      1. Decide whether exploration is to be overwritten.
 #      2. Also, look for visualization possibilities.
 
-
 import json
 import os
 import sys
@@ -155,8 +154,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     inputs1, inputs2, targets = next(iter(train_data_loader))
 
     # always have logging disabled for ci to avoid failed jobs because of tensorboard
-    if ARGS.ci:
-        logging_tb = False
+    #if ARGS.ci:
+    #    logging_tb = False
 
     if logging_tb:
         #TODO: update this piece of code to enable tensorboard utilization again
@@ -230,6 +229,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     with torch.no_grad():
         net.eval()
         best_score = mh.performance_test(net,data_loader=test_data_loader,score_type='mis', horizon=forecast_horizon).item()
+
     # TODO: Move log_df part to plf-util
     log_df = log_df.append(
         {
