@@ -15,6 +15,8 @@ import numpy as np
 import plotly
 import optuna
 
+import shutil
+
 import tempfile
 
 torch.set_printoptions(linewidth=120) # Display option for output
@@ -33,7 +35,7 @@ import plf_util.datatuner as dt
 import plf_util.tensorloader as dl
 import plf_util.fc_network as fc_net
 import plf_util.modelhandler as mh
-import plf_util.parameterhandler as ph
+#import plf_util.parameterhandler as ph
 import plf_util.eval_metrics as metrics
 from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false
 
@@ -169,7 +171,9 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             ARGS.logname = str(datetime.now()).replace(":", "-").split(".")[0]
 
         #print("Test!!")
-        tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
+        #tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
+        run_dir = os.path.join(MAIN_PATH, str("runs/" + ARGS.logname))
+        tb = SummaryWriter(log_dir=run_dir)
 
         print('Begin training,\t logged here:\t', tb.log_dir)
         tb.add_graph(net, [inputs1, inputs2])
@@ -288,6 +292,14 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         # https://pytorch.org/docs/master/tensorboard.html
         tb.add_hparams(params, values)
         tb.close()
+
+        # move hparam logs out of subfolders
+        subdir_list = [x[0] for x in os.walk(run_dir)]  # gets a list of all subdirectories in the run directory
+
+        for dir in subdir_list:
+            files = os.listdir(os.path.join(run_dir, dir))  # get all files in current subdir
+            for f in files:
+                shutil.move(os.path.join(os.path.join(run_dir, dir),f), run_dir)  # move all files out of subdir
 
     return net, log_df, early_stopping.val_loss_min, best_score
 
@@ -446,9 +458,9 @@ def main(infile, outmodel, target_id, log_path = None):
             torch.save(min_net, outmodel)
             write_config(PAR, model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
             print('saving log')
-            #if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station)):
-            #    os.mkdir(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station))
-            #log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], ARGS.station + '_training.csv'), sep=';')
+            if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
+                os.mkdir(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
+            log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_training.csv'), sep=';')
 
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
