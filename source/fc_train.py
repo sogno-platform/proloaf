@@ -346,7 +346,7 @@ def main(infile, outmodel, target_id, log_path = None):
     selected_features, scalers = dt.scale_all(df, **PAR)
 
     try:
-        log_df = pd.read_csv(os.path.join(MAIN_PATH, log_path, ARGS.station+'_training.csv'), sep=';', index_col=0)
+        log_df = pd.read_csv(os.path.join(MAIN_PATH, log_path, PAR['model_name'] + '_training.csv'), sep=';', index_col=0)
     except FileNotFoundError:
         log_df = pd.DataFrame(columns=['time_stamp', 'train_loss', 'val_loss', 'tot_time', 'activation_function',
                                        'cuda_id', 'max_epochs', 'lr', 'batch_size', 'train_split',

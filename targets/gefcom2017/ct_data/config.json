@@ -15,7 +15,7 @@
     "validation_split": 0.85,
     "core_net": "torch.nn.GRU",
     "optimizer_name": "adam",
-    "exploration": null,
+    "exploration": "True",
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
@@ -142,7 +142,7 @@
         "weekday_5",
         "weekday_6"
     ],
-    "max_epochs": 5,
+    "max_epochs": 3,
     "batch_size": 103,
     "learning_rate": 0.0003720068247101349,
     "core_layers": 3,
@@ -150,6 +150,6 @@
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
-    "best_loss": -1.8425216158231106,
-    "best_score": 0.5966270565986633
+    "best_loss": -1.5665651314788394,
+    "best_score": 0.7095125913619995
 }
