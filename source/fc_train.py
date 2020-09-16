@@ -458,8 +458,12 @@ def main(infile, outmodel, target_id, log_path = None):
     finally:
         if min_net is not None:
             print('saving model')
+            if not os.path.exists(os.path.join(MAIN_PATH, PAR['output_path'])): # make output folder if it doesn't exist
+                os.makedirs(os.path.join(MAIN_PATH, PAR['output_path']))
             torch.save(min_net, outmodel)
+
             write_config(PAR, model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
+
             print('saving log')
             if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
                 os.makedirs(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
