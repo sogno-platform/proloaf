@@ -50,6 +50,8 @@ train_on_api_call:
         #expire_in: never
         paths:
             - ./oracles/*
+            - ./logs/**/*
+            - ./logs/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
@@ -70,6 +72,8 @@ train_on_web_call:
         #expire_in: never
         paths:
             - ./oracles/*
+            - ./logs/**/*
+            - ./logs/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
