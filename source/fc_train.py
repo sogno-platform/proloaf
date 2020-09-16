@@ -167,7 +167,15 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
         # if no run_name is given in command line with --logname, use timestamp
         if not ARGS.logname:
-            ARGS.logname = str(datetime.now()).replace(":", "-").split(".")[0]
+            ARGS.logname = str(datetime.now()).replace(":", "-").split(".")[0] + "/"
+
+        PAR['trial_id'] = PAR['trial_id'] + 1
+
+        if PAR['exploration']:
+            if PAR['n_trials'] < PAR['trial_id']:
+                ARGS.logname = ARGS.logname.split("/")[0] + "/train_run/"
+            else:
+                ARGS.logname = ARGS.logname.split("/")[0] + "/trial_{}".format(PAR['trial_id'])
 
         #print("Test!!")
         #tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
@@ -323,6 +331,7 @@ def objective(selected_features, scalers,hyper_param, log_df, **_):
         #print(param)
         #print("PARAM:")
         #print(PAR['hyper_params'])
+
         model, train_dl, validation_dl, test_dl = make_model(selected_features, scalers, **PAR)
         _, _, val_loss,_ = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
                                test_data_loader=test_dl, log_df=log_df, net=model, **PAR)
@@ -368,6 +377,7 @@ def main(infile, outmodel, target_id, log_path = None):
                                       main_path=MAIN_PATH)
             if 'number_of_tests' in hyper_param.keys():
                 n_trials = hyper_param['number_of_tests']
+                PAR['n_trials'] = n_trials
             if 'timeout' in hyper_param.keys():
                 timeout = hyper_param['timeout']
 
@@ -462,6 +472,11 @@ def main(infile, outmodel, target_id, log_path = None):
                 os.makedirs(os.path.join(MAIN_PATH, PAR['output_path']))
             torch.save(min_net, outmodel)
 
+            # drop unnecessary helper vars befor using PAR to safe
+            PAR.pop('hyper_params', None)
+            PAR.pop('trial_id', None)
+            PAR.pop('n_trials', None)
+
             write_config(PAR, model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
 
             print('saving log')
@@ -472,5 +487,6 @@ def main(infile, outmodel, target_id, log_path = None):
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
     PAR = read_config(model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
+    if PAR['exploration']: PAR['trial_id'] = 0  # set global trial ID for logging trials in subfolders
     main(infile = os.path.join(MAIN_PATH, PAR['data_path']), outmodel = os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name']),
             target_id = PAR['target_id'], log_path=os.path.join(MAIN_PATH,PAR['log_path']))
