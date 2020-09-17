@@ -169,13 +169,11 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         if not ARGS.logname:
             ARGS.logname = str(datetime.now()).replace(":", "-").split(".")[0] + "/"
 
-        PAR['trial_id'] = PAR['trial_id'] + 1
-
+        # if exploration is True, don't save each trial in the same folder, that confuses tensorboard.
+        # Instead, make a subfolder for each trial and name it Trial_{ID}.
+        # If Trial ID > n_trials, actuall training has begun; name that folder differently
         if PAR['exploration']:
-            if PAR['n_trials'] < PAR['trial_id']:
-                ARGS.logname = ARGS.logname.split("/")[0] + "/train_run/"
-            else:
-                ARGS.logname = ARGS.logname.split("/")[0] + "/trial_{}".format(PAR['trial_id'])
+            ARGS.logname = ARGS.logname.split("/")[0] + "/trial_{}".format(PAR['trial_id'])
 
         #print("Test!!")
         #tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
@@ -305,7 +303,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
 
         for dir in subdir_list:
-            subdir = os.path.join(run_dir, dir)
+            subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
             files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
             for f in files:
                 shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
@@ -327,6 +325,7 @@ def objective(selected_features, scalers,hyper_param, log_df, **_):
 
         PAR.update(param)
         PAR['hyper_params'] = param
+        PAR['trial_id'] = PAR['trial_id'] + 1
         #print("param:")
         #print(param)
         #print("PARAM:")
@@ -399,22 +398,22 @@ def main(infile, outmodel, target_id, log_path = None):
 
             #trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
 
-            if not ARGS.ci:
-                # optuna.visualization.plot_optimization_history(study).show()
-                opt_history_fig = optuna.visualization.plot_optimization_history(study)
-                # opt_history_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'opt_history_fig.png'))
-                opt_history_fig.write_image('opt_history_fig.png')
-
-                # Select parameters to visualize.
-                # optuna.visualization.plot_slice(study).show()
-                # slice_fig= optuna.visualization.plot_slice(study)
-                # slice_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'slice_fig.png'))
-
-
-                # Visualize high-dimensional parameter relationships.
-                # optuna.visualization.plot_parallel_coordinate(study).show()
-                parallel_coordinate_fig = optuna.visualization.plot_parallel_coordinate(study)
-                parallel_coordinate_fig.write_image('parallel_coordinate_fig.png')
+            # if not ARGS.ci:
+            #     # optuna.visualization.plot_optimization_history(study).show()
+            #     opt_history_fig = optuna.visualization.plot_optimization_history(study)
+            #     # opt_history_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'opt_history_fig.png'))
+            #     opt_history_fig.write_image('opt_history_fig.png')
+            #
+            #     # Select parameters to visualize.
+            #     # optuna.visualization.plot_slice(study).show()
+            #     # slice_fig= optuna.visualization.plot_slice(study)
+            #     # slice_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'slice_fig.png'))
+            #
+            #
+            #     # Visualize high-dimensional parameter relationships.
+            #     # optuna.visualization.plot_parallel_coordinate(study).show()
+            #     parallel_coordinate_fig = optuna.visualization.plot_parallel_coordinate(study)
+            #     parallel_coordinate_fig.write_image('parallel_coordinate_fig.png')
 
             print("Best trial:")
             trial = study.best_trial
@@ -434,6 +433,7 @@ def main(infile, outmodel, target_id, log_path = None):
                 else:
                     print('Training with hyper parameters fetched from config.json')
 
+        PAR['trial_id'] = 'main_run'
         model, train_dl, validation_dl, test_dl = make_model(selected_features,scalers,**PAR)
         net, log_df, loss, new_score = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
                                           test_data_loader=test_dl, net=model,log_df=log_df, **PAR)
@@ -472,7 +472,7 @@ def main(infile, outmodel, target_id, log_path = None):
                 os.makedirs(os.path.join(MAIN_PATH, PAR['output_path']))
             torch.save(min_net, outmodel)
 
-            # drop unnecessary helper vars befor using PAR to safe
+            # drop unnecessary helper vars befor using PAR to safe config
             PAR.pop('hyper_params', None)
             PAR.pop('trial_id', None)
             PAR.pop('n_trials', None)
