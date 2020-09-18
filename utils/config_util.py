@@ -2,6 +2,7 @@ import os
 import json
 import sys
 import argparse
+import shutil
 import plf_util.eval_metrics as metrics
 
 #TODO test if configmaker is still working after refactoring the directories
@@ -105,7 +106,7 @@ def query_true_false(question, default="yes"):
     """
     #valid = {"yes": False, "y": False, "ye": False,
     #         "no": True, "n": True}
-    
+
     valid = {"yes": True, "y": True, "ye": True,
              "no": False, "n": False}
     if default is None:
@@ -127,3 +128,15 @@ def query_true_false(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
+
+def clean_up_tensorboard_dir(run_dir):
+    # move hparam logs out of subfolders
+    subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
+
+    for dir in subdir_list:
+        subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
+        files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
+        for f in files:
+            shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
+        shutil.rmtree(subdir)  # removes the now empty subdir
+        # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
