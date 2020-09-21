@@ -1,8 +1,23 @@
-#ToDo:
+from torch.utils.tensorboard import SummaryWriter
+from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
+from plf_util.csv_logger import load_or_create_log, log_data, write_log_to_csv
+from datetime import datetime
+from time import perf_counter   # ,localtime
+# from itertools import product
+# from tensorboard.plugins.hparams import api as hp
+
+import plf_util.datatuner as dt
+import plf_util.tensorloader as dl
+import plf_util.fc_network as fc_net
+import plf_util.modelhandler as mh
+# import plf_util.parameterhandler as ph
+# import plf_util.eval_metrics as metrics
+
+# ToDo:
 #      1. Decide whether exploration is to be overwritten.
 #      2. Also, look for visualization possibilities.
 
-import json
+# import json
 import os
 import sys
 import warnings
@@ -11,38 +26,24 @@ import argparse
 import pandas as pd
 import torch
 import numpy as np
-import plotly
+# import plotly
 import optuna
 
-import shutil
+# import shutil
 
-import tempfile
+# import tempfile
 
-torch.set_printoptions(linewidth=120) # Display option for output
+torch.set_printoptions(linewidth=120)   # Display option for output
 torch.set_grad_enabled(True)
-from torch.utils.tensorboard import SummaryWriter
-from time import perf_counter,localtime
-from itertools import product
-from datetime import datetime
-
-#from tensorboard.plugins.hparams import api as hp
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-import plf_util.datatuner as dt
-import plf_util.tensorloader as dl
-import plf_util.fc_network as fc_net
-import plf_util.modelhandler as mh
-#import plf_util.parameterhandler as ph
-import plf_util.eval_metrics as metrics
-from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
-from plf_util.csv_logger import load_or_create_log, log_data, write_log_to_csv
-
 torch.manual_seed(1)
 
+
 class flag_and_store(argparse._StoreAction):
-    def __init__(self, option_strings, dest, dest_const, const, nargs = 0, **kwargs):
+    def __init__(self, option_strings, dest, dest_const, const, nargs=0, **kwargs):
         self.dest_const = dest_const
         if isinstance(const, list):
             self.val = const[1:]
@@ -51,15 +52,15 @@ class flag_and_store(argparse._StoreAction):
             self.val = []
             self.flag = const
         if isinstance(nargs, int):
-            nargs_store = nargs+len(self.val)
+            nargs_store = nargs + len(self.val)
         else:
             nargs_store = nargs
-        super(flag_and_store, self).__init__(option_strings, dest, const = None, nargs = nargs_store, **kwargs)
+        super(flag_and_store, self).__init__(option_strings, dest, const=None, nargs=nargs_store, **kwargs)
         self.nargs = nargs
 
-    def __call__(self, parser, namespace, values, option_strings = None):
-        setattr(namespace, self.dest_const,self.flag)
-        if isinstance(values,list):
+    def __call__(self, parser, namespace, values, option_strings=None):
+        setattr(namespace, self.dest_const, self.flag)
+        if isinstance(values, list):
             self.val.extend(values)
         elif values is not None:
             self.val.append(values)
@@ -68,27 +69,30 @@ class flag_and_store(argparse._StoreAction):
             self.val = self.val[0]
         super().__call__(parser, namespace, self.val, option_strings)
 
+
 warnings.filterwarnings('ignore')
 
+
 def set_optimizer(name, model, learning_rate):
-    if name=='adam':
+    if name == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    if name=='sgd':
+    if name == 'sgd':
         optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.5)
-    if name=='adamw':
+    if name == 'adamw':
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    if name=='adagrad':
+    if name == 'adagrad':
         optimizer = torch.optim.Adagrad(model.parameters(), lr=learning_rate)
-    if name=='adamax':
+    if name == 'adamax':
         optimizer = torch.optim.Adamax(model.parameters(), lr=learning_rate)
-    if name=='rmsprop':
+    if name == 'rmsprop':
         optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
     return optimizer
 
-def make_model(df:pd.DataFrame, scalers, encoder_features, decoder_features, batch_size,
+
+def make_model(df: pd.DataFrame, scalers, encoder_features, decoder_features, batch_size,
         history_horizon, forecast_horizon, train_split, validation_split, core_net,
         relu_leak, dropout_fc, dropout_core, rel_linear_hidden_size, rel_core_hidden_size,
-        core_layers,target_id, cuda_id,**_):
+        core_layers, target_id, cuda_id, **_):
 
     if torch.cuda.is_available():
         DEVICE = 'cuda'
@@ -117,25 +121,26 @@ def make_model(df:pd.DataFrame, scalers, encoder_features, decoder_features, bat
 
     in_size1 = train_data_loader.number_features1()
     in_size2 = train_data_loader.number_features2()
-    net = fc_net.EncoderDecoder(input_size1 = in_size1,
-                                input_size2 = in_size2,
-                                out_size = ARGS.num_pred,
-                                dropout_fc = dropout_fc,
-                                dropout_core = dropout_core,
-                                rel_linear_hidden_size = rel_linear_hidden_size,
-                                rel_core_hidden_size = rel_core_hidden_size,
-                                scalers = scalers,
-                                core_net = core_net,
-                                relu_leak = relu_leak,
-                                core_layers = core_layers,
-                                criterion = ARGS.loss)
+    net = fc_net.EncoderDecoder(input_size1=in_size1,
+                                input_size2=in_size2,
+                                out_size=ARGS.num_pred,
+                                dropout_fc=dropout_fc,
+                                dropout_core=dropout_core,
+                                rel_linear_hidden_size=rel_linear_hidden_size,
+                                rel_core_hidden_size=rel_core_hidden_size,
+                                scalers=scalers,
+                                core_net=core_net,
+                                relu_leak=relu_leak,
+                                core_layers=core_layers,
+                                criterion=ARGS.loss)
 
     return net, train_data_loader, validation_data_loader, test_data_loader
+
 
 def train(train_data_loader, validation_data_loader, test_data_loader, net,
           learning_rate=None, batch_size=None, history_horizon=None, forecast_horizon=None,
           core_net=None, relu_leak=None, dropout_fc=None, dropout_core=None, rel_linear_hidden_size=None,
-          rel_core_hidden_size=None, cuda_id=None, log_df=None, optimizer_name=None,max_epochs=None, logging_tb = True,**_):
+          rel_core_hidden_size=None, cuda_id=None, log_df=None, optimizer_name=None, max_epochs=None, logging_tb=True, **_):
 
     if torch.cuda.is_available():
         DEVICE = 'cuda'
@@ -155,16 +160,16 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     inputs1, inputs2, targets = next(iter(train_data_loader))
 
     # always have logging disabled for ci to avoid failed jobs because of tensorboard
-    #if ARGS.ci:
+    # if ARGS.ci:
     #    logging_tb = False
 
     if logging_tb:
-        #TODO: update this piece of code to enable tensorboard utilization again
-        #tb = SummaryWriter(log_dir=f'runs/leakyrelu/cuda{cuda_id}/m_epochs{max_epochs}/lr{learning_rate}/'
+        # TODO: update this piece of code to enable tensorboard utilization again
+        # tb = SummaryWriter(log_dir=f'runs/leakyrelu/cuda{cuda_id}/m_epochs{max_epochs}/lr{learning_rate}/'
         #                        f'bs{batch_size}/h_h{history_horizon}/f_h{forecast_horizon}/'
         #                        f'core_{core_net}/opt_{optimizer_name}/relu{relu_leak}/drop_fc{dropout_fc}/'
         #                        f'drop_core{dropout_core}/lin_hidden{rel_linear_hidden_size}/core_hidden{rel_core_hidden_size}')
-        #tb = SummaryWriter(log_dir='runs/test1')
+        # tb = SummaryWriter(log_dir='runs/test1')
 
         # if no run_name is given in command line with --logname, use timestamp
         if not ARGS.logname:
@@ -176,8 +181,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         if PAR['exploration']:
             ARGS.logname = ARGS.logname.split("/")[0] + "/trial_{}".format(PAR['trial_id'])
 
-        #print("Test!!")
-        #tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
+        # print("Test!!")
+        # tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
         run_dir = os.path.join(MAIN_PATH, str("runs/" + ARGS.logname))
         tb = SummaryWriter(log_dir=run_dir)
 
@@ -216,26 +221,26 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             .format(epoch + 1, max_epochs, epoch_loss, validation_loss, t1_stop - t1_start))
 
         if logging_tb:
-            tb.add_scalar('train_loss', epoch_loss, epoch+1)
-            tb.add_scalar('val_loss', validation_loss, epoch+1)
-            tb.add_scalar('train_time', t1_stop - t1_start, epoch+1)
-            tb.add_scalar('total_time', t1_stop - t0_start, epoch+1)
+            tb.add_scalar('train_loss', epoch_loss, epoch + 1)
+            tb.add_scalar('val_loss', validation_loss, epoch + 1)
+            tb.add_scalar('train_time', t1_stop - t1_start, epoch + 1)
+            tb.add_scalar('total_time', t1_stop - t0_start, epoch + 1)
             tb.add_scalar('val_loss_steps', validation_loss, step_counter)
 
             for name, weight in net.decoder.named_parameters():
-                tb.add_histogram(name, weight, epoch+1)
-                tb.add_histogram(f'{name}.grad', weight.grad, epoch+1)
+                tb.add_histogram(name, weight, epoch + 1)
+                tb.add_histogram(f'{name}.grad', weight.grad, epoch + 1)
 
         early_stopping(validation_loss, net)
         if early_stopping.early_stop:
             print("Stop in earlier epoch. Loading best model state_dict.")
             # load the last checkpoint with the best model
-            net.load_state_dict(torch.load(early_stopping.temp_dir+'checkpoint.pt'))
+            net.load_state_dict(torch.load(early_stopping.temp_dir + 'checkpoint.pt'))
             break
     # Now we are working with the best net and want to save the best score with respect to new test data
     with torch.no_grad():
         net.eval()
-        best_score = mh.performance_test(net,data_loader=test_data_loader,score_type='mis', horizon=forecast_horizon).item()
+        best_score = mh.performance_test(net, data_loader=test_data_loader, score_type='mis', horizon=forecast_horizon).item()
 
     # TODO: Move log_df part to plf-util
     print("--saving to log--")
@@ -281,20 +286,20 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         # else use predefined hparams
         else:
             params = {
-                'max_epochs' : max_epochs,
-                'learning_rate': learning_rate,
-                'batch_size': batch_size,
-                'optimizer_name': optimizer_name,
-                'dropout_fc': dropout_fc
-                }
+                    'max_epochs': max_epochs,
+                    'learning_rate': learning_rate,
+                    'batch_size': batch_size,
+                    'optimizer_name': optimizer_name,
+                    'dropout_fc': dropout_fc
+                    }
         # print(params)
         # metrics to evaluate the model by
         values = {
-            #'hparam/hp_train_loss': epoch_loss,
-            #'hparam/hp_val_loss': validation_loss,
-            #'hparam/hp_train_time': t1_stop - t1_start,
+            # 'hparam/hp_train_loss': epoch_loss,
+            # 'hparam/hp_val_loss': validation_loss,
+            # 'hparam/hp_train_time': t1_stop - t1_start,
             'hparam/hp_total_time': t1_stop - t0_start,
-            'hparam/score' : best_score
+            'hparam/score': best_score
         }
 
         # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
@@ -316,7 +321,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
     return net, log_df, early_stopping.val_loss_min, best_score
 
-def objective(selected_features, scalers,hyper_param, log_df, **_):
+
+def objective(selected_features, scalers, hyper_param, log_df, **_):
     def search_params(trial):
         if PAR['exploration']:
             param = {}
@@ -330,13 +336,13 @@ def objective(selected_features, scalers,hyper_param, log_df, **_):
         PAR.update(param)
         PAR['hyper_params'] = param
         PAR['trial_id'] = PAR['trial_id'] + 1
-        #print("param:")
-        #print(param)
-        #print("PARAM:")
-        #print(PAR['hyper_params'])
+        # print("param:")
+        # print(param)
+        # print("PARAM:")
+        # print(PAR['hyper_params'])
 
         model, train_dl, validation_dl, test_dl = make_model(selected_features, scalers, **PAR)
-        _, _, val_loss,_ = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
+        _, _, val_loss, _ = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
                                test_data_loader=test_dl, log_df=log_df, net=model, **PAR)
         # Handle pruning based on the intermediate value.
         if trial.should_prune():
@@ -345,14 +351,15 @@ def objective(selected_features, scalers,hyper_param, log_df, **_):
         return val_loss
     return search_params
 
-def main(infile, outmodel, target_id, log_path = None):
+
+def main(infile, outmodel, target_id, log_path=None):
     # Read load data
-    df = pd.read_csv(infile, sep=';',index_col=0)
+    df = pd.read_csv(infile, sep=';', index_col=0)
 
     dt.fill_if_missing(df)
 
     if ('target_list' in PAR):
-        if(PAR['target_list'] != None):
+        if(PAR['target_list'] is not None):
             df[target_id] = df[PAR['target_list']].sum(axis=1)
 
     selected_features, scalers = dt.scale_all(df, **PAR)
@@ -393,17 +400,17 @@ def main(infile, outmodel, target_id, log_path = None):
             print('Max. number of iteration trials for hyperparameter tuning: ', n_trials)
             if 'parallel_jobs' in hyper_param.keys():
                 parallel_jobs = hyper_param['parallel_jobs']
-                study.optimize(objective(selected_features, scalers,hyper_param,log_df=log_df,**PAR), n_trials=n_trials,n_jobs=parallel_jobs, timeout=timeout) #,timeout=timeout
+                study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, n_jobs=parallel_jobs, timeout=timeout)  # ,timeout=timeout
             else:
-                study.optimize(objective(selected_features, scalers,hyper_param,log_df=log_df,**PAR), n_trials=n_trials, timeout=timeout)
+                study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, timeout=timeout)
 
             print("Number of finished trials: ", len(study.trials))
-            #trials_df = study.trials_dataframe()
+            # trials_df = study.trials_dataframe()
 
             if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'])):
                 os.mkdir(os.path.join(MAIN_PATH, PAR['log_path']))
 
-            #trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
+            # trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
 
             # if not ARGS.ci:
             #     # optuna.visualization.plot_optimization_history(study).show()
@@ -430,20 +437,20 @@ def main(infile, outmodel, target_id, log_path = None):
                 print("    {}: {}".format(key, value))
 
             if min_val_loss > study.best_value:
-                if (ARGS.ci == False):
+                if not ARGS.ci:
                     if (query_true_false("Overwrite config with new parameters?")):
                         PAR['best_loss'] = study.best_value
                         PAR.update(trial.params)
-                #TODO: check if one can retrieve a checkpoint/model from best trial in optuna, to ommit redundant training
+                # TODO: check if one can retrieve a checkpoint/model from best trial in optuna, to ommit redundant training
                     else:
                         print('Training with hyper parameters fetched from config.json')
                 else:
                     print('Training with hyper parameters fetched from config.json')
 
         PAR['trial_id'] = 'main_run'
-        model, train_dl, validation_dl, test_dl = make_model(selected_features,scalers,**PAR)
+        model, train_dl, validation_dl, test_dl = make_model(selected_features, scalers, **PAR)
         net, log_df, loss, new_score = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
-                                          test_data_loader=test_dl, net=model,log_df=log_df, **PAR)
+                                          test_data_loader=test_dl, net=model, log_df=log_df, **PAR)
 
         if 'best_score' in PAR and PAR['best_score'] is not None:
             score_sofar = PAR['best_score']
@@ -456,16 +463,16 @@ def main(infile, outmodel, target_id, log_path = None):
             PAR['best_loss'] = loss
 
             if PAR['exploration']:
-                if(ARGS.ci == False):
+                if not ARGS.ci:
                     if (query_true_false("Overwrite config with new parameters?")):
-                        print("study best value: ",study.best_value)
+                        print("study best value: ", study.best_value)
                         print("current loss: ", loss)
                         PAR['best_loss'] = study.best_value
                         PAR.update(trial.params)
 
-            print("Model improvement achieved. Save "+ ARGS.station+"-file in "+ PAR['output_path']+".")
-            if PAR['exploration'] == True:
-                if ARGS.ci == False:
+            print("Model improvement achieved. Save {}-file in {}.".format(ARGS.station, PAR['output_path']))
+            if PAR['exploration']:
+                if not ARGS.ci:
                     PAR['exploration'] = not query_true_false("Parameters tuned and updated. Do you wish to turn off hyperparameter tuning for future training?")
         else:
             print("Existing model for this target did not improve in current run. Discard temporary model files.")
@@ -475,7 +482,7 @@ def main(infile, outmodel, target_id, log_path = None):
     finally:
         if min_net is not None:
             print('saving model')
-            if not os.path.exists(os.path.join(MAIN_PATH, PAR['output_path'])): # make output folder if it doesn't exist
+            if not os.path.exists(os.path.join(MAIN_PATH, PAR['output_path'])):    # make output folder if it doesn't exist
                 os.makedirs(os.path.join(MAIN_PATH, PAR['output_path']))
             torch.save(min_net, outmodel)
 
@@ -484,7 +491,7 @@ def main(infile, outmodel, target_id, log_path = None):
             PAR.pop('trial_id', None)
             PAR.pop('n_trials', None)
 
-            write_config(PAR, model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
+            write_config(PAR, model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
 
             print('saving log')
             # if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
@@ -494,9 +501,11 @@ def main(infile, outmodel, target_id, log_path = None):
             write_log_to_csv(log_df, os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']), PAR['model_name'] + '_training.csv')
             print("--done--")
 
+
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
-    PAR = read_config(model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
-    if PAR['exploration']: PAR['trial_id'] = 0  # set global trial ID for logging trials in subfolders
-    main(infile = os.path.join(MAIN_PATH, PAR['data_path']), outmodel = os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name']),
-            target_id = PAR['target_id'], log_path=os.path.join(MAIN_PATH,PAR['log_path']))
+    PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
+    if PAR['exploration']:
+        PAR['trial_id'] = 0  # set global trial ID for logging trials in subfolders
+    main(infile=os.path.join(MAIN_PATH, PAR['data_path']), outmodel=os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name']),
+            target_id=PAR['target_id'], log_path=os.path.join(MAIN_PATH, PAR['log_path']))
