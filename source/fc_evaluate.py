@@ -1,4 +1,13 @@
-#TODO: find workaround for PICP numpy issue
+import plf_util.datatuner as dt
+import plf_util.tensorloader as dl
+import plf_util.eval_metrics as metrics
+import plf_util.modelhandler as mh
+# from sklearn.preprocessing import RobustScaler
+# from sklearn.preprocessing import StandardScaler
+# from sklearn.preprocessing import MinMaxScaler
+from plf_util.config_util import read_config, parse_basic
+
+# TODO: find workaround for PICP numpy issue
 import numpy as np
 import pandas as pd
 import torch
@@ -10,16 +19,8 @@ import os
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-import plf_util.datatuner as dt
-import plf_util.tensorloader as dl
-import plf_util.eval_metrics as metrics
-import plf_util.modelhandler as mh
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import MinMaxScaler
-from plf_util.config_util import read_config, parse_basic
-
 warnings.filterwarnings('ignore')
+
 
 def shape_model_input(df, columns_p, horizon_p, horizon_f):
     # shape input data that is measured in the Past and can be fetched from UDW/LDW
@@ -29,6 +30,7 @@ def shape_model_input(df, columns_p, horizon_p, horizon_f):
     # shape y
     y = dt.extract(df[[target_id]].iloc[horizon_p:, :], horizon_f)
     return x_p, x_f, y
+
 
 def results_table(models, mse, rmse, sharpness, coverage, mis):
     data = {
@@ -40,11 +42,12 @@ def results_table(models, mse, rmse, sharpness, coverage, mis):
     results_df = pd.DataFrame(data, index=models)
     return results_df
 
-def evaluate_hours(target, pred ,y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
+
+def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
     fig, ax = plt.subplots(1)
     ax.plot(target, '.-k', label="Truth")  # true values
     ax.plot(pred, 'b', label='Predicted')
-    #insert actual time
+    # insert actual time
     if(actual_hours.dt.hour.any()):
         ax.set_title(actual_hours.iloc[0].strftime("%a, %Y-%m-%d"), fontsize=20)
     else:
@@ -68,7 +71,8 @@ def evaluate_hours(target, pred ,y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     plt.autoscale(enable=True, axis='x', tight=True)
     plt.savefig(OUTPATH + 'eval_hour{}'.format(hour))
 
-def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,OUTPATH, title):
+
+def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
     with plt.style.context('seaborn'):
         fig = plt.figure(figsize=(16, 12))
         st = fig.suptitle(title, fontsize=25)
@@ -112,7 +116,8 @@ def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,
         fig.subplots_adjust(top=0.95)
         plt.tight_layout()
         plt.savefig(OUTPATH + 'metrics_plot')
-        #plt.show()
+        # plt.show()
+
 
 if __name__ == '__main__':
     ARGS = parse_basic()
@@ -142,7 +147,7 @@ if __name__ == '__main__':
     df = dt.fill_if_missing(df)
 
     if ('target_list' in PAR):
-        if(PAR['target_list'] != None):
+        if(PAR['target_list'] is not None):
             df[target_id] = df[PAR['target_list']].sum(axis=1)
 
     # reload trained NN
@@ -167,23 +172,23 @@ if __name__ == '__main__':
         record_targets, record_output = mh.get_prediction(net, test_data_loader, horizon, number_of_targets)
 
         net.eval()
-        #TODO: check model type (e.g gnll)
+        # TODO: check model type (e.g gnll)
         criterion = net.criterion
-        #get metrics parameters
+        # get metrics parameters
         y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(record_output, criterion)
 
-        #rescale(test_output, test_targets)
-        #dt.rescale_manually(..)
+        # rescale(test_output, test_targets)
+        # dt.rescale_manually(..)
 
-        #calculate the metrics
-        mse_horizon = metrics.mse(record_targets, [record_expected_values],total=False)
-        rmse_horizon = metrics.rmse(record_targets, [record_expected_values],total=False)
-        sharpness_horizon = metrics.sharpness(None, [y_pred_upper, y_pred_lower],total=False)
+        # calculate the metrics
+        mse_horizon = metrics.mse(record_targets, [record_expected_values], total=False)
+        rmse_horizon = metrics.rmse(record_targets, [record_expected_values], total=False)
+        sharpness_horizon = metrics.sharpness(None, [y_pred_upper, y_pred_lower], total=False)
         coverage_horizon = metrics.picp(record_targets, [y_pred_upper,
-                                                        y_pred_lower],total=False)
-        mis_horizon = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05,total=False)
+                                                        y_pred_lower], total=False)
+        mis_horizon = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05, total=False)
 
-        #collect metrics by disregarding the development over the horizon
+        # collect metrics by disregarding the development over the horizon
         mse = metrics.mse(record_targets, [record_expected_values])
         rmse = metrics.rmse(record_targets, [record_expected_values])
         sharpness = metrics.sharpness(None, [y_pred_upper, y_pred_lower])
@@ -191,11 +196,11 @@ if __name__ == '__main__':
                                                         y_pred_lower])
         mis = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05)
 
-        #plot metrics
+        # plot metrics
         plot_metrics(rmse_horizon.detach().numpy(), sharpness_horizon.detach().numpy(), coverage_horizon.detach().numpy(), mis_horizon.detach().numpy(), OUTDIR, 'metrics-evaluation')
 
-        #plot forecast for sample days
-        #testhours = [0, 12, 24, 48, 100, 112]
+        # plot forecast for sample days
+        # testhours = [0, 12, 24, 48, 100, 112]
 
         if 'ci_tests' in PAR['data_path']:
             testhours = [0, 12]
