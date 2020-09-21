@@ -36,7 +36,8 @@ import plf_util.fc_network as fc_net
 import plf_util.modelhandler as mh
 #import plf_util.parameterhandler as ph
 import plf_util.eval_metrics as metrics
-from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false
+from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
+from plf_util.csv_logger import load_or_create_log, log_data, write_log_to_csv
 
 torch.manual_seed(1)
 
@@ -180,7 +181,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         run_dir = os.path.join(MAIN_PATH, str("runs/" + ARGS.logname))
         tb = SummaryWriter(log_dir=run_dir)
 
-        print('Begin training,\t logged here:\t', tb.log_dir)
+        print('Begin training,\t tensorboard log here:\t', tb.log_dir)
         tb.add_graph(net, [inputs1, inputs2])
     else:
         print('Begin training...')
@@ -237,7 +238,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         best_score = mh.performance_test(net,data_loader=test_data_loader,score_type='mis', horizon=forecast_horizon).item()
 
     # TODO: Move log_df part to plf-util
-    log_df = log_df.append(
+    print("--saving to log--")
+    log_df = log_data(
         {
             'time_stamp': pd.Timestamp.now(),
              'train_loss': final_epoch_loss,
@@ -268,7 +270,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
              'criterion': criterion,
              'loss_options': LOSS_OPTIONS,
              'score': best_score
-        }, ignore_index=True)
+        }, log_df)
+    print("--done--")
 
     if logging_tb:
         # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
@@ -299,16 +302,17 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         tb.add_hparams(params, values)
         tb.close()
 
-        # move hparam logs out of subfolders
-        subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
-
-        for dir in subdir_list:
-            subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
-            files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
-            for f in files:
-                shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
-            shutil.rmtree(subdir)  # removes the now empty subdir
-            # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
+        clean_up_tensorboard_dir(run_dir)
+        # # move hparam logs out of subfolders
+        # subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
+        #
+        # for dir in subdir_list:
+        #     subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
+        #     files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
+        #     for f in files:
+        #         shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
+        #     shutil.rmtree(subdir)  # removes the now empty subdir
+        #     # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
 
     return net, log_df, early_stopping.val_loss_min, best_score
 
@@ -353,15 +357,18 @@ def main(infile, outmodel, target_id, log_path = None):
 
     selected_features, scalers = dt.scale_all(df, **PAR)
 
-    try:
-        log_df = pd.read_csv(os.path.join(MAIN_PATH, log_path, PAR['model_name'] + '_training.csv'), sep=';', index_col=0)
-    except FileNotFoundError:
-        log_df = pd.DataFrame(columns=['time_stamp', 'train_loss', 'val_loss', 'tot_time', 'activation_function',
-                                       'cuda_id', 'max_epochs', 'lr', 'batch_size', 'train_split',
-                                       'validation_split', 'history_horizon', 'forecast_horizon', 'cap_limit',
-                                       'drop_lin', 'drop_core', 'core', 'core_layers', 'core_size', 'optimizer_name',
-                                       'activation_param', 'lin_size', 'scalers', 'encoder_features', 'decoder_features',
-                                       'station', 'criterion', 'loss_options', 'score'])
+    # try:
+    #     log_df = pd.read_csv(os.path.join(MAIN_PATH, log_path, PAR['model_name'] + '_training.csv'), sep=';', index_col=0)
+    # except FileNotFoundError:
+    #     log_df = pd.DataFrame(columns=['time_stamp', 'train_loss', 'val_loss', 'tot_time', 'activation_function',
+    #                                    'cuda_id', 'max_epochs', 'lr', 'batch_size', 'train_split',
+    #                                    'validation_split', 'history_horizon', 'forecast_horizon', 'cap_limit',
+    #                                    'drop_lin', 'drop_core', 'core', 'core_layers', 'core_size', 'optimizer_name',
+    #                                    'activation_param', 'lin_size', 'scalers', 'encoder_features', 'decoder_features',
+    #                                    'station', 'criterion', 'loss_options', 'score'])
+    print("---Create log---")
+    log_df = load_or_create_log(os.path.join(MAIN_PATH, log_path, PAR['model_name'] + '_training.csv'))
+    print("---Done---")
 
     min_net = None
 
@@ -480,9 +487,12 @@ def main(infile, outmodel, target_id, log_path = None):
             write_config(PAR, model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
 
             print('saving log')
-            if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
-                os.makedirs(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
-            log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + '_training.csv'), sep=';')
+            # if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
+            #     os.makedirs(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
+            # log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + '_training.csv'), sep=';')
+            print("---writing log--")
+            write_log_to_csv(log_df, os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']), PAR['model_name'] + '_training.csv')
+            print("--done--")
 
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
