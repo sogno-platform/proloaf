@@ -504,7 +504,7 @@ def main(infile, outmodel, target_id, log_path=None):
 
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()
-    PAR = read_config(model_name = ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
+    PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
     if PAR['exploration']:
         PAR['trial_id'] = 0  # set global trial ID for logging trials in subfolders
     main(infile=os.path.join(MAIN_PATH, PAR['data_path']), outmodel=os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name']),
