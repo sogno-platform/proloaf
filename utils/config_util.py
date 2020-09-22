@@ -104,7 +104,7 @@ def query_true_false(question, default="yes"):
 
     The "answer" return value is True for "yes" or False for "no".
     """
-    #valid = {"yes": False, "y": False, "ye": False,
+    # valid = {"yes": False, "y": False, "ye": False,
     #         "no": True, "n": True}
 
     valid = {"yes": True, "y": True, "ye": True,
