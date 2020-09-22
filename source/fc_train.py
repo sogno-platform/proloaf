@@ -243,7 +243,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         best_score = mh.performance_test(net, data_loader=test_data_loader, score_type='mis', horizon=forecast_horizon).item()
 
     # TODO: Move log_df part to plf-util
-    print("--saving to log--")
+    # print("--saving to log--")
     log_df = log_data(
         {
             'time_stamp': pd.Timestamp.now(),
@@ -276,7 +276,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
              'loss_options': LOSS_OPTIONS,
              'score': best_score
         }, log_df)
-    print("--done--")
+    # print("--done--")
 
     if logging_tb:
         # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
@@ -373,9 +373,9 @@ def main(infile, outmodel, target_id, log_path=None):
     #                                    'drop_lin', 'drop_core', 'core', 'core_layers', 'core_size', 'optimizer_name',
     #                                    'activation_param', 'lin_size', 'scalers', 'encoder_features', 'decoder_features',
     #                                    'station', 'criterion', 'loss_options', 'score'])
-    print("---Create log---")
+    # print("---Create log---")
     log_df = load_or_create_log(os.path.join(MAIN_PATH, log_path, PAR['model_name'] + '_training.csv'))
-    print("---Done---")
+    # print("---Done---")
 
     min_net = None
 
@@ -497,9 +497,9 @@ def main(infile, outmodel, target_id, log_path=None):
             # if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
             #     os.makedirs(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
             # log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + '_training.csv'), sep=';')
-            print("---writing log--")
+            # print("---writing log--")
             write_log_to_csv(log_df, os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']), PAR['model_name'] + '_training.csv')
-            print("--done--")
+            # print("--done--")
 
 
 if __name__ == '__main__':
