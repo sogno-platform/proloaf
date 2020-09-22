@@ -15,7 +15,7 @@
     "validation_split": 0.85,
     "core_net": "torch.nn.GRU",
     "optimizer_name": "adam",
-    "exploration": null,
+    "exploration": "True",
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
@@ -150,6 +150,6 @@
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
-    "best_loss": -1.7894309355152984,
-    "best_score": 0.6230241656303406
+    "best_loss": null,
+    "best_score": null
 }
