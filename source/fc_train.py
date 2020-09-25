@@ -250,8 +250,10 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
 
     # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, pyhton database or table (MongoDB)
+    # Only log once per run so immediatly if exploration is false and only on the trial_main_run if it's true
     if (not PAR['exploration']) or (PAR['exploration'] and not isinstance(PAR['trial_id'], int)):
         print("--saving to log--")
+        # Fetch all data that is of interest
         logdata_complete = {
                 'time_stamp': pd.Timestamp.now(),
                  'train_loss': final_epoch_loss,
@@ -283,7 +285,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
                  'loss_options': LOSS_OPTIONS,
                  'score': score
             }
-        logdata_selected = {x: logdata_complete[x] for x in list(log_df.columns)}
+        logdata_selected = {x: logdata_complete[x] for x in list(log_df.columns)}   # Filter data and only log features defined in log.json
         log_df = log_data(logdata_selected, log_df)
         print("--done--")
 
@@ -507,13 +509,13 @@ def main(infile, outmodel, target_id, log_path=None):
 
             write_config(PAR, model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
 
-            print('saving log')
-            # if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
-            #     os.makedirs(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
-            # log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + '_training.csv'), sep=';')
-            # print("---writing log--")
-            write_log_to_csv(log_df, os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']), PAR['model_name'] + '_training.csv')
-            # print("--done--")
+        print('saving log')
+        # if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
+        #     os.makedirs(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
+        # log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + '_training.csv'), sep=';')
+        # print("---writing log--")
+        write_log_to_csv(log_df, os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']), PAR['model_name'] + '_training.csv')
+        # print("--done--")
 
 
 if __name__ == '__main__':
