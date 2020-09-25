@@ -1,6 +1,6 @@
 from torch.utils.tensorboard import SummaryWriter
 from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
-from plf_util.csv_logger import load_or_create_log, log_data, write_log_to_csv
+from plf_util.csv_logger import create_log, log_data, write_log_to_csv
 from datetime import datetime
 from time import perf_counter   # ,localtime
 # from itertools import product
@@ -240,43 +240,52 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     # Now we are working with the best net and want to save the best score with respect to new test data
     with torch.no_grad():
         net.eval()
-        best_score = mh.performance_test(net, data_loader=test_data_loader, score_type='mis', horizon=forecast_horizon).item()
 
-    # TODO: Move log_df part to plf-util
-    # print("--saving to log--")
-    log_df = log_data(
-        {
-            'time_stamp': pd.Timestamp.now(),
-             'train_loss': final_epoch_loss,
-             'val_loss': early_stopping.val_loss_min,
-             'tot_time': t1_stop - t0_start,
-             'activation_function': 'leaky_relu',
-             'cuda_id': cuda_id,
-             'max_epochs': max_epochs,
-             'lr': learning_rate,
-             'batch_size': batch_size,
-             'train_split': PAR['train_split'],
-             'validation_split': PAR['validation_split'],
-             'history_horizon': history_horizon,
-             'forecast_horizon': forecast_horizon,
-             'cap_limit': PAR['cap_limit'],
-             'drop_lin': dropout_fc,
-             'drop_core': dropout_core,
-             'core': core_net,
-             'core_layers': PAR['core_layers'],
-             'core_size': rel_core_hidden_size,
-             'optimizer': optimizer,
-             'activation_param': relu_leak,
-             'lin_size': rel_linear_hidden_size,
-             'scalers': PAR['feature_groups'],
-             'encoder_features': PAR['encoder_features'],
-             'decoder_features': PAR['decoder_features'],
-             'station': ARGS.station,
-             'criterion': criterion,
-             'loss_options': LOSS_OPTIONS,
-             'score': best_score
-        }, log_df)
-    # print("--done--")
+        score = mh.performance_test(net, data_loader=test_data_loader, score_type='mis', horizon=forecast_horizon).item()
+
+        if PAR['best_score']:
+            rel_score = mh.calculate_relative_metric(score, PAR['best_score'])
+        else:
+            rel_score = -1
+
+
+    # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, pyhton database or table (MongoDB)
+    if (not PAR['exploration']) or (PAR['exploration'] and not isinstance(PAR['trial_id'], int)):
+        print("--saving to log--")
+        logdata_complete = {
+                'time_stamp': pd.Timestamp.now(),
+                 'train_loss': final_epoch_loss,
+                 'val_loss': early_stopping.val_loss_min,
+                 'total_time': t1_stop - t0_start,
+                 'activation_function': 'leaky_relu',
+                 'cuda_id': cuda_id,
+                 'max_epochs': max_epochs,
+                 'lr': learning_rate,
+                 'batch_size': batch_size,
+                 'train_split': PAR['train_split'],
+                 'validation_split': PAR['validation_split'],
+                 'history_horizon': history_horizon,
+                 'forecast_horizon': forecast_horizon,
+                 'cap_limit': PAR['cap_limit'],
+                 'drop_lin': dropout_fc,
+                 'drop_core': dropout_core,
+                 'core': core_net,
+                 'core_layers': PAR['core_layers'],
+                 'core_size': rel_core_hidden_size,
+                 'optimizer': optimizer,
+                 'activation_param': relu_leak,
+                 'lin_size': rel_linear_hidden_size,
+                 'scalers': PAR['feature_groups'],
+                 'encoder_features': PAR['encoder_features'],
+                 'decoder_features': PAR['decoder_features'],
+                 'station': ARGS.station,
+                 'criterion': criterion,
+                 'loss_options': LOSS_OPTIONS,
+                 'score': score
+            }
+        logdata_selected = {x: logdata_complete[x] for x in list(log_df.columns)}
+        log_df = log_data(logdata_selected, log_df)
+        print("--done--")
 
     if logging_tb:
         # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
@@ -285,13 +294,15 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             params = PAR['hyper_params']
         # else use predefined hparams
         else:
-            params = {
-                    'max_epochs': max_epochs,
-                    'learning_rate': learning_rate,
-                    'batch_size': batch_size,
-                    'optimizer_name': optimizer_name,
-                    'dropout_fc': dropout_fc
-                    }
+            params = {}
+
+        params.update({
+                'max_epochs': max_epochs,
+                'learning_rate': learning_rate,
+                'batch_size': batch_size,
+                'optimizer_name': optimizer_name,
+                'dropout_fc': dropout_fc
+                })
         # print(params)
         # metrics to evaluate the model by
         values = {
@@ -299,7 +310,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             # 'hparam/hp_val_loss': validation_loss,
             # 'hparam/hp_train_time': t1_stop - t1_start,
             'hparam/hp_total_time': t1_stop - t0_start,
-            'hparam/score': best_score
+            'hparam/score': score,
+            'hparam/relative_score': rel_score
         }
 
         # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
@@ -319,7 +331,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         #     shutil.rmtree(subdir)  # removes the now empty subdir
         #     # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
 
-    return net, log_df, early_stopping.val_loss_min, best_score
+    return net, log_df, early_stopping.val_loss_min, score
 
 
 def objective(selected_features, scalers, hyper_param, log_df, **_):
@@ -373,8 +385,10 @@ def main(infile, outmodel, target_id, log_path=None):
     #                                    'drop_lin', 'drop_core', 'core', 'core_layers', 'core_size', 'optimizer_name',
     #                                    'activation_param', 'lin_size', 'scalers', 'encoder_features', 'decoder_features',
     #                                    'station', 'criterion', 'loss_options', 'score'])
-    # print("---Create log---")
-    log_df = load_or_create_log(os.path.join(MAIN_PATH, log_path, PAR['model_name'] + '_training.csv'))
+    # print("---Create log---")   "/media/rouben/Volume/HiWi-Code/PLF/plf-training/logs/gc17ct_GRU_gnll/gc17ct_GRU_gnll_training.csv"
+    path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
+    print(path)
+    log_df = create_log(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv"), os.path.join(MAIN_PATH, 'targets', ARGS.station))
     # print("---Done---")
 
     min_net = None
