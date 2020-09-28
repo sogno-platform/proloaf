@@ -164,12 +164,6 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     #    logging_tb = False
 
     if logging_tb:
-        # TODO: update this piece of code to enable tensorboard utilization again
-        # tb = SummaryWriter(log_dir=f'runs/leakyrelu/cuda{cuda_id}/m_epochs{max_epochs}/lr{learning_rate}/'
-        #                        f'bs{batch_size}/h_h{history_horizon}/f_h{forecast_horizon}/'
-        #                        f'core_{core_net}/opt_{optimizer_name}/relu{relu_leak}/drop_fc{dropout_fc}/'
-        #                        f'drop_core{dropout_core}/lin_hidden{rel_linear_hidden_size}/core_hidden{rel_core_hidden_size}')
-        # tb = SummaryWriter(log_dir='runs/test1')
 
         # if no run_name is given in command line with --logname, use timestamp
         if not ARGS.logname:
@@ -181,8 +175,6 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         if PAR['exploration']:
             ARGS.logname = ARGS.logname.split("/")[0] + "/trial_{}".format(PAR['trial_id'])
 
-        # print("Test!!")
-        # tb = SummaryWriter(log_dir=str("runs/" + ARGS.logname))
         run_dir = os.path.join(MAIN_PATH, str("runs/" + ARGS.logname))
         tb = SummaryWriter(log_dir=run_dir)
 
@@ -248,7 +240,6 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         else:
             rel_score = -1
 
-
     # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, pyhton database or table (MongoDB)
     # Only log once per run so immediatly if exploration is false and only on the trial_main_run if it's true
     if (not PAR['exploration']) or (PAR['exploration'] and not isinstance(PAR['trial_id'], int)):
@@ -306,12 +297,9 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
                 'optimizer_name': optimizer_name,
                 'dropout_fc': dropout_fc
                 })
-        # print(params)
+
         # metrics to evaluate the model by
         values = {
-            # 'hparam/hp_train_loss': epoch_loss,
-            # 'hparam/hp_val_loss': validation_loss,
-            # 'hparam/hp_train_time': t1_stop - t1_start,
             'hparam/hp_total_time': t1_stop - t0_start,
             'hparam/score': score,
             'hparam/relative_score': rel_score
@@ -323,16 +311,6 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         tb.close()
 
         clean_up_tensorboard_dir(run_dir)
-        # # move hparam logs out of subfolders
-        # subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
-        #
-        # for dir in subdir_list:
-        #     subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
-        #     files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
-        #     for f in files:
-        #         shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
-        #     shutil.rmtree(subdir)  # removes the now empty subdir
-        #     # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
 
     return net, log_df, early_stopping.val_loss_min, score
 
@@ -351,10 +329,6 @@ def objective(selected_features, scalers, hyper_param, log_df, **_):
         PAR.update(param)
         PAR['hyper_params'] = param
         PAR['trial_id'] = PAR['trial_id'] + 1
-        # print("param:")
-        # print(param)
-        # print("PARAM:")
-        # print(PAR['hyper_params'])
 
         model, train_dl, validation_dl, test_dl = make_model(selected_features, scalers, **PAR)
         _, _, val_loss, _ = train(train_data_loader=train_dl, validation_data_loader=validation_dl,
@@ -379,20 +353,9 @@ def main(infile, outmodel, target_id, log_path=None):
 
     selected_features, scalers = dt.scale_all(df, **PAR)
 
-    # try:
-    #     log_df = pd.read_csv(os.path.join(MAIN_PATH, log_path, PAR['model_name'] + '_training.csv'), sep=';', index_col=0)
-    # except FileNotFoundError:
-    #     log_df = pd.DataFrame(columns=['time_stamp', 'train_loss', 'val_loss', 'tot_time', 'activation_function',
-    #                                    'cuda_id', 'max_epochs', 'lr', 'batch_size', 'train_split',
-    #                                    'validation_split', 'history_horizon', 'forecast_horizon', 'cap_limit',
-    #                                    'drop_lin', 'drop_core', 'core', 'core_layers', 'core_size', 'optimizer_name',
-    #                                    'activation_param', 'lin_size', 'scalers', 'encoder_features', 'decoder_features',
-    #                                    'station', 'criterion', 'loss_options', 'score'])
-    # print("---Create log---")   "/media/rouben/Volume/HiWi-Code/PLF/plf-training/logs/gc17ct_GRU_gnll/gc17ct_GRU_gnll_training.csv"
     path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
     print(path)
     log_df = create_log(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv"), os.path.join(MAIN_PATH, 'targets', ARGS.station))
-    # print("---Done---")
 
     min_net = None
 
@@ -512,12 +475,8 @@ def main(infile, outmodel, target_id, log_path=None):
 
         if log_df is not None:
             print('saving log')
-            # if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'])):
-            #     os.makedirs(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']))
-            # log_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + '_training.csv'), sep=';')
-            # print("---writing log--")
             write_log_to_csv(log_df, os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']), PAR['model_name'] + '_training.csv')
-            # print("--done--")
+            print("--done--")
 
 
 if __name__ == '__main__':
