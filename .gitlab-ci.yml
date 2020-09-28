@@ -250,6 +250,8 @@ lint_fc_evaluate:
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
+    needs:
+        - job: lint_fc_train
     only:
         variables:
             - $CI_PIPELINE_SOURCE == 'push'
