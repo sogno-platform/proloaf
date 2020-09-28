@@ -52,6 +52,8 @@ train_on_api_call:
             - ./oracles/*
             - ./logs/**/*
             - ./logs/*
+            - ./runs/**/*
+            - ./runs/**/**/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
@@ -74,6 +76,8 @@ train_on_web_call:
             - ./oracles/*
             - ./logs/**/*
             - ./logs/*
+            - ./runs/**/*
+            - ./runs/**/**/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
@@ -92,6 +96,8 @@ test_train_no_hp:
         expire_in: 1 hour
         paths:
             - ./oracles/*
+            - ./logs/**/*
+            - ./logs/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
@@ -109,6 +115,8 @@ test_train_hp:
         expire_in: 1 hour
         paths:
             - ./oracles/*
+            - ./logs/**/*
+            - ./logs/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
