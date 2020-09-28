@@ -1,0 +1,91 @@
+{
+  "features": [
+    {
+      "name": "time_stamp"
+    },
+    {
+      "name": "train_loss"
+    },
+    {
+      "name": "val_loss"
+    },
+    {
+      "name": "total_time"
+    },
+    {
+      "name": "activation_function"
+    },
+    {
+      "name": "cuda_id"
+    },
+    {
+      "name": "max_epochs"
+    },
+    {
+      "name": "lr"
+    },
+    {
+      "name": "batch_size"
+    },
+    {
+      "name": "train_split"
+    },
+    {
+      "name": "validation_split"
+    },
+    {
+      "name": "history_horizon"
+    },
+    {
+      "name": "forecast_horizon"
+    },
+    {
+      "name": "cap_limit"
+    },
+    {
+      "name": "drop_lin"
+    },
+    {
+      "name": "drop_core"
+    },
+    {
+      "name": "core"
+    },
+    {
+      "name": "core_layers"
+    },
+    {
+      "name": "core_size"
+    },
+    {
+      "name": "optimizer_name"
+    },
+    {
+      "name": "activation_param"
+    },
+    {
+      "name": "lin_size"
+    },
+    {
+      "name": "scalers"
+    },
+    {
+      "name": "encoder_features"
+    },
+    {
+      "name": "decoder_features"
+    },
+    {
+      "name": "station"
+    },
+    {
+      "name": "criterion"
+    },
+    {
+      "name": "loss_options"
+    },
+    {
+      "name": "score"
+    }
+  ]
+}
