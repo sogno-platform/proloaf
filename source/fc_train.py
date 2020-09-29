@@ -238,7 +238,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         if PAR['best_score']:
             rel_score = mh.calculate_relative_metric(score, PAR['best_score'])
         else:
-            rel_score = -1
+            rel_score = 0
 
     # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, pyhton database or table (MongoDB)
     # Only log once per run so immediatly if exploration is false and only on the trial_main_run if it's true
