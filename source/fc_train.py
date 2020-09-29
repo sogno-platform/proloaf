@@ -279,7 +279,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
                 }
             logdata_selected = {x: logdata_complete[x] for x in list(log_df.columns)}   # Filter data and only log features defined in log.json
             log_df = log_data(logdata_selected, log_df)
-            print("--done--")
+
 
     if logging_tb:
         # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
@@ -476,7 +476,7 @@ def main(infile, outmodel, target_id, log_path=None):
         if log_df is not None:
             print('saving log')
             write_log_to_csv(log_df, os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name']), PAR['model_name'] + '_training.csv')
-            print("--done--")
+
 
 
 if __name__ == '__main__':
