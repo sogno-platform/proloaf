@@ -18,7 +18,7 @@ def create_log(log_path=None, station_path=None) -> pd.DataFrame:
         features_to_add_list = [x for x in feature_list if x not in list(log_df.head())]
         if features_to_add_list:
             log_df = pd.concat([log_df, pd.DataFrame(columns=features_to_add_list)])
-            
+
     except:
         print("--- No existing log file found, creating... ---")
         log_df = pd.DataFrame(columns=feature_list)
@@ -40,8 +40,44 @@ def create_log(log_path=None, station_path=None) -> pd.DataFrame:
 
 
 # recieves a df and some data to log and writes the data to that df
-def log_data(data, log_df = None) -> pd.DataFrame:
-    log_df = log_df.append(data, ignore_index=True)
+def log_data(PAR, ARGS, LOSS_OPTIONS, total_time, final_epoch_loss, val_loss_min, score, log_df = None) -> pd.DataFrame:
+
+    if log_df is not None:
+        print("--saving to log--")
+        # Fetch all data that is of interest
+        logdata_complete = {
+                'time_stamp': pd.Timestamp.now(),
+                 'train_loss': final_epoch_loss,
+                 'val_loss': val_loss_min,
+                 'total_time': total_time,
+                 'activation_function': 'leaky_relu',
+                 'cuda_id': PAR["cuda_id"],
+                 'max_epochs': PAR["max_epochs"],
+                 'lr': PAR["learning_rate"],
+                 'batch_size': PAR["batch_size"],
+                 'train_split': PAR['train_split'],
+                 'validation_split': PAR['validation_split'],
+                 'history_horizon': PAR["history_horizon"],
+                 'forecast_horizon': PAR["forecast_horizon"],
+                 'cap_limit': PAR['cap_limit'],
+                 'drop_lin': PAR["dropout_fc"],
+                 'drop_core': PAR["dropout_core"],
+                 'core': PAR["core_net"],
+                 'core_layers': PAR['core_layers'],
+                 'core_size': PAR["rel_core_hidden_size"],
+                 'optimizer_name': PAR["optimizer_name"],
+                 'activation_param': PAR["relu_leak"],
+                 'lin_size': PAR["rel_linear_hidden_size"],
+                 'scalers': PAR['feature_groups'],
+                 'encoder_features': PAR['encoder_features'],
+                 'decoder_features': PAR['decoder_features'],
+                 'station': ARGS.station,
+                 'criterion': ARGS.loss,
+                 'loss_options': LOSS_OPTIONS,
+                 'score': score
+            }
+        logdata_selected = {x: logdata_complete[x] for x in list(log_df.columns)}   # Filter data and only log features defined in log.json
+        log_df = log_df.append(logdata_selected, ignore_index=True)
     return log_df
 
 
