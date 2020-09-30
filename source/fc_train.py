@@ -243,42 +243,42 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, pyhton database or table (MongoDB)
     # Only log once per run so immediatly if exploration is false and only on the trial_main_run if it's true
     if (not PAR['exploration']) or (PAR['exploration'] and not isinstance(PAR['trial_id'], int)):
-        if log_df is not None:
-            print("--saving to log--")
-            # Fetch all data that is of interest
-            logdata_complete = {
-                    'time_stamp': pd.Timestamp.now(),
-                     'train_loss': final_epoch_loss,
-                     'val_loss': early_stopping.val_loss_min,
-                     'total_time': t1_stop - t0_start,
-                     'activation_function': 'leaky_relu',
-                     'cuda_id': cuda_id,
-                     'max_epochs': max_epochs,
-                     'lr': learning_rate,
-                     'batch_size': batch_size,
-                     'train_split': PAR['train_split'],
-                     'validation_split': PAR['validation_split'],
-                     'history_horizon': history_horizon,
-                     'forecast_horizon': forecast_horizon,
-                     'cap_limit': PAR['cap_limit'],
-                     'drop_lin': dropout_fc,
-                     'drop_core': dropout_core,
-                     'core': core_net,
-                     'core_layers': PAR['core_layers'],
-                     'core_size': rel_core_hidden_size,
-                     'optimizer_name': optimizer,
-                     'activation_param': relu_leak,
-                     'lin_size': rel_linear_hidden_size,
-                     'scalers': PAR['feature_groups'],
-                     'encoder_features': PAR['encoder_features'],
-                     'decoder_features': PAR['decoder_features'],
-                     'station': ARGS.station,
-                     'criterion': criterion,
-                     'loss_options': LOSS_OPTIONS,
-                     'score': score
-                }
-            logdata_selected = {x: logdata_complete[x] for x in list(log_df.columns)}   # Filter data and only log features defined in log.json
-            log_df = log_data(logdata_selected, log_df)
+        # if log_df is not None:
+        #     print("--saving to log--")
+        #     # Fetch all data that is of interest
+        #     logdata_complete = {
+        #             'time_stamp': pd.Timestamp.now(),
+        #              'train_loss': final_epoch_loss,
+        #              'val_loss': early_stopping.val_loss_min,
+        #              'total_time': t1_stop - t0_start,
+        #              'activation_function': 'leaky_relu',
+        #              'cuda_id': cuda_id,
+        #              'max_epochs': max_epochs,
+        #              'lr': learning_rate,
+        #              'batch_size': batch_size,
+        #              'train_split': PAR['train_split'],
+        #              'validation_split': PAR['validation_split'],
+        #              'history_horizon': history_horizon,
+        #              'forecast_horizon': forecast_horizon,
+        #              'cap_limit': PAR['cap_limit'],
+        #              'drop_lin': dropout_fc,
+        #              'drop_core': dropout_core,
+        #              'core': core_net,
+        #              'core_layers': PAR['core_layers'],
+        #              'core_size': rel_core_hidden_size,
+        #              'optimizer_name': optimizer,
+        #              'activation_param': relu_leak,
+        #              'lin_size': rel_linear_hidden_size,
+        #              'scalers': PAR['feature_groups'],
+        #              'encoder_features': PAR['encoder_features'],
+        #              'decoder_features': PAR['decoder_features'],
+        #              'station': ARGS.station,
+        #              'criterion': criterion,
+        #              'loss_options': LOSS_OPTIONS,
+        #              'score': score
+        #         }
+        #     logdata_selected = {x: logdata_complete[x] for x in list(log_df.columns)}   # Filter data and only log features defined in log.json
+        log_df = log_data(PAR, ARGS, LOSS_OPTIONS, t1_stop-t0_start, final_epoch_loss, early_stopping.val_loss_min, score, log_df)
 
 
     if logging_tb:
@@ -354,7 +354,7 @@ def main(infile, outmodel, target_id, log_path=None):
     selected_features, scalers = dt.scale_all(df, **PAR)
 
     path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
-    print(path)
+    # print(path)
     log_df = create_log(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv"), os.path.join(MAIN_PATH, 'targets', ARGS.station))
 
     min_net = None
