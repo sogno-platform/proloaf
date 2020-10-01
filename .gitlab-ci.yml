@@ -25,6 +25,7 @@ stages:
     - testing_train
     - testing_eval
     - evaluation
+    - upload
 
 docker:
  stage: prepare
@@ -203,6 +204,21 @@ eval_on_web_call:
         variables:
             - $CI_PIPELINE_SOURCE == 'web'
 
+push_to_oracles:
+    stage: upload
+    script:
+         - mkdir -p $STATION
+         - mv logs/* $STATION
+         - mv runs/* $STATION
+         - mv oracles/* $STATION
+    artifacts:
+        when: on_success
+        paths:
+            - $STATION/*
+            - $STATION/**/*
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'web'
 
 test_eval_hp:
     stage: testing_eval
