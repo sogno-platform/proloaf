@@ -208,9 +208,12 @@ push_to_oracles:
     stage: upload
     script:
          - mkdir -p $STATION
-         - mv logs/* $STATION/logs
-         - mv runs/* $STATION/runs
-         - mv oracles/* $STATION/model
+         - mkdir $STATION/logs
+         - mkdir $STATION/runs
+         - mkdir $STATION/model
+         - mv logs/* $STATION/logs/
+         - mv runs/* $STATION/runs/
+         - mv oracles/* $STATION/model/
     artifacts:
         when: on_success
         paths:
