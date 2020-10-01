@@ -207,13 +207,14 @@ eval_on_web_call:
 push_to_oracles:
     stage: upload
     script:
-         - mkdir -p $STATION
-         - mkdir $STATION/logs
-         - mkdir $STATION/runs
-         - mkdir $STATION/model
-         - mv logs/* $STATION/logs/
-         - mv runs/* $STATION/runs/
-         - mv oracles/* $STATION/model/
+         - TIMESTAMP=$(python shell/return_timestamp.py)
+         - mkdir -p $TIMESTAMP/$STATION
+         - mkdir $TIMESTAMP/$STATION/logs
+         - mkdir $TIMESTAMP/$STATION/runs
+         - mkdir $TIMESTAMP/$STATION/model
+         - mv logs/* $TIMESTAMP/$STATION/logs/
+         - mv runs/* $TIMESTAMP/$STATION/runs/
+         - mv oracles/* $TIMESTAMP/$STATION/model/
     artifacts:
         when: on_success
         paths:
