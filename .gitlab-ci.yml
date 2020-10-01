@@ -220,6 +220,9 @@ push_to_oracles:
         paths:
             - $STATION/*
             - $STATION/**/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
     only:
         variables:
             - $CI_PIPELINE_SOURCE == 'web'
