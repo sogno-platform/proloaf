@@ -1,3 +1,3 @@
 from datetime import datetime
 
-print(str(datetime.now()).replace(":", "-").split(".")[0])
+print(str(datetime.now()).replace(":", "-").split(".")[0].replace(" ", "_"))
