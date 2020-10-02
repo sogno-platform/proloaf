@@ -218,8 +218,7 @@ push_to_oracles:
     artifacts:
         when: on_success
         paths:
-            - $TIMESTAMP/*
-            - $TIMESTAMP/**/*
+            - $TIMESTAMP/$STATION/**/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
