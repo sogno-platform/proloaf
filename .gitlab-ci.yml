@@ -208,17 +208,17 @@ push_to_oracles:
     stage: upload
     script:
          - TIMESTAMP=$(python shell/return_timestamp.py)
-         - mkdir -p $TIMESTAMP/$STATION
-         - mkdir $TIMESTAMP/$STATION/logs
-         - mkdir $TIMESTAMP/$STATION/runs
-         - mkdir $TIMESTAMP/$STATION/model
-         - mv logs/* $TIMESTAMP/$STATION/logs/
-         - mv runs/* $TIMESTAMP/$STATION/runs/
-         - mv oracles/* $TIMESTAMP/$STATION/model/
+         - mkdir -p $STATION/$TIMESTAMP
+         - mkdir $STATION/$TIMESTAMP/logs
+         - mkdir $STATION/$TIMESTAMP/runs
+         - mkdir $STATION/$TIMESTAMP/model
+         - mv logs/* $STATION/$TIMESTAMP/logs/
+         - mv runs/* $STATION/$TIMESTAMP/runs/
+         - mv oracles/* $STATION/$TIMESTAMP/model/
     artifacts:
         when: on_success
         paths:
-            - $TIMESTAMP/$STATION/**/*
+            - $STATION/**/**/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
