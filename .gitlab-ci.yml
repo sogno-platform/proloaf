@@ -224,7 +224,7 @@ push_to_oracles:
         - docker
     only:
         variables:
-            - $CI_PIPELINE_SOURCE == 'web'
+            - $CI_PIPELINE_SOURCE == 'web' || $CI_PIPELINE_SOURCE == 'api'
 
 test_eval_hp:
     stage: testing_eval
