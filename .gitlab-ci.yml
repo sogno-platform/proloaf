@@ -208,21 +208,21 @@ push_to_oracles:
     stage: upload
     script:
          - TIMESTAMP=$(python shell/return_timestamp.py)
-         - git clone https://rouben.rehman:7s2kQmyFqbsB7x8Vj7dF@git.rwth-aachen.de/rouben.rehman/testaccesstoken.git .
-         - mkdir -p $STATION/$TIMESTAMP
-         - mkdir $STATION/$TIMESTAMP/logs
-         - mkdir $STATION/$TIMESTAMP/runs
-         - mkdir $STATION/$TIMESTAMP/model
-         - mv logs/* $STATION/$TIMESTAMP/logs/
-         - mv runs/* $STATION/$TIMESTAMP/runs/
-         - mv oracles/* $STATION/$TIMESTAMP/model/
+         - git clone https://rouben.rehman:7s2kQmyFqbsB7x8Vj7dF@git.rwth-aachen.de/rouben.rehman/testaccesstoken.git ./repo/
+         - mkdir -p ./repo/$STATION/$TIMESTAMP
+         - mkdir ./repo/$STATION/$TIMESTAMP/logs
+         - mkdir ./repo/$STATION/$TIMESTAMP/runs
+         - mkdir ./repo/$STATION/$TIMESTAMP/model
+         - mv logs/* ./repo/$STATION/$TIMESTAMP/logs/
+         - mv runs/* ./repo/$STATION/$TIMESTAMP/runs/
+         - mv oracles/* ./repo/$STATION/$TIMESTAMP/model/
          - git add *
          - git commit -m "New Training Data for $STATION from GitLab CI"
          - git push
     artifacts:
         when: on_success
         paths:
-            - $STATION/**/**/*
+            - ./repo/$STATION/**/**/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
