@@ -208,6 +208,7 @@ push_to_oracles:
     stage: upload
     script:
          - TIMESTAMP=$(python shell/return_timestamp.py)
+         - git clone https://rouben.rehman:7s2kQmyFqbsB7x8Vj7dF@git.rwth-aachen.de/rouben.rehman/testaccesstoken.git .
          - mkdir -p $STATION/$TIMESTAMP
          - mkdir $STATION/$TIMESTAMP/logs
          - mkdir $STATION/$TIMESTAMP/runs
@@ -215,6 +216,9 @@ push_to_oracles:
          - mv logs/* $STATION/$TIMESTAMP/logs/
          - mv runs/* $STATION/$TIMESTAMP/runs/
          - mv oracles/* $STATION/$TIMESTAMP/model/
+         - git add *
+         - git commit -m "New Training Data for $STATION from GitLab CI"
+         - git push
     artifacts:
         when: on_success
         paths:
