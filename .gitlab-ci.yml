@@ -208,7 +208,7 @@ push_to_oracles:
     stage: upload
     script:
          - TIMESTAMP=$(python shell/return_timestamp.py)
-         - git clone https://rouben.rehman:7s2kQmyFqbsB7x8Vj7dF@git.rwth-aachen.de/rouben.rehman/testaccesstoken.git ./repo/
+         - git clone https://gonca.guerses.tran:$GGU_ACCESS_GRANT@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git ./repo/
          - git config --global user.email "test@test.test"
          - git config --global user.name "GitLab CI fc_train"
          - mkdir -p ./repo/$STATION/$TIMESTAMP
