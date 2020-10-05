@@ -216,6 +216,7 @@ push_to_oracles:
          - mv logs/* ./repo/$STATION/$TIMESTAMP/logs/
          - mv runs/* ./repo/$STATION/$TIMESTAMP/runs/
          - mv oracles/* ./repo/$STATION/$TIMESTAMP/model/
+         - cd ./repo/
          - git add *
          - git commit -m "New Training Data for $STATION from GitLab CI"
          - git push
