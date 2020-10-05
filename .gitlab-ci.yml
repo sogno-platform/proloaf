@@ -209,8 +209,8 @@ push_to_oracles:
     script:
          - TIMESTAMP=$(python shell/return_timestamp.py)
          - git clone https://rouben.rehman:7s2kQmyFqbsB7x8Vj7dF@git.rwth-aachen.de/rouben.rehman/testaccesstoken.git ./repo/
-         - git config user.email "test@test.test"
-         - git config user.name "GitLab CI fc_train"
+         - git config --global user.email "test@test.test"
+         - git config --global user.name "GitLab CI fc_train"
          - mkdir -p ./repo/$STATION/$TIMESTAMP
          - mkdir ./repo/$STATION/$TIMESTAMP/logs
          - mkdir ./repo/$STATION/$TIMESTAMP/runs
