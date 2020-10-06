@@ -217,10 +217,10 @@ push_to_oracles:
          - mkdir ./repo/$STATION/$TIMESTAMP/model
          - mv logs/* ./repo/$STATION/$TIMESTAMP/logs/
          - mv runs/* ./repo/$STATION/$TIMESTAMP/runs/
-         - mv oracles/* ./repo/$STATION/$TIMESTAMP/model/
          - touch ./repo/$STATION/$TIMESTAMP/index.md
          - python shell/create_hugo_header.py $TIMESTAMP $STATION >> ./repo/$STATION/$TIMESTAMP/index.md
          - cat oracles/result_page_content.md >> ./repo/$STATION/$TIMESTAMP/index.md
+         - mv oracles/* ./repo/$STATION/$TIMESTAMP/model/
          - cd ./repo/
          - git add *
          - git commit -m "New Training Data for $STATION from GitLab CI"
