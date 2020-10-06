@@ -219,7 +219,7 @@ push_to_oracles:
          - mv runs/* ./repo/$STATION/$TIMESTAMP/runs/
          - mv oracles/* ./repo/$STATION/$TIMESTAMP/model/
          - touch ./repo/$STATION/$TIMESTAMP/index.md
-         - python shell/create_hugo_head.py $TIMESTAMP $STATION >> ./repo/$STATION/$TIMESTAMP/index.md
+         - python shell/create_hugo_header.py $TIMESTAMP $STATION >> ./repo/$STATION/$TIMESTAMP/index.md
          - cat oracles/result_page_content.md >> ./repo/$STATION/$TIMESTAMP/index.md
          - cd ./repo/
          - git add *
