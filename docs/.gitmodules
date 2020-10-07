@@ -4,6 +4,3 @@
 [submodule "themes/docsy/assets/vendor/bootstrap"]
 	path = themes/docsy/assets/vendor/bootstrap
 	url = https://github.com/twbs/bootstrap.git
-[submodule "content/en/results/plf-oracles"]
-	path = content/en/results/plf-oracles
-	url = https://gonca.guerses.tran:$GGU_ACCESS_GRANT@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
