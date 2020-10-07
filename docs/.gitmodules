@@ -6,4 +6,4 @@
 	url = https://github.com/twbs/bootstrap.git
 [submodule "content/en/results/plf-oracles"]
 	path = content/en/results/plf-oracles
-	url = https://git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
+	url = https://gonca.guerses.tran:$GGU_ACCESS_GRANT@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
