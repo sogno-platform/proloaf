@@ -53,6 +53,7 @@ hugo:
     - mkdir -p content/en/results/
     - cd content/en/results/
     - git clone https://gonca.guerses.tran:$GGU_ACCESS_GRANT@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
+    - cd ../../..
     - hugo -v
     - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
