@@ -58,8 +58,10 @@ hugo:
     - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
+    when: on_failure
     paths:
       - public
+      - content/en/results/*
   #only:
   #  - master
   tags:
