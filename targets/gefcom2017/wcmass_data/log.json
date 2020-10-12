@@ -1,0 +1,34 @@
+{
+  "features": [
+    {
+      "name": "time_stamp"
+    },
+    {
+      "name": "train_loss"
+    },
+    {
+      "name": "val_loss"
+    },
+    {
+      "name": "total_time"
+    },
+    {
+      "name": "activation_function"
+    },
+    {
+      "name": "cuda_id"
+    },
+    {
+      "name": "max_epochs"
+    },
+    {
+      "name": "lr"
+    },
+    {
+      "name": "batch_size"
+    },
+    {
+      "name": "station"
+    }
+  ]
+}
