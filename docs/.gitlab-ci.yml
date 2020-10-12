@@ -58,7 +58,7 @@ hugo:
     - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
-    when: on_failure
+    when: on_success
     paths:
       - public
       - content/en/results/*
