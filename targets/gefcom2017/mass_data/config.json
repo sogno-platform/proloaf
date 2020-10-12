@@ -15,7 +15,7 @@
     "validation_split": 0.85,
     "core_net": "torch.nn.GRU",
     "optimizer_name": "adam",
-    "exploration": "True",
+    "exploration": null,
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
