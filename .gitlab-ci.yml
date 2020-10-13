@@ -228,6 +228,7 @@ push_to_oracles:
          - git add *
          - git commit -m "New Training Data for $STATION from GitLab CI"
          - git push
+         - cd ..
          - touch link_to_results.txt
          - echo "https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/results/plf-oracles/$STATION/$TIMESTAMP/" >> link_to_results.txt
     artifacts:
