@@ -1,0 +1,109 @@
+#image: "my_python:latest"
+#variables:
+#  DOCKER_IMAGE: rwthacs/ml-torch
+
+#before_script:
+#  - git submodule sync --recursive
+#  - git submodule update --init --recursive
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+workflow:
+    rules:
+        - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE =~ /\[[^\[\]]*?\]\n/
+        - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "api"
+        - when: never
+
+stages:
+    - prepare
+    - training
+    - evaluation
+
+docker:
+ stage: prepare
+ script:
+   - echo $CI_PIPELINE_SOURCE
+   - docker build
+       --file Dockerfile
+       --tag plf:${CI_COMMIT_REF_NAME} .
+ tags:
+   - shell
+
+
+# Training Jobs:
+train_on_api_call:
+    stage: training
+    script:
+        - chmod +x ./handle_commit_message.sh
+        - ./handle_commit_message.sh
+    artifacts:
+        when: on_success
+        #expire_in: never
+        paths:
+            - ./oracles/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'api'
+
+train_on_commit_message:
+    stage: training
+    script:
+        - chmod +x ./handle_commit_message.sh
+        - ./handle_commit_message.sh
+        #- echo ${EXPATH}
+        #- echo ${CI_COMMIT_REF_NAME}
+        #- python3 ./source/fc_train.py -s "gefcom2017/nh_data" --ci
+    artifacts:
+        when: on_success
+        #expire_in: never
+        paths:
+            - ./oracles/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'push'
+
+
+
+# Evaluation Jobs:
+
+eval_on_api_call:
+    stage: evaluation
+    script:
+        - chmod +x ./execute_evaluation.sh
+        - ./execute_evaluation.sh
+    artifacts:
+        when: on_success
+        #expire_in: never
+        paths:
+            - oracles/**/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'api' # for webUI it's 'web'
+
+eval_on_commit_message:
+    stage: evaluation
+    script:
+        - chmod +x ./execute_evaluation.sh
+        - ./execute_evaluation.sh
+        #- python3 ./source/fc_evaluate.py -s "gefcom2017/nh_data"
+    artifacts:
+        when: on_success
+        #expire_in: never
+        paths:
+            - oracles/**/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'push'
