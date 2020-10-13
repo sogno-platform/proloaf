@@ -228,10 +228,12 @@ push_to_oracles:
          - git add *
          - git commit -m "New Training Data for $STATION from GitLab CI"
          - git push
+         - echo "https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/results/plf-oracles/$STATION/$TIMESTAMP/" >> link_to_results.txt
     artifacts:
         when: on_success
         paths:
             - ./repo/$STATION/**/**/*
+            - ./link_to_results.txt
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
