@@ -52,5 +52,12 @@ might be necessary.
 
 ProLoaF supports Python 3.6 and higher. For further information see [Getting Started](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/)
 
+## Related Publications
+M. Mirz, A. Estebsari, F. Arrigo, E. Bompard and A. Monti, “Dynamic phasors to enable distributed real-time simulation,” 2017 6th International Conference on Clean Electrical Power (ICCEP), Santa Margherita Ligure, 2017, pp. 139-144.
+
+
+
+
+G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation," The 16th International Conference on Probabilistic Methods Applied to Power Systems, PMAPS 2020, 2020-08-18 - 2020-08-21, Liège, Belgium, ISBN 978-1-7281-2822-1, [Access Online](http://aimontefiore.org/PMAPS2020/openconf/modules/request.php?module=oc_proceedings&action=view.php&id=92&type=3&a=Accept)
 
 ## License
