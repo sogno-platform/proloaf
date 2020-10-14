@@ -230,7 +230,8 @@ push_to_oracles:
          - git push
          - cd ..
          - touch link_to_results.txt
-         - echo "https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/results/plf-oracles/$STATION/$TIMESTAMP/" >> link_to_results.txt
+         - echo "<a href=\"https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/results/plf-oracles/$STATION/$TIMESTAMP/\">Results</a>" >> link_to_results.html
+         -
     artifacts:
         when: on_success
         paths:
