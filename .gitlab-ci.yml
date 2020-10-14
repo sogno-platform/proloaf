@@ -231,7 +231,7 @@ push_to_oracles:
          - cd ..
          - touch link_to_results.txt
          - echo "<a href=\"https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/results/plf-oracles/$STATION/$TIMESTAMP/\">Results</a>" >> link_to_results.html
-         - chmod -x ./shell/trigger_docs_pipeline
+         - chmod +x ./shell/trigger_docs_pipeline
          - ./shell/trigger_docs_pipeline
     artifacts:
         when: on_success
