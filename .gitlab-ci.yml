@@ -237,7 +237,7 @@ push_to_oracles:
         when: on_success
         paths:
             - ./repo/$STATION/**/**/*
-            - ./link_to_results.txt
+            - ./link_to_results.md
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
