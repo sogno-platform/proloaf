@@ -47,6 +47,7 @@ hugo:
   script:
     - npm install -D --save autoprefixer
     - npm install -D --save postcss-cli
+    - echo $CI_PROJECT_ID
     #- npm audit fix --force
     #- cd content/en/results/
     #- echo $PWD
