@@ -39,7 +39,7 @@ docker:
 
 
 # Training Jobs:
-train_on_api_call:
+train_on_call:
     stage: training
     script:
         - chmod +x ./shell/trigger_training.sh
@@ -60,31 +60,31 @@ train_on_api_call:
         - docker
     only:
         variables:
-            - $CI_PIPELINE_SOURCE == 'api'
+            - $CI_PIPELINE_SOURCE == 'api' || $CI_PIPELINE_SOURCE == 'web'
 
 
-train_on_web_call:
-    stage: training
-    script:
-        - chmod +x ./shell/trigger_training.sh
-        - ./shell/trigger_training.sh
-        # - chmod +x ./handle_commit_message.sh
-        # - ./handle_commit_message.sh
-    artifacts:
-        when: on_success
-        #expire_in: never
-        paths:
-            - ./oracles/*
-            - ./logs/**/*
-            - ./logs/*
-            - ./runs/**/*
-            - ./runs/**/**/*
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'web'
+# train_on_web_call:
+#     stage: training
+#     script:
+#         - chmod +x ./shell/trigger_training.sh
+#         - ./shell/trigger_training.sh
+#         # - chmod +x ./handle_commit_message.sh
+#         # - ./handle_commit_message.sh
+#     artifacts:
+#         when: on_success
+#         #expire_in: never
+#         paths:
+#             - ./oracles/*
+#             - ./logs/**/*
+#             - ./logs/*
+#             - ./runs/**/*
+#             - ./runs/**/**/*
+#     image: plf:${CI_COMMIT_REF_NAME}
+#     tags:
+#         - docker
+#     only:
+#         variables:
+#             - $CI_PIPELINE_SOURCE == 'web'
 
 
 # testing taining jobs
@@ -169,7 +169,7 @@ lint_fc_train:
 
 
 # Evaluation Jobs:
-eval_on_api_call:
+eval_on_call:
     stage: evaluation
     script:
          - chmod +x ./shell/execute_evaluation.sh
@@ -184,25 +184,25 @@ eval_on_api_call:
         - docker
     only:
         variables:
-            - $CI_PIPELINE_SOURCE == 'api' # for webUI it's 'web'
+            - $CI_PIPELINE_SOURCE == 'api' || $CI_PIPELINE_SOURCE == 'web' # for webUI it's 'web'
 
 
-eval_on_web_call:
-    stage: evaluation
-    script:
-         - chmod +x ./shell/execute_evaluation.sh
-         - ./shell/execute_evaluation.sh
-    artifacts:
-        when: on_success
-        #expire_in: never
-        paths:
-            - oracles/**/*
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'web'
+# eval_on_web_call:
+#     stage: evaluation
+#     script:
+#          - chmod +x ./shell/execute_evaluation.sh
+#          - ./shell/execute_evaluation.sh
+#     artifacts:
+#         when: on_success
+#         #expire_in: never
+#         paths:
+#             - oracles/**/*
+#     image: plf:${CI_COMMIT_REF_NAME}
+#     tags:
+#         - docker
+#     only:
+#         variables:
+#             - $CI_PIPELINE_SOURCE == 'web'
 
 push_to_oracles:
     stage: upload
