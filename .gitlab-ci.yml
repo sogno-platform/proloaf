@@ -230,14 +230,14 @@ push_to_oracles:
          - git push
          - cd ..
          - touch link_to_results.txt
-         - echo "[Results](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/results/plf-oracles/$STATION/$TIMESTAMP)" >> link_to_results.md
+         - echo "<a href=\"https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/results/plf-oracles/$STATION/$TIMESTAMP\">Results</a>" >> link_to_results.html
          - chmod +x ./shell/trigger_docs_pipeline
          - ./shell/trigger_docs_pipeline
     artifacts:
         when: on_success
         paths:
             - ./repo/$STATION/**/**/*
-            - ./link_to_results.md
+            - ./link_to_results.html
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
