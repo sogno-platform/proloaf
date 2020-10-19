@@ -224,8 +224,8 @@ push_to_oracles:
          - cat oracles/result_page_content.md >> ./repo/$STATION/$TIMESTAMP/index.md
          - mv oracles/*/* oracles/
          - mv oracles/* ./repo/$STATION/$TIMESTAMP/model/
-         - chmod +x ./shell/make_station_folder.sh
-         - ./shell/make_station_folder.sh
+         - chmod +x ./shell/make_station_folder_index.sh
+         - ./shell/make_station_folder_index.sh
          - cd ./repo/
          - git add *
          - git commit -m "New Training Data for $STATION from GitLab CI"
