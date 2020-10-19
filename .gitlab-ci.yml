@@ -218,7 +218,7 @@ push_to_oracles:
          - mv logs/* ./repo/$STATION/$TIMESTAMP/logs/
          - mv runs/* ./repo/$STATION/$TIMESTAMP/runs/
          - touch ./repo/$STATION/$TIMESTAMP/index.md
-         - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$STATION $TIMESTAMP" --link=$TIMESTAMP --imginclue==True >> ./repo/$STATION/$TIMESTAMP/index.md
+         - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$STATION $TIMESTAMP" --link=$TIMESTAMP --imginclude==True >> ./repo/$STATION/$TIMESTAMP/index.md
          - echo "[Source Pipeline](https://git.rwth-aachen.de/acs/public/automation/plf/plf-training/-/pipelines/$CI_PIPELINE_ID)" >> ./repo/$STATION/$TIMESTAMP/index.md
          - echo "" >> ./repo/$STATION/$TIMESTAMP/index.md
          - cat oracles/result_page_content.md >> ./repo/$STATION/$TIMESTAMP/index.md
