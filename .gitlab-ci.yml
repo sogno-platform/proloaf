@@ -11,14 +11,21 @@ variables:
 
 workflow:
     rules:
-        - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE =~ /\[[^\[\]]*?\]\n/
-        - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "api"
-        - when: never
+        - if: $CI_COMMIT_BRANCH == "test-new-ci" && $CI_COMMIT_MESSAGE
+        - if: $CI_COMMIT_BRANCH == "test-new-ci" && $CI_PIPELINE_SOURCE == "api"
+        - if: $CI_COMMIT_BRANCH == "test-new-ci" && $CI_PIPELINE_SOURCE == "web"
+        # - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE ==~ /\[[^\[\]]*?\]\n/
+        # - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "api"
+        # - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "web"
+        # - when: never
 
 stages:
     - prepare
     - training
+    - testing_train
+    - testing_eval
     - evaluation
+    - upload
 
 docker:
  stage: prepare
@@ -32,52 +39,141 @@ docker:
 
 
 # Training Jobs:
-train_on_api_call:
+train_on_call:
     stage: training
     script:
-        - chmod +x ./handle_commit_message.sh
-        - ./handle_commit_message.sh
+        - chmod +x ./shell/trigger_training.sh
+        - ./shell/trigger_training.sh
+        # - chmod +x ./handle_commit_message.sh
+        # - ./handle_commit_message.sh
     artifacts:
         when: on_success
         #expire_in: never
         paths:
             - ./oracles/*
+            - ./logs/**/*
+            - ./logs/*
+            - ./runs/**/*
+            - ./runs/**/**/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
     only:
         variables:
-            - $CI_PIPELINE_SOURCE == 'api'
+            - $CI_PIPELINE_SOURCE == 'api' || $CI_PIPELINE_SOURCE == 'web'
 
-train_on_commit_message:
-    stage: training
+
+# train_on_web_call:
+#     stage: training
+#     script:
+#         - chmod +x ./shell/trigger_training.sh
+#         - ./shell/trigger_training.sh
+#         # - chmod +x ./handle_commit_message.sh
+#         # - ./handle_commit_message.sh
+#     artifacts:
+#         when: on_success
+#         #expire_in: never
+#         paths:
+#             - ./oracles/*
+#             - ./logs/**/*
+#             - ./logs/*
+#             - ./runs/**/*
+#             - ./runs/**/**/*
+#     image: plf:${CI_COMMIT_REF_NAME}
+#     tags:
+#         - docker
+#     only:
+#         variables:
+#             - $CI_PIPELINE_SOURCE == 'web'
+
+
+# testing taining jobs
+test_train_no_hp:
+    stage: testing_train
     script:
-        - chmod +x ./handle_commit_message.sh
-        - ./handle_commit_message.sh
-        #- echo ${EXPATH}
-        #- echo ${CI_COMMIT_REF_NAME}
-        #- python3 ./source/fc_train.py -s "gefcom2017/nh_data" --ci
+        - python3 source/fc_train.py -s ci_tests/ci_test_no_hp --ci
     artifacts:
         when: on_success
-        #expire_in: never
+        expire_in: 1 hour
         paths:
             - ./oracles/*
+            - ./logs/**/*
+            - ./logs/*
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
     only:
         variables:
             - $CI_PIPELINE_SOURCE == 'push'
+
+
+test_train_hp:
+    stage: testing_train
+    script:
+        - python3 source/fc_train.py -s ci_tests/ci_test_hp --ci
+    artifacts:
+        when: on_success
+        expire_in: 1 hour
+        paths:
+            - ./oracles/*
+            - ./logs/**/*
+            - ./logs/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'push'
+
+
+lint_fc_train:
+    stage: testing_train
+    script:
+        - chmod +x ./shell/lint_script.sh
+        - ./shell/lint_script.sh fc_train
+    artifacts:
+        when: on_success
+        expire_in: 1 hour
+        reports:
+            junit: ./fc_train_lint.xml
+        paths:
+            - ./oracles/*
+            - ./fc_train_lint.xml
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'push'
+
+#train_on_commit_message:
+#    stage: training
+#    script:
+#        - chmod +x ./handle_commit_message.sh
+#        - ./handle_commit_message.sh
+#        #- echo ${EXPATH}
+#        #- echo ${CI_COMMIT_REF_NAME}
+#        #- python3 ./source/fc_train.py -s "gefcom2017/nh_data" --ci
+#    artifacts:
+#        when: on_success
+#        #expire_in: never
+#        paths:
+#            - ./oracles/*
+#    image: plf:${CI_COMMIT_REF_NAME}
+#    tags:
+#        - docker
+#    only:
+#        variables:
+#            - $CI_PIPELINE_SOURCE == 'push'
 
 
 
 # Evaluation Jobs:
-
-eval_on_api_call:
+eval_on_call:
     stage: evaluation
     script:
-        - chmod +x ./execute_evaluation.sh
-        - ./execute_evaluation.sh
+         - chmod +x ./shell/execute_evaluation.sh
+         - ./shell/execute_evaluation.sh
     artifacts:
         when: on_success
         #expire_in: never
@@ -88,22 +184,143 @@ eval_on_api_call:
         - docker
     only:
         variables:
-            - $CI_PIPELINE_SOURCE == 'api' # for webUI it's 'web'
+            - $CI_PIPELINE_SOURCE == 'api' || $CI_PIPELINE_SOURCE == 'web' # for webUI it's 'web'
 
-eval_on_commit_message:
-    stage: evaluation
+
+# eval_on_web_call:
+#     stage: evaluation
+#     script:
+#          - chmod +x ./shell/execute_evaluation.sh
+#          - ./shell/execute_evaluation.sh
+#     artifacts:
+#         when: on_success
+#         #expire_in: never
+#         paths:
+#             - oracles/**/*
+#     image: plf:${CI_COMMIT_REF_NAME}
+#     tags:
+#         - docker
+#     only:
+#         variables:
+#             - $CI_PIPELINE_SOURCE == 'web'
+
+push_to_oracles:
+    stage: upload
     script:
-        - chmod +x ./execute_evaluation.sh
-        - ./execute_evaluation.sh
-        #- python3 ./source/fc_evaluate.py -s "gefcom2017/nh_data"
+         - TIMESTAMP=$(python shell/return_timestamp.py)
+         - git clone https://gonca.guerses.tran:$GGU_ACCESS_GRANT@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git ./repo/
+         - git config --global user.email "test@test.test"
+         - git config --global user.name "GitLab CI fc_train"
+         - mkdir -p ./repo/$STATION/$TIMESTAMP
+         - mkdir ./repo/$STATION/$TIMESTAMP/logs
+         - mkdir ./repo/$STATION/$TIMESTAMP/runs
+         - mkdir ./repo/$STATION/$TIMESTAMP/model
+         - mv logs/* ./repo/$STATION/$TIMESTAMP/logs/
+         - mv runs/* ./repo/$STATION/$TIMESTAMP/runs/
+         - touch ./repo/$STATION/$TIMESTAMP/index.md
+         - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$STATION $TIMESTAMP" --link=$TIMESTAMP --imginclude==True >> ./repo/$STATION/$TIMESTAMP/index.md
+         - echo "[Source Pipeline](https://git.rwth-aachen.de/acs/public/automation/plf/plf-training/-/pipelines/$CI_PIPELINE_ID)" >> ./repo/$STATION/$TIMESTAMP/index.md
+         - echo "" >> ./repo/$STATION/$TIMESTAMP/index.md
+         - cat oracles/result_page_content.md >> ./repo/$STATION/$TIMESTAMP/index.md
+         - mv oracles/*/* oracles/
+         - mv oracles/* ./repo/$STATION/$TIMESTAMP/model/
+         - chmod +x ./shell/make_station_folder_index.sh
+         - ./shell/make_station_folder_index.sh
+         - cd ./repo/
+         - git add *
+         - git commit -m "New Training Data for $STATION from GitLab CI"
+         - git push
+         - cd ..
+         - touch link_to_results.txt
+         - echo "<a href=\"https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/results/plf-oracles/$STATION/$TIMESTAMP\">Results</a>" >> link_to_results.html
+         - chmod +x ./shell/trigger_docs_pipeline
+         - ./shell/trigger_docs_pipeline
     artifacts:
         when: on_success
-        #expire_in: never
         paths:
-            - oracles/**/*
+            - ./repo/$STATION/**/**/*
+            - ./link_to_results.html
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'web' || $CI_PIPELINE_SOURCE == 'api'
+
+test_eval_hp:
+    stage: testing_eval
+    script:
+        - python3 source/fc_evaluate.py -s ci_tests/ci_test_hp
+    artifacts:
+        when: on_success
+        expire_in: 1 hour
+        paths:
+            - ./oracles/**/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    needs:
+        - job: test_train_hp
     only:
         variables:
             - $CI_PIPELINE_SOURCE == 'push'
+
+
+test_eval_no_hp:
+    stage: testing_eval
+    script:
+        - python3 source/fc_evaluate.py -s ci_tests/ci_test_no_hp
+    artifacts:
+        when: on_success
+        expire_in: 1 hour
+        paths:
+            - ./oracles/**/*
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    needs:
+        - job: test_train_no_hp
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'push'
+
+
+lint_fc_evaluate:
+    stage: testing_eval
+    script:
+        - chmod +x ./shell/lint_script.sh
+        - ./shell/lint_script.sh fc_evaluate
+    artifacts:
+        when: on_success
+        expire_in: 1 hour
+        reports:
+            junit: ./fc_evaluate_lint.xml
+        paths:
+            - ./oracles/*
+            - ./fc_evaluate_lint.xml
+    image: plf:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    needs:
+        - job: lint_fc_train
+    only:
+        variables:
+            - $CI_PIPELINE_SOURCE == 'push'
+
+#eval_on_commit_message:
+#    stage: evaluation
+#    script:
+#        - chmod +x ./execute_evaluation.sh
+#        - ./execute_evaluation.sh
+#        #- python3 ./source/fc_evaluate.py -s "gefcom2017/nh_data"
+#    artifacts:
+#        when: on_success
+#        #expire_in: never
+#        paths:
+#            - oracles/**/*
+#    image: plf:${CI_COMMIT_REF_NAME}
+#    tags:
+#        - docker
+#    only:
+#        variables:
+#            - $CI_PIPELINE_SOURCE == 'push'

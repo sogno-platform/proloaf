@@ -1,10 +1,10 @@
 {
-    "data_path": "./data/Gefcom2017/Stations/nemassbost_data_clean.csv",
+    "data_path": "./targets/ci_tests/test_data_clean.csv",
     "output_path": "./oracles/",
-    "exploration_path": null,
-    "evaluation_path": "./oracles/eval_gc2017_nemassbost/",
+    "exploration_path": "./targets/ci_tests/ci_test_hp/tuning.json",
+    "evaluation_path": "./oracles/eval_gc2017_test_hp/",
     "log_path": "./logs/",
-    "model_name": "gc17nemassbost_GRU_gnll",
+    "model_name": "gc17ct_GRU_gnll_test_hp",
     "target_id": "demand",
     "target_list": null,
     "start_date": null,
@@ -15,7 +15,7 @@
     "validation_split": 0.85,
     "core_net": "torch.nn.GRU",
     "optimizer_name": "adam",
-    "exploration": null,
+    "exploration": "True",
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
@@ -142,14 +142,14 @@
         "weekday_5",
         "weekday_6"
     ],
-    "max_epochs": 9,
-    "batch_size": 103,
-    "learning_rate": 0.0005,
+    "max_epochs": 1,
+    "batch_size": 47,
+    "learning_rate": 3.4885205571560794e-05,
     "core_layers": 3,
     "rel_linear_hidden_size": 1.0,
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
-    "best_loss": -2.0505995127889847,
-    "best_score": 0.5836897492408752
+    "best_loss": null,
+    "best_score": null
 }
