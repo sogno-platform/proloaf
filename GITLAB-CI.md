@@ -14,6 +14,9 @@ The CI uses multiple bash and python scripts each designed for one specific purp
 The CI implementation of this Repository features two different types of pipelines, one with three and one with four stages.
 
 ##### Training Pipeline (Four stages, one job each)
+
+![Training Pipeline Diagram](./train_pipeline_diagram.png)
+
 ###### Job descriptions
 The first stage uses a shell environment to set up a Docker Image the next jobs can be executed on. This Image has all necessary dependancies including the plf-util Python Package already installed and is only built, if its configuration (Dockerfile) or the dependancies change or there is no saved Image (e.g. first run).
 
