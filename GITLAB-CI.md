@@ -37,6 +37,7 @@ The training pipeline utilizes multiple scripts found in the `shell/` folder. Th
 |return_timestamp.py|Prints current timestamp in format yyyy-mm-dd_hh-mm-ss to command line|
 |create_hugo_header.py|Creates the front matter for Hugo's `_index.md` files to generate structure used in docs/results web page|
 |make_station_folder_index.sh|Creates `_index.md` in subdir the run is saved in to generate structure for Hugo result page|
+|make_station_folder_index.py|Splits $STATION into subfolders at "/" characters and executes make_station_folder_index.sh for each|
 |trigger_docs_pipeline|Triggers the `plf-docs` pipeline to fetch `plf-oracles` and build the website, uses private access token to authenticate.|
 
 The private access token used to push to `plf-oracles` and trigger `plf-docs`'s pipeline is added as environment variable to the CI with name `$GGU_ACCESS_GRANT` and not included in the `gitlab_ci.yml` in clear text for security reasons.
