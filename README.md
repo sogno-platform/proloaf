@@ -9,8 +9,7 @@
 | [**Install Guide**](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/)
 | [**Tutorial**](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/tutorials/)
 
-ProLoaF is a probabilistic load forecasting system in the context of the H2020 EU CoordiNet project.
-
+ProLoaF is a probabilistic load forecasting project.
 
 
 
