@@ -94,10 +94,10 @@
     ],
     "encoder_features": [
         "demand"
+        "drybulb",
+        "dewpnt"
     ],
     "decoder_features": [
-        "drybulb",
-        "dewpnt",
         "hour_0",
         "hour_1",
         "hour_2",
@@ -142,10 +142,10 @@
         "weekday_5",
         "weekday_6"
     ],
-    "max_epochs": 3,
-    "batch_size": 103,
-    "learning_rate": 0.0003720068247101349,
-    "core_layers": 3,
+    "max_epochs": 18,
+    "batch_size": 38,
+    "learning_rate": 0.000067637,
+    "core_layers": 2,
     "rel_linear_hidden_size": 1.0,
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
