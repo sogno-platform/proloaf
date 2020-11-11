@@ -2,6 +2,7 @@ import os
 import json
 import sys
 import argparse
+import shutil
 import plf_util.eval_metrics as metrics
 
 #TODO test if configmaker is still working after refactoring the directories
@@ -50,18 +51,24 @@ def parse_basic(args = sys.argv[1:]):
     parser = argparse.ArgumentParser()
     # TODO this should be a requiered argument (also remove default below)
     ident = parser.add_mutually_exclusive_group()#required=True)
-    ident.add_argument("-s","--station", help = "station to be trained for (e.g. sege)", default='sege')
+    ident.add_argument("-s","--station", help = "station to be trained for (e.g. gefcom2017/nh_data)", default='gefcom2017/nh_data')
     ident.add_argument("-c", "--config", help = "path to the config file relative to the project root")
     return parser.parse_args(args)
 
 def parse_with_loss(args = sys.argv[1:]):
     parser = argparse.ArgumentParser()
+
+    parser.add_argument("--ci", help="Enables execution mode optimized for GitLab's CI", action='store_true', default=False)
+    parser.add_argument("--logname", help="Name of the run, displayed in Tensorboard", type=str, action='store', default="")
+
     # TODO this should be a requiered argument (also remove default below)
     ident = parser.add_mutually_exclusive_group()#required=True)
-    ident.add_argument("-s","--station", help = "station to be trained for (e.g. sege)", default='sege')
+    ident.add_argument("-s","--station", help = "station to be trained for (e.g. gefcom2017/nh_data)", default='gefcom2017/nh_data')
     ident.add_argument("-c", "--config", help = "path to the config file relative to the project root")
 
     losses = parser.add_mutually_exclusive_group()
+    #losses.add_argument("--hyper", help="turn hyperparam-tuning on/off next time (int: 1=on, else=off)", type=int, default=0)
+    #losses.add_argument("-o", "--overwrite", help = "overwrite config with new training parameter (int: 1=True=default/else=False)", type=int, default=0)
     losses.add_argument("--nll_gauss", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.nll_gauss,2], help = "train with nll guassian loss", action=flag_and_store)
     losses.add_argument("--quantiles", dest_const='loss', dest='quantiles',metavar=' q1 q2', nargs='+', type=float, const=metrics.quantile_score, help = "train with pinball loss and MSE with q1 and q2 being the upper and lower quantiles", action=flag_and_store)
     losses.add_argument("--crps","--crps_gaussian", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.crps_gaussian,2], help = "train with crps gaussian loss", action=flag_and_store)
@@ -97,8 +104,11 @@ def query_true_false(question, default="yes"):
 
     The "answer" return value is True for "yes" or False for "no".
     """
-    valid = {"yes": False, "y": False, "ye": False,
-             "no": True, "n": True}
+    # valid = {"yes": False, "y": False, "ye": False,
+    #         "no": True, "n": True}
+
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
     if default is None:
         prompt = " [y/n] "
     elif default == "yes":
@@ -118,3 +128,15 @@ def query_true_false(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
+
+def clean_up_tensorboard_dir(run_dir):
+    # move hparam logs out of subfolders
+    subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
+
+    for dir in subdir_list:
+        subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
+        files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
+        for f in files:
+            shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
+        shutil.rmtree(subdir)  # removes the now empty subdir
+        # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!

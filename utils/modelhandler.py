@@ -103,6 +103,10 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
 
+# ToDo: refactor best score, refactor relative_metric
+def calculate_relative_metric(curr_score, best_score):
+    return (100 / best_score) * (best_score - curr_score)
+
 def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_horizon=True, horizon=1, number_of_targets=1):
     # check performance
     targets, raw_output = get_prediction(net, data_loader,horizon, number_of_targets) ##should be test data loader
