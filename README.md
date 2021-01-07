@@ -86,6 +86,10 @@ First, clone this Repository and initialize the submodules:
 ```bash
 git clone --recurse-submodule https://git.rwth-aachen.de/acs/public/automation/plf/plf-training.git
 ```
+or if you have already cloned the project and you are missing e.g. the open data directory for execution run:
+```bash
+git submodule update --init --recursive
+```
 To install all required packages first run:
 ```bash
 pip install -r requirements.txt
