@@ -6,4 +6,4 @@ This package supports building, logging and managing machine learning models, an
 - With config-util we've created a support to design and modify the RNN via config files only.  
 
 ## License
-This project is licensed under the GNU General Public License v3.0.
+This project is licensed to the [Apache Software Foundation (ASF)](http://www.apache.org/licenses/LICENSE-2.0).
