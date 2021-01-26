@@ -1,5 +1,7 @@
 build/
 oracles/
+data/
+targets/sege
 dist/
 plf_util.egg-info/
 old-yml.yml
@@ -10,3 +12,4 @@ opt_history_fig.png
 parallel_coordinate_fig.png
 old/
 .idea
+.run
