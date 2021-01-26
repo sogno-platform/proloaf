@@ -23,7 +23,7 @@ ProLoaF comes with the following scripts
 
 - [fc_evaluate.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/fc_evaluate/): Evaluate a previously trained model.
 
-  
+
 
 
 ## Example Workflow
@@ -38,7 +38,7 @@ ProLoaF comes with the following scripts
 
 * Evaluate the model using fc_evaluate.py in the same fashion.
 
-  
+
 
 
 ## Tensorboard utilization
@@ -66,6 +66,10 @@ data should be logged, a `log.json` of following structure is used in the target
 }
 ```
 
+Install Tensorboard and run the Tensorboard command-line interface as described [here](https://pytorch.org/tutorials/recipes/recipes/tensorboard_with_pytorch.html). The default directory runs get safed in is the `runs/` directory.
+To display runs in Tensorboard, use `tensorboard --logdir=runs`, then open a browser and naviagte to [127.0.0.1:6006](127.0.0.1:6006)
+
+
 
 
 ## Submodules
@@ -75,13 +79,17 @@ This Repository contains the following submodules:
 
 * [plf_data](https://git.rwth-aachen.de/acs/public/automation/plf/plf-data): Example gefcom2017 data for testing purposes.
 
-  
+
 
 ## Installation
 
 First, clone this Repository and initialize the submodules:
 ```bash
 git clone --recurse-submodule https://git.rwth-aachen.de/acs/public/automation/plf/plf-training.git
+```
+or if you have already cloned the project and you are missing e.g. the open data directory for execution run:
+```bash
+git submodule update --init --recursive
 ```
 To install all required packages first run:
 ```bash
@@ -104,4 +112,4 @@ G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Da
 
 
 ## License
-This project is licensed under the GNU General Public License v3.0.
+This project is licensed to the [Apache Software Foundation (ASF)](http://www.apache.org/licenses/LICENSE-2.0).
