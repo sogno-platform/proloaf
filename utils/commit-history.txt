@@ -1,0 +1,9 @@
+I, Gonca Gürses-Tran hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: gguerses@eonerc.rwth-aachen.de
+
+a042b336626aa82913253d314723796b9831160e Merge branch 'develop' into 'master'
+59942cbcaba32c0b06c54bfcb0ce145d40c150cc Update master with recent developments: defaults, flags, logging, license
+5d5d0a442fe11b104f8c9b7e8f47e77c4e2bfec5 Update README.md
+9cf84133786e7e7525cddb1f15202718b4a7b49c Merge branch 'develop' into 'master'
+2c60ee74bc1423e6f39920ae8753394730481cae Develop
+309f73d2443adff2af58a4082f5a02a15a231c80 Add license terms
+7c890c6c1b84ed9262b65fa25d6a590013ea212b Add initial infos
