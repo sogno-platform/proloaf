@@ -1,0 +1,6 @@
+I, Gonca Gürses-Tran hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: gguerses@eonerc.rwth-aachen.de
+
+40aa4bb7ac2233a8663ac026acb7f29b94ad1aca remove audit fix --force
+069fbdfa62594c5c00ddf89faa345c9036507e24 revert changes in build stage
+742e7eb824a857356b9f68c7de943d90f96ab68e Update .gitlab-ci.yml
+740a61501f2887081f9fa87f5383d85796c511d8 Update dockerfile for hugo build
