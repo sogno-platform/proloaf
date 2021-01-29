@@ -13,3 +13,4 @@ parallel_coordinate_fig.png
 old/
 .idea
 .run
+/targets/seq-res-load/

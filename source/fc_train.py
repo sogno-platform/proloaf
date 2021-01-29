@@ -363,12 +363,18 @@ def main(infile, outmodel, target_id, log_path=None):
             sampler = optuna.samplers.TPESampler(seed=10)  # Make the sampler behave in a deterministic way.
             study = optuna.create_study(sampler=sampler, direction="minimize", pruner=optuna.pruners.MedianPruner())
             print('Max. number of iteration trials for hyperparameter tuning: ', n_trials)
-            if 'parallel_jobs' in hyper_param.keys():
-                parallel_jobs = hyper_param['parallel_jobs']
-                study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, n_jobs=parallel_jobs, timeout=timeout)  # ,timeout=timeout
+            if 'timeout' in hyper_param.keys():
+                if 'parallel_jobs' in hyper_param.keys():
+                    parallel_jobs = hyper_param['parallel_jobs']
+                    study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, n_jobs=parallel_jobs, timeout=timeout)
+                else:
+                    study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, timeout=timeout)
             else:
-                study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, timeout=timeout)
-
+                if 'parallel_jobs' in hyper_param.keys():
+                    parallel_jobs = hyper_param['parallel_jobs']
+                    study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, n_jobs=parallel_jobs)
+                else:
+                    study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials)
             print("Number of finished trials: ", len(study.trials))
             # trials_df = study.trials_dataframe()
 
