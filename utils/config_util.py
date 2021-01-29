@@ -25,18 +25,16 @@ import argparse
 import shutil
 import plf_util.eval_metrics as metrics
 
-#TODO test if configmaker is still working after refactoring the directories
-
 def read_config(model_name = None, config_path = None, main_path=''):
     if config_path is None:
-        config_path = os.path.join(main_path, 'targets',  model_name, 'config.json')
-    with open(config_path,'r') as input:
+        config_path = os.path.join('targets',  model_name, 'config.json')
+    with open(os.path.join(main_path,config_path),'r') as input:
         return json.load(input)
 
 def write_config(config, model_name = None, config_path = None, main_path=''):
     if config_path is None:
         config_path = os.path.join(main_path, 'targets',  model_name, 'config.json')
-    with open(config_path,'w') as output:
+    with open(os.path.join(main_path,config_path),'w') as output:
         return json.dump(config, output, indent=4)
 
 class flag_and_store(argparse._StoreAction):
