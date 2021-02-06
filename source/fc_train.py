@@ -19,6 +19,8 @@
 # ==============================================================================
 
 from torch.utils.tensorboard import SummaryWriter
+#TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
+#if 'exploration' is used, this would violate our license policy as LGPL is not compatible with apache
 from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
 from plf_util.csv_logger import create_log, log_data, write_log_to_csv
 from datetime import datetime
@@ -242,6 +244,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             for name, weight in net.decoder.named_parameters():
                 tb.add_histogram(name, weight, epoch + 1)
                 tb.add_histogram(f'{name}.grad', weight.grad, epoch + 1)
+                #.add_scalar(f'{name}.grad', weight.grad, epoch + 1)
 
         early_stopping(validation_loss, net)
         if early_stopping.early_stop:
@@ -289,7 +292,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             'hparam/score': score,
             'hparam/relative_score': rel_score
         }
-
+        # TODO: we could add the fc_evaluate images and metrics to tb to inspect the best model here.
+        #tb.add_figure(f'{hour}th_hour-forecast')
         # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
         # https://pytorch.org/docs/master/tensorboard.html
         tb.add_hparams(params, values)
@@ -380,25 +384,6 @@ def main(infile, outmodel, target_id, log_path=None):
 
             if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'])):
                 os.mkdir(os.path.join(MAIN_PATH, PAR['log_path']))
-
-            # trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
-
-            # if not ARGS.ci:
-            #     # optuna.visualization.plot_optimization_history(study).show()
-            #     opt_history_fig = optuna.visualization.plot_optimization_history(study)
-            #     # opt_history_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'opt_history_fig.png'))
-            #     opt_history_fig.write_image('opt_history_fig.png')
-            #
-            #     # Select parameters to visualize.
-            #     # optuna.visualization.plot_slice(study).show()
-            #     # slice_fig= optuna.visualization.plot_slice(study)
-            #     # slice_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'slice_fig.png'))
-            #
-            #
-            #     # Visualize high-dimensional parameter relationships.
-            #     # optuna.visualization.plot_parallel_coordinate(study).show()
-            #     parallel_coordinate_fig = optuna.visualization.plot_parallel_coordinate(study)
-            #     parallel_coordinate_fig.write_image('parallel_coordinate_fig.png')
 
             print("Best trial:")
             trial = study.best_trial

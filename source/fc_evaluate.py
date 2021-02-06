@@ -195,7 +195,7 @@ if __name__ == '__main__':
         # TODO: check model type (e.g gnll)
         criterion = net.criterion
         # get metrics parameters
-        y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(record_output, criterion)
+        y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(record_output, criterion, record_targets)
 
         # rescale(test_output, test_targets)
         # dt.rescale_manually(..)
