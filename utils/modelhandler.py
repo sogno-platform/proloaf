@@ -90,7 +90,7 @@ def get_prediction(net, data_loader, horizon, number_of_targets):
 
     return record_targets, record_output
 
-def get_pred_interval(predictions, criterion):
+def get_pred_interval(predictions, criterion, targets):
     # Better solution for future: save criterion as class object of 'loss' with 'name' attribute
     #detect criterion
     if ('nll_gaus' in str(criterion)) or ('crps' in str(criterion)):
@@ -105,8 +105,15 @@ def get_pred_interval(predictions, criterion):
         y_pred_lower = predictions[:,:,0:1]
         y_pred_upper = predictions[:,:,1:2]
         expected_values = predictions[:,:,-1:]
+    elif 'rmse' in str(criterion):
+        expected_values = predictions
+        rmse = metrics.rmse(targets, expected_values.unsqueeze(0))
+        # In order to produce an interval covering roughly 95% of the error magnitudes,
+        # the prediction interval is usually calculated using the model output ± 2 × RMSE.
+        y_pred_lower = expected_values-2*rmse
+        y_pred_upper = expected_values+2*rmse
 
-    elif ('mse' in str(criterion)) or ('rmse' in str(criterion)) or ('mape' in str(criterion)):
+    elif ('mse' in str(criterion)) or ('mape' in str(criterion)):
         # loss_type = 'mis'
         expected_values = predictions
         y_pred_lower = 0
@@ -130,7 +137,7 @@ def calculate_relative_metric(curr_score, best_score):
 def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_horizon=True, horizon=1, number_of_targets=1):
     # check performance
     targets, raw_output = get_prediction(net, data_loader,horizon, number_of_targets) ##should be test data loader
-    [y_pred_upper, y_pred_lower, expected_values] = get_pred_interval(raw_output, net.criterion)
+    [y_pred_upper, y_pred_lower, expected_values] = get_pred_interval(raw_output, net.criterion, targets)
     #get upper and lower prediction interval, depending on loss function used for training
     if ('mis' in str(score_type)):
         output = [y_pred_upper, y_pred_lower]
