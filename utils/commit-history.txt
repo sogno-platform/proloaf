@@ -7,3 +7,7 @@ a042b336626aa82913253d314723796b9831160e Merge branch 'develop' into 'master'
 2c60ee74bc1423e6f39920ae8753394730481cae Develop
 309f73d2443adff2af58a4082f5a02a15a231c80 Add license terms
 7c890c6c1b84ed9262b65fa25d6a590013ea212b Add initial infos
+
+I, Markus Mirz hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: mmirz@eonerc.rwth-aachen.de
+
+a3029225174373bc833a88af2876b81ddeaa67b9 Initial commit
