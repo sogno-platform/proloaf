@@ -15,3 +15,4 @@ old/
 .run
 /targets/seq-res-load/
 .ipynb_checkpoints
+/run tensorboard in jupyter.ipynb
