@@ -17,6 +17,27 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
+"""
+Train an RNN model for load forecasting based on provided data.
+
+Train an RNN model on prepared data loaded as pandas dataframe from a csv file. 
+Hyperparameter exploration using optuna is also possible if desired. 
+The trained model is saved at the location specified under "output_path": in the corresponding 
+config.json and can be loaded via torch.load() or evaluated by using the fc_evaluate.py script. 
+This script scales the data, loads a custom datastructure and then generates and trains a neural net.
+
+Notes
+-----
+Hyperparameter exploration
+    Any training parameter is considered a hyperparameter as long as it is specified in 
+    either config.json or tuning.json. The latter is the standard file where the (so far) 
+    best found configuration is saved and should usually not be manually adapted unless 
+    new tests are for some reason not comparable to older ones (e.g. after changing the loss function).
+    Possible hyperparameters are: target_column, encoder_features, decoder_features, 
+    max_epochs, learning_rate, batch_size, shuffle, history_horizon, forecast_horizon, 
+    train_split, validation_split, core_net, relu_leak, dropout_fc, dropout_core, 
+    rel_linear_hidden_size, rel_core_hidden_size, optimizer_name, cuda_id
+"""
 
 from torch.utils.tensorboard import SummaryWriter
 from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
@@ -63,6 +84,7 @@ torch.manual_seed(1)
 
 
 class flag_and_store(argparse._StoreAction):
+
     def __init__(self, option_strings, dest, dest_const, const, nargs=0, **kwargs):
         self.dest_const = dest_const
         if isinstance(const, list):
@@ -94,18 +116,44 @@ warnings.filterwarnings('ignore')
 
 
 def set_optimizer(name, model, learning_rate):
-    if name == 'adam':
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    """
+    Specify which optimizer to use during training.
+
+    Initialize a torch.optim optimizer for the given model based on the specified name and learning rate.
+
+    Parameters
+    ----------
+    name : string or None, default = 'adam'
+        The name of the torch.optim optimizer to be used. The following 
+        strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
+    model : plf_util.fc_network.EncoderDecoder
+        The model which is to be optimized
+    learning_rate : float or None
+        The learning rate to be used by the optimizer. If set to None, the default value as defined in
+        torch.optim is used
+    
+    Returns
+    -------
+    torch.optim optimizer class 
+        A torch.optim optimizer that implements one of the following algorithms:
+        Adagrad, Adam, Adamax, AdamW, RMSprop, or SGD (stochastic gradient descent)
+        SGD is set to use a momentum of 0.5.
+        
+    """
+
+
     if name == 'sgd':
         optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.5)
-    if name == 'adamw':
+    elif name == 'adamw':
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    if name == 'adagrad':
+    elif name == 'adagrad':
         optimizer = torch.optim.Adagrad(model.parameters(), lr=learning_rate)
-    if name == 'adamax':
+    elif name == 'adamax':
         optimizer = torch.optim.Adamax(model.parameters(), lr=learning_rate)
-    if name == 'rmsprop':
+    elif name == 'rmsprop':
         optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
+    else: #name == 'adam'
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     return optimizer
 
 
@@ -113,6 +161,62 @@ def make_model(df: pd.DataFrame, scalers, encoder_features, decoder_features, ba
         history_horizon, forecast_horizon, train_split, validation_split, core_net,
         relu_leak, dropout_fc, dropout_core, rel_linear_hidden_size, rel_core_hidden_size,
         core_layers, target_id, cuda_id, **_):
+    """
+    Provide a model that has been prepared for training.
+
+    Split the given data frame into training, validation and testing sets and specify 
+    encoder and decoder features. Use specified device for CUDA tensors if available.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The data frame containing the model features, to be split into sets for training
+    scalers : list
+        A list with scaler name (e.g. "minmax", "robust") as first entry, followed by scaler values (float or int)
+    encoder_features : string list
+        A list containing desired encoder feature names as strings 
+    decoder_features : string list
+        A list containing desired decoder feature names as strings
+    batch_size : int scalar
+        The size of a batch for the tensor data loader
+    history_horizon : int scalar
+        The length of the history horizon in hours
+    forecast_horizon : int scalar
+        The length of the forecast horizon in hours
+    train_split : float scalar
+        Where to split the data frame for the training set, given as a fraction of data frame length
+    validation_split : float scalar
+        Where to split the data frame for the validation set, given as a fraction of data frame length
+    core_net : string
+        The name of the core_net, for example 'torch.nn.GRU'
+    relu_leak : float scalar
+        The value of the negative slope for the LeakyReLU
+    dropout_fc : float scalar
+        The dropout probability for the decoder
+    dropout_core : float scalar
+        The dropout probability for the core_net
+    rel_linear_hidden_size : float scalar
+        The relative linear hidden size, as a fraction of the total number of features in the training data
+    rel_core_hidden_size : float scalar
+        The relative core hidden size, as a fraction of the total number of features in the training data
+    core_layers : int scalar
+        The number of layers of the core_net
+    target_id : string
+        The name of feature to forecast, e.g. "demand"
+    cuda_id : Union[torch.device, str, int]
+        The device index to use for CUDA tensors
+
+    Returns
+    -------
+    plf_util.fc_network.EncoderDecoder
+        The prepared model with desired encoder/decoder features
+    plf_util.tensorloader.CustomTensorDataLoader
+        The training data loader
+    plf_util.tensorloader.CustomTensorDataLoader
+        The validation data loader 
+    plf_util.tensorloader.CustomTensorDataLoader
+        The test data loader 
+    """
 
     if torch.cuda.is_available():
         DEVICE = 'cuda'
@@ -161,7 +265,68 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
           learning_rate=None, batch_size=None, history_horizon=None, forecast_horizon=None,
           core_net=None, relu_leak=None, dropout_fc=None, dropout_core=None, rel_linear_hidden_size=None,
           rel_core_hidden_size=None, cuda_id=None, log_df=None, optimizer_name=None, max_epochs=None, logging_tb=True, **_):
+    """
+    Train the given model.
 
+    Train the provided model using the given parameters for up to the specified number of epochs, with early stopping.
+    Log the training data (optionally using TensorBoard's SummaryWriter)
+    Finally, determine the score of the resulting best net.
+
+    Parameters
+    ----------
+    train_data_loader : plf_util.tensorloader.CustomTensorDataLoader
+        The training data loader
+    validation_data_loader : plf_util.tensorloader.CustomTensorDataLoader
+        The validation data loader
+    test_data_loader : plf_util.tensorloader.CustomTensorDataLoader
+        The test data loader    
+    net : plf_util.fc_network.EncoderDecoder
+        The model to be trained
+    learning_rate : float, optional
+        The specified optimizer's learning rate
+    batch_size :  int scalar, optional   
+        The size of a batch for the tensor data loader
+    history_horizon : int scalar, optional
+        The length of the history horizon in hours
+    forecast_horizon : int scalar, optional
+        The length of the forecast horizon in hours
+    core_net : string, optional
+        The name of the core_net, for example 'torch.nn.GRU'
+    relu_leak : float scalar, optional
+        The value of the negative slope for the LeakyReLU
+    dropout_fc : float scalar, optional
+        The dropout probability for the decoder
+    dropout_core : float scalar, optional
+        The dropout probability for the core_net
+    rel_linear_hidden_size : float scalar, optional
+        The relative linear hidden size, as a fraction of the total number of features in the training data
+    rel_core_hidden_size : float scalar, optional
+        The relative core hidden size, as a fraction of the total number of features in the training data
+    cuda_id : Union[torch.device, str, int], optional
+        The device index to use for CUDA tensors
+    log_df : pandas.DataFrame, optional
+        A DataFrame in which the results and parameters of the training are logged
+    optimizer_name : string, optional
+        The name of the torch.optim optimizer to be used. Currently only the following 
+        strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
+    max_epochs : int scalar, optional
+        The maximum number of training epochs
+    logging_tb : bool, default = True
+        Specifies whether TensorBoard's SummaryWriter class should be used for logging during the training
+    
+    Returns
+    -------
+    plf_util.fc_network.EncoderDecoder
+        The trained model
+    pandas.DataFrame
+        A DataFrame in which the results and parameters of the training have been logged
+    float
+        The minimum validation loss of the trained model
+    float or 1d-array or torch.Tensor or tuple
+        The score returned by the performance test. The data type depends on which metric was used. 
+        The current implementation calculates the Mean Interval Score and returns either a float, or 1d-Array with the MIS along the horizon.
+        A lower score is generally better
+    """
     if torch.cuda.is_available():
         DEVICE = 'cuda'
         if cuda_id is not None:
@@ -191,7 +356,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
         # if exploration is True, don't save each trial in the same folder, that confuses tensorboard.
         # Instead, make a subfolder for each trial and name it Trial_{ID}.
-        # If Trial ID > n_trials, actuall training has begun; name that folder differently
+        # If Trial ID > n_trials, actual training has begun; name that folder differently
         if PAR['exploration']:
             ARGS.logname = ARGS.logname.split("/")[0] + "/trial_{}".format(PAR['trial_id'])
 
@@ -260,14 +425,14 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         else:
             rel_score = 0
 
-    # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, pyhton database or table (MongoDB)
-    # Only log once per run so immediatly if exploration is false and only on the trial_main_run if it's true
+    # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, python database or table (MongoDB)
+    # Only log once per run so immediately if exploration is false and only on the trial_main_run if it's true
     if (not PAR['exploration']) or (PAR['exploration'] and not isinstance(PAR['trial_id'], int)):
         log_df = log_data(PAR, ARGS, LOSS_OPTIONS, t1_stop-t0_start, final_epoch_loss, early_stopping.val_loss_min, score, log_df)
 
 
     if logging_tb:
-        # list of hyper parameters for tensorboard, will be available fo sorting in tensorboard/hparams
+        # list of hyper parameters for tensorboard, will be available for sorting in tensorboard/hparams
         # if hyperparam tuning is True, use hparams as defined in tuning.json
         if PAR['exploration']:
             params = PAR['hyper_params']
@@ -301,15 +466,44 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
 
 
 def objective(selected_features, scalers, hyper_param, log_df, **_):
+    """
+    Implement an objective function for optimization with Optuna.
+
+    Provide a callable for Optuna to use for optimization. The callable creates and trains a 
+    model with the specified features, scalers and hyperparameters. Each hyperparameter triggers a trial.
+
+    Parameters
+    ----------
+    selected_features : pandas.DataFrame 
+        The data frame containing the model features, to be split into sets for training
+    scalers : list
+        A list with scaler name (e.g. "minmax", "robust") as first entry, followed by scaler values (float or int)
+    hyper_param: dict
+        A dictionary containing hyperparameters for the Optuna optimizer
+    log_df : pandas.DataFrame
+        A DataFrame in which the results and parameters of the training are logged
+
+    Returns
+    -------
+    Callable
+        A callable that implements the objective function. Takes an optuna.trial._trial.Trial as an argument, and is used as the first argument of a call to optuna.study.Study.optimize()   
+    
+    Raises
+    ------
+    optuna.exceptions.TrialPruned
+        If the trial was pruned
+    """
+
     def search_params(trial):
-        if PAR['exploration']:
-            param = {}
-            # for more hyperparam, add settings and kwargs in a way compatible with
-            # trial object(and suggest methods) of optuna
-            for key in hyper_param['settings'].keys():
-                print('Creating parameter: ', key)
-                func_generator = getattr(trial, hyper_param['settings'][key]['function'])
-                param[key] = func_generator(**(hyper_param['settings'][key]['kwargs']))
+
+        #if PAR['exploration']:
+        param = {}
+        # for more hyperparam, add settings and kwargs in a way compatible with
+        # trial object(and suggest methods) of optuna
+        for key in hyper_param['settings'].keys():
+            print('Creating parameter: ', key)
+            func_generator = getattr(trial, hyper_param['settings'][key]['function'])
+            param[key] = func_generator(**(hyper_param['settings'][key]['kwargs']))
 
         PAR.update(param)
         PAR['hyper_params'] = param
@@ -338,7 +532,7 @@ def main(infile, outmodel, target_id, log_path=None):
 
     selected_features, scalers = dt.scale_all(df, **PAR)
 
-    path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
+    #path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
     # print(path)
     log_df = create_log(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv"), os.path.join(MAIN_PATH, 'targets', ARGS.station))
 
@@ -406,7 +600,7 @@ def main(infile, outmodel, target_id, log_path=None):
                     if (query_true_false("Overwrite config with new parameters?")):
                         PAR['best_loss'] = study.best_value
                         PAR.update(trial.params)
-                # TODO: check if one can retrieve a checkpoint/model from best trial in optuna, to ommit redundant training
+                # TODO: check if one can retrieve a checkpoint/model from best trial in optuna, to omit redundant training
                     else:
                         print('Training with hyper parameters fetched from config.json')
                 else:
@@ -451,7 +645,7 @@ def main(infile, outmodel, target_id, log_path=None):
                 os.makedirs(os.path.join(MAIN_PATH, PAR['output_path']))
             torch.save(min_net, outmodel)
 
-            # drop unnecessary helper vars befor using PAR to safe config
+            # drop unnecessary helper vars befor using PAR to save config
             PAR.pop('hyper_params', None)
             PAR.pop('trial_id', None)
             PAR.pop('n_trials', None)
