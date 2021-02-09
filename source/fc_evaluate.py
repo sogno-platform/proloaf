@@ -52,14 +52,21 @@ def shape_model_input(df, columns_p, horizon_p, horizon_f):
     return x_p, x_f, y
 
 
-def results_table(models, mse, rmse, sharpness, coverage, mis):
+def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, save_to_disc=False):
     data = {
         'MSE': mse,
         'RMSE': rmse,
+        'MASE':mase,
+        'RAE':rae,
+        'nMAE':mae,
         'Mean sharpness': sharpness,
         'Mean PICP': coverage,
         'Mean IS': mis}
+
     results_df = pd.DataFrame(data, index=models)
+    if(save_to_disc):
+        results_df.to_csv(save_to_disc+models[0]+'.csv', sep=';', index=True)
+
     return results_df
 
 
@@ -83,7 +90,7 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     if(limit):
         plt.axhline(linewidth=2, color='r', y=limit)
     ax.grid()
-    positions = range(0, 40, 2)
+    positions = range(0, len(pred), 2)
     labels = actual_hours.dt.hour.to_numpy()
     new_labels = labels[positions]
     plt.xticks(positions, new_labels)
@@ -179,8 +186,12 @@ if __name__ == '__main__':
         target_index = df_new.columns.get_loc(target_id)
 
         split_index = int(len(df_new.index) * SPLIT_RATIO)
+        train_df = df_new.iloc[0:split_index]
         test_df = df_new.iloc[split_index:]
 
+        train_data_loader = dl.make_dataloader(train_df, target_id, PAR['encoder_features'], PAR['decoder_features'],
+                                              history_horizon=PAR['history_horizon'], forecast_horizon=PAR['forecast_horizon'],
+                                              shuffle=False).to(DEVICE)
         test_data_loader = dl.make_dataloader(test_df, target_id, PAR['encoder_features'], PAR['decoder_features'],
                                               history_horizon=PAR['history_horizon'], forecast_horizon=PAR['forecast_horizon'],
                                               shuffle=False).to(DEVICE)
@@ -211,17 +222,18 @@ if __name__ == '__main__':
         # collect metrics by disregarding the development over the horizon
         mse = metrics.mse(record_targets, [record_expected_values])
         rmse = metrics.rmse(record_targets, [record_expected_values])
+        mase = metrics.mase(record_targets, [record_expected_values], 7 * 24, train_data_loader.dataset.targets)
+        rae = metrics.rae(record_targets, [record_expected_values])
+        mae = metrics.nmae(record_targets, [record_expected_values])
+
         sharpness = metrics.sharpness(None, [y_pred_upper, y_pred_lower])
-        coverage = metrics.picp(record_targets, [y_pred_upper,
-                                                        y_pred_lower])
+        coverage = metrics.picp(record_targets, [y_pred_upper, y_pred_lower])
         mis = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05)
 
         # plot metrics
         plot_metrics(rmse_horizon.detach().numpy(), sharpness_horizon.detach().numpy(), coverage_horizon.detach().numpy(), mis_horizon.detach().numpy(), OUTDIR, 'metrics-evaluation')
 
         # plot forecast for sample days
-        # testhours = [0, 12, 24, 48, 100, 112]
-
         if 'ci_tests' in PAR['data_path']:
             testhours = [0, 12]
         else:
@@ -233,6 +245,7 @@ if __name__ == '__main__':
             evaluate_hours(record_targets[i].detach().numpy(), record_expected_values[i].detach().numpy(), y_pred_upper[i].detach().numpy(), y_pred_lower[i].detach().numpy(), i, OUTDIR, PAR['cap_limit'], hours)
 
         target_stations = [PAR['model_name']]
-        print(results_table(target_stations, mse.detach().numpy(), rmse.detach().numpy(), sharpness.detach().numpy(), coverage.detach().numpy(), mis.detach().numpy()))
+        print(results_table(target_stations, mse.cpu().numpy(), rmse.cpu().numpy(), mase.cpu().numpy(), rae.cpu().numpy(),
+                          mae.cpu().numpy(), sharpness.cpu().numpy(), coverage.cpu().numpy(), mis.cpu().numpy(), save_to_disc=OUTDIR))
 
     print('Done!!')

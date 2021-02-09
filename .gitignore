@@ -1,7 +1,7 @@
 build/
 oracles/
 data/
-targets/sege
+targets/sege*
 dist/
 plf_util.egg-info/
 old-yml.yml
