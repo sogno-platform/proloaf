@@ -1,6 +1,6 @@
 build/
 oracles/
-data/
+data/*
 targets/sege*
 dist/
 plf_util.egg-info/
@@ -14,3 +14,4 @@ old/
 .idea
 .run
 /targets/seq-res-load/
+.ipynb_checkpoints
