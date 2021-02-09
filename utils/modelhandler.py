@@ -100,7 +100,7 @@ def get_pred_interval(predictions, criterion, targets):
         #TODO: make 95% prediction interval changeable
         y_pred_upper = expected_values + 1.96 * sigma
         y_pred_lower = expected_values - 1.96 * sigma
-    elif 'pinball' in str(criterion):
+    elif 'quantile' in str(criterion):
         #loss_type = 'pinball'
         y_pred_lower = predictions[:,:,0:1]
         y_pred_upper = predictions[:,:,1:2]
@@ -112,7 +112,6 @@ def get_pred_interval(predictions, criterion, targets):
         # the prediction interval is usually calculated using the model output ± 2 × RMSE.
         y_pred_lower = expected_values-2*rmse
         y_pred_upper = expected_values+2*rmse
-
     elif ('mse' in str(criterion)) or ('mape' in str(criterion)):
         # loss_type = 'mis'
         expected_values = predictions
@@ -156,7 +155,7 @@ def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_hor
         score = metrics.mse(targets, output, total=avg_on_horizon)
     elif (score_type == 'rmse'):
         output = expected_values
-        score = metrics.rmse(targets, output, total=avg_on_horizon)
+        score = metrics.rmse(targets, output.unsqueeze(0), total=avg_on_horizon)
     elif ('mape' in str(score_type)):
         output = expected_values
         score = metrics.mape(targets, output, total=avg_on_horizon)
