@@ -401,4 +401,62 @@ def mis(target, predictions:list, alpha=0.05, total = True):
     else:
         return mis_horizon
 
+def rae(target, predictions: list, total=True):
+    """
+        Calculates Relative Absolute Error
+        compared to a naive forecast that only assumes that the future will produce the average of the past observations
 
+        Parameters
+        ----------
+        target   : torch.Tensor
+                     series input data for predicting a forecast
+        y_test     : torch.Tensor
+                     true values of the target variable
+        y_hat_test : torch.Tensor
+                     predicted values of the target variable
+
+        Returns
+        -------
+        1)float    : total rae (lower the better)
+
+
+    """
+    y_hat_test = predictions[0]
+    y_hat_naive = target
+    y_hat_naive = torch.mean(target)
+
+    if not total:
+        raise NotImplementedError("rae does not support loss over the horizon")
+
+    # denominator is the mean absolute error of the preidicity dependent "naive forecast method"
+    # on the test set -->outsample
+    return torch.mean(torch.abs(target - y_hat_test)) / torch.mean(torch.abs(target - y_hat_naive))
+
+
+def nmae(target, predictions: list, total=True):
+    """
+        Calculates normalized absolute error
+        nMAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+
+        Parameters
+        ----------
+        target   : torch.Tensor
+                     series input data for predicting a forecast
+        y_test     : torch.Tensor
+                     true values of the target variable
+        y_hat_test : torch.Tensor
+                     predicted values of the target variable
+
+        Returns
+        -------
+        1)float    : total nmae (lower the better)
+
+
+    """
+
+    if not total:
+        raise NotImplementedError("nmae does not support loss over the horizon")
+
+    y_hat_test = predictions[0]
+
+    return torch.sum(torch.abs(target - y_hat_test)) / torch.sum(torch.abs(target))
