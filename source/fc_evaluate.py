@@ -17,6 +17,20 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
+"""
+Evaluate a previously trained model.
+
+Run the trained net on test data and evaluate the result. 
+Provide several graphs as outputs that show the performance of the trained model.
+
+Notes
+-----
+- The output consists of the actual load prediction graph split up into multiple svg images and 
+a metrics plot containing information about the model’s performance.
+- The output path for the graphs can be changed under the "evaluation_path": option 
+in the corresponding config file.
+
+"""
 
 import plf_util.datatuner as dt
 import plf_util.tensorloader as dl
@@ -43,6 +57,28 @@ warnings.filterwarnings('ignore')
 
 
 def shape_model_input(df, columns_p, horizon_p, horizon_f):
+    """
+    Shapes the input data for the model.
+
+    longer summary
+
+    Parameters
+    ----------
+    df : type
+        desc
+    columns_p : type
+        desc
+    horizon_p : type
+        desc
+    horizon_f : type
+        desc
+
+    Returns
+    -------
+    type
+        description
+        
+    """
     # shape input data that is measured in the Past and can be fetched from UDW/LDW
     x_p = dt.extract(df[columns_p].iloc[:-horizon_f, :], horizon_p)
     # shape input data that is known for the Future, here take perfect hourly temp-forecast
@@ -53,6 +89,31 @@ def shape_model_input(df, columns_p, horizon_p, horizon_f):
 
 
 def results_table(models, mse, rmse, sharpness, coverage, mis):
+    """
+    Put the models' scores for the given metrics in a DataFrame.
+
+    Parameters
+    ----------
+    models : string list or None
+        The names of the models to use as index e.g. "gc17ct_GRU_gnll_test_hp"
+    mse : torch.Tensor, float or ndarray
+        The value(s) for mean squared error
+    rmse : torch.Tensor, float or ndarray
+        The value(s) for root mean squared error
+    sharpness : torch.Tensor, float or ndarray
+        The value(s) for sharpness
+    coverage : torch.Tensor, float or ndarray
+        The value(s) for PICP (prediction interval coverage probability or % of true 
+        values in the predicted intervals)
+    mis : torch.Tensor, float or ndarray
+        The value(s) for mean interval score
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame containing the models' scores for the given metrics
+        
+    """
     data = {
         'MSE': mse,
         'RMSE': rmse,
@@ -64,6 +125,32 @@ def results_table(models, mse, rmse, sharpness, coverage, mis):
 
 
 def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
+    """
+    Create a matplotlib.pyplot.subplot to compare true and predicted values
+
+    Save the resulting plot at (OUTPATH + 'eval_hour{}'.format(hour))
+
+    Parameters
+    ----------
+    target : ndarray
+        Numpy array containing true values
+    pred : ndarray
+        Numpy array containing predicted values
+    y_pred_upper : ndarray
+        Numpy array containing upper limit of prediction confidence interval
+    y_pred_lower : ndarray
+        Numpy array containing lower limit of prediction confidence interval
+    hour : int
+        The hour of the prediction
+    OUTPATH : string
+        Path to where the plot should be saved
+    limit : float
+        The cap limit. Used to draw a horizontal line with height = limit.
+    actual_hours : pandas.Series, default = None
+        The actual time from the data set
+              
+    """
+
     fig, ax = plt.subplots(1)
     ax.plot(target, '.-k', label="Truth")  # true values
     ax.plot(pred, 'b', label='Predicted')
@@ -71,7 +158,7 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     if(actual_hours.dt.hour.any()):
         ax.set_title(actual_hours.iloc[0].strftime("%a, %Y-%m-%d"), fontsize=20)
     else:
-        ax.set_title('Forecast along horizon', fontsize=22)
+        ax.set_title('Forecast along horizon', fontsize=22) 
     ax.fill_between(np.arange(pred.shape[0]), pred.squeeze(), y_pred_upper.squeeze(), alpha=0.1, color='g')
     ax.fill_between(np.arange(pred.shape[0]), y_pred_lower.squeeze(), pred.squeeze(), alpha=0.1, color='g')
 
@@ -93,6 +180,29 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
 
 
 def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
+    """
+    Create a matplotlib.pyplot.figure with plots for the given metrics
+
+    Save the resulting figure at (OUTPATH + 'metrics_plot')
+
+    Parameters
+    ----------
+    rmse_horizon : ndarray
+        The values for the root mean square error over the horizon
+    sharpness_horizon : ndarray
+        The values for the sharpness over the horizon
+    coverage_horizon : ndarray
+        The values for the PICP (prediction interval coverage probability or % of true 
+        values in the predicted intervals) over the horizon
+    mis_horizon : ndarray
+        The values for the mean interval score over the horizon
+    OUTPATH : string
+        The path to where the figure should be saved
+    title : string
+        The text for a centered title for the figure
+
+    """
+    
     with plt.style.context('seaborn'):
         fig = plt.figure(figsize=(16, 12))
         st = fig.suptitle(title, fontsize=25)

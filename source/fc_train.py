@@ -29,11 +29,11 @@ This script scales the data, loads a custom datastructure and then generates and
 Notes
 -----
 Hyperparameter exploration
-    Any training parameter is considered a hyperparameter as long as it is specified in 
+    - Any training parameter is considered a hyperparameter as long as it is specified in 
     either config.json or tuning.json. The latter is the standard file where the (so far) 
     best found configuration is saved and should usually not be manually adapted unless 
     new tests are for some reason not comparable to older ones (e.g. after changing the loss function).
-    Possible hyperparameters are: target_column, encoder_features, decoder_features, 
+    - Possible hyperparameters are: target_column, encoder_features, decoder_features, 
     max_epochs, learning_rate, batch_size, shuffle, history_horizon, forecast_horizon, 
     train_split, validation_split, core_net, relu_leak, dropout_fc, dropout_core, 
     rel_linear_hidden_size, rel_core_hidden_size, optimizer_name, cuda_id
