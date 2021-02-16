@@ -126,14 +126,19 @@ def extract(df, horizon):
     reshaped_data: nd-array
                    numpy input array
     """
-    number_of_features = df.shape[1]
+
     number_of_samples = df.shape[0] - horizon + 1
     if number_of_samples <= 0:
         number_of_samples = 1
-
-    reshaped_data = np.empty([number_of_samples, horizon, number_of_features])
-    for i in range(number_of_samples):
-        reshaped_data[i, :, :] = df.iloc[i:i + horizon, :]
+    if df.ndim > 1:
+        number_of_features = df.shape[1]
+        reshaped_data = np.empty([number_of_samples, horizon, number_of_features])
+        for i in range(number_of_samples):
+            reshaped_data[i, :, :] = df.iloc[i:i + horizon, :]
+    else:
+        reshaped_data = np.empty([number_of_samples, horizon])
+        for i in range(number_of_samples):
+            reshaped_data[i, :] = df.iloc[i:i + horizon]
     return reshaped_data
 
 def scale(df, scaler):
@@ -231,3 +236,55 @@ def scale_all(df:pd.DataFrame, feature_groups, start_date = None, **_):
                 scaled_features = scaled_features.join(df_to_scale)
                 
     return scaled_features, scalers
+
+def constructDf(data, columns, train_split, forecast_horizon, history_horizon,
+                interval=1, number_forecasts=0, limit_memory=False):
+    """
+    Constructs and re-orders data for training
+
+    Parameters
+    ----------
+    data                     : DataFrame with all data
+
+    columns                  : columns used in model target+exog
+
+    forecast_time            : str Time where forecasts should start
+
+    forecast_horizon         : number of forecast steps into the future
+
+    number_forecasts         : number of forecasts er default 0 -->forecast over whole test-period
+
+    interval                 : number of time_steps between every forecast, default 1 -->simulate forecast with moving
+                                window of 1 timestep
+
+    recent_memory            : number of past time_steps if None all past data is used
+
+    limit_memory             : true when history horizon shall limit the recent memory
+
+
+    Returns
+    -------
+    1)input_matrix          : list of DataFrames for input
+    2)output_matrix         : list of DataFrames for output
+
+    """
+    train = []
+    test = []
+
+    train_test_split = int(train_split * len(data))
+    df = data[columns]
+    recent_memory = 0
+    if number_forecasts == 0:
+        number_forecasts = len(data)
+
+    if history_horizon!=0 and limit_memory:
+        recent_memory = max(0,train_test_split - history_horizon)
+
+    for i in range(number_forecasts):
+        forecast_start = train_test_split + 1 + interval * i
+        if (forecast_start+forecast_horizon)>len(df):
+            #break when end of test period is reached in next iteration.
+            break
+        train.append(pd.DataFrame(df.iloc[recent_memory:forecast_start], columns=df.columns))
+        test.append(pd.DataFrame(df.iloc[forecast_start:forecast_start+forecast_horizon], columns=df.columns))
+    return train, test

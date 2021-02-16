@@ -20,8 +20,8 @@
 
 import numpy as np
 import torch
-
-#ToDO: 
+import pandas as pd
+import matplotlib.pyplot as plt
 
 class loss:
     def __init__(self, func, num_params):
@@ -270,8 +270,8 @@ def mase(target, predictions:list, freq, insample, total = True):
     
     # for i in range(freq, insample.shape[0]):
     #     y_hat_naive[i] = insample[(i - freq)]
-
-    masep = torch.mean(torch.abs(insample[freq:] - y_hat_naive[freq:]))
+    # before: asep = torch.mean(torch.abs(insample[freq:] - y_hat_naive[freq:]))
+    masep = torch.mean(torch.abs(insample[:,freq:] - y_hat_naive[:,freq:]))
     # denominator is the mean absolute error of the one-step "seasonal naive forecast method"
     # on the training set
     # this works one input sample for multiple horizon
@@ -460,3 +460,94 @@ def nmae(target, predictions: list, total=True):
     y_hat_test = predictions[0]
 
     return torch.sum(torch.abs(target - y_hat_test)) / torch.sum(torch.abs(target))
+
+def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, save_to_disc=False):
+    data = {
+        'MSE': mse,
+        'RMSE': rmse,
+        'MASE':mase,
+        'RAE':rae,
+        'nMAE':mae,
+        'Mean sharpness': sharpness,
+        'Mean PICP': coverage,
+        'Mean IS': mis}
+
+    results_df = pd.DataFrame(data, index=models)
+    if(save_to_disc):
+        results_df.to_csv(save_to_disc+models[0]+'.csv', sep=';', index=True)
+
+    return results_df
+
+def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
+    fig, ax = plt.subplots(1)
+    ax.plot(target, '.-k', label="Truth")  # true values
+    ax.plot(pred, 'b', label='Predicted')
+    # insert actual time
+    if(actual_hours.dt.hour.any()):
+        ax.set_title(actual_hours.iloc[0].strftime("%a, %Y-%m-%d"), fontsize=20)
+    else:
+        ax.set_title('Forecast along horizon', fontsize=22)
+    ax.fill_between(np.arange(pred.shape[0]), pred.squeeze(), y_pred_upper.squeeze(), alpha=0.1, color='g')
+    ax.fill_between(np.arange(pred.shape[0]), y_pred_lower.squeeze(), pred.squeeze(), alpha=0.1, color='g')
+
+    ax.set_title('Forecast along horizon', fontsize=22)
+    ax.set_xlabel("Hour", fontsize=18)
+    ax.set_ylabel("Scaled Residual Load (-1,1)", fontsize=20)
+    ax.legend(fontsize=20)
+    ax.grid(b=True, linestyle='-')
+    if(limit):
+        plt.axhline(linewidth=2, color='r', y=limit)
+    ax.grid()
+    positions = range(0, len(pred), 2)
+    labels = actual_hours.dt.hour.to_numpy()
+    new_labels = labels[positions]
+    plt.xticks(positions, new_labels)
+    ax.set_xlabel("Hour of Day", fontsize=20)
+    plt.autoscale(enable=True, axis='x', tight=True)
+    plt.savefig(OUTPATH + 'eval_hour{}'.format(hour))
+
+def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
+    with plt.style.context('seaborn'):
+        fig = plt.figure(figsize=(16, 12))
+        st = fig.suptitle(title, fontsize=25)
+        plt.rc('xtick', labelsize=15)
+        plt.rc('ytick', labelsize=15)
+
+        ax_rmse = plt.subplot(2, 2, 1)
+        ax_sharpness = plt.subplot(2, 2, 3)
+        ax_PICP = plt.subplot(2, 2, 2)
+        ax_MSIS = plt.subplot(2, 2, 4)
+
+        ax_rmse.plot(rmse_horizon, label='rmse')
+        ax_rmse.set_title('RMSE along horizon', fontsize=22)
+        ax_rmse.set_xlabel("Hour", fontsize=18)
+        ax_rmse.set_ylabel("RMSE", fontsize=20)
+        ax_rmse.legend(fontsize=20)
+        ax_rmse.grid(b=True, linestyle='-')
+
+        ax_sharpness.plot(sharpness_horizon, label='sharpness')
+        ax_sharpness.set_title('sharpness along horizon', fontsize=22)
+        ax_sharpness.set_xlabel("Hour", fontsize=18)
+        ax_sharpness.set_ylabel("sharpness", fontsize=20)
+        ax_sharpness.legend(fontsize=20)
+        ax_sharpness.grid(b=True, linestyle='-')
+
+        ax_PICP.plot(coverage_horizon, label='coverage')
+        ax_PICP.set_title('coverage along horizon', fontsize=22)
+        ax_PICP.set_xlabel("Hour", fontsize=18)
+        ax_PICP.set_ylabel("coverage in %", fontsize=20)
+        ax_PICP.legend(fontsize=20)
+        ax_PICP.grid(b=True, linestyle='-')
+
+        ax_MSIS.plot(mis_horizon, label='MIS')
+        ax_MSIS.set_title('Mean Interval score', fontsize=22)
+        ax_MSIS.set_xlabel("Hour", fontsize=18)
+        ax_MSIS.set_ylabel("MIS", fontsize=20)
+        ax_MSIS.legend(fontsize=20)
+        ax_MSIS.grid(b=True, linestyle='-')
+
+        st.set_y(1.08)
+        fig.subplots_adjust(top=0.95)
+        plt.tight_layout()
+        plt.savefig(OUTPATH + 'metrics_plot')
+        # plt.show()
