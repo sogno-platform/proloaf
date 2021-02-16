@@ -190,10 +190,10 @@ def rmse(target, predictions:list, total = True):
 
         Parameters
         ----------
-        target          : torch.Tensor
-                          true values of the target variable
-        predictions     : torch.Tensor
-                          predicted expected values of the target variable
+        target : torch.Tensor
+            true values of the target variable
+        predictions : torch.Tensor
+            predicted expected values of the target variable
 
         Returns
         -------
