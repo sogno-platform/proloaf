@@ -161,7 +161,6 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     ax.fill_between(np.arange(pred.shape[0]), pred.squeeze(), y_pred_upper.squeeze(), alpha=0.1, color='g')
     ax.fill_between(np.arange(pred.shape[0]), y_pred_lower.squeeze(), pred.squeeze(), alpha=0.1, color='g')
 
-    ax.set_title('Forecast along horizon', fontsize=22)
     ax.set_xlabel("Hour", fontsize=18)
     ax.set_ylabel("Scaled Residual Load (-1,1)", fontsize=20)
     ax.legend(fontsize=20)
