@@ -24,11 +24,12 @@ Transforms the data to a common format (pandas.DataFrame as csv) for all station
 
 Notes
 -----
-- This script for now only allows weather data in csv format without timezone support,
-and it only allows xlsx files for load. 
+- This script can load xlsx or csv files. It currently doesn't take timezone into account
+when loading csv files.
 - If your data does not match the criteria, you can use a custom script that saves your
-data as a pandas.DataFrame with datetimeindex to a csv file with a “;” as separator to 
-accomplish the same thing.    
+data as a pandas.DataFrame with datetimeindex to a csv file with a “;” as separator to
+accomplish the same thing.
+
 """
 
 import pandas as pd
@@ -47,19 +48,19 @@ import plf_util.datatuner as dt
 
 def load_raw_data_xlsx(files):
     """
-    Read load data. 
-    
+    Read load data.
+
     The source load_file is assumed to be a xlsx load_file and to have an hourly resolution.
 
     Parameters
     ----------
     files : list
-        A list of files to read. See the Notes section for more information.
+        A list of files to read. See the Notes section for more information
 
     Returns
     -------
     list
-        A list containing a DataFrame for each file that was read. 
+        A list containing a DataFrame for each file that was read
 
     Notes
     -----
@@ -114,19 +115,19 @@ def load_raw_data_xlsx(files):
 
 def load_raw_data_csv(files):
     """
-    Read e.g. temperature data. 
-    
+    Read e.g. temperature data.
+
     The source files are assumed to be csv, in hourly resolution. Windspeed and temperature...
-    
+
     Parameters
     ----------
     files : list
-        A list of files to read. See the Notes section for more information.
+        A list of files to read. See the Notes section for more information
 
     Returns
     -------
     list
-        A list containing a DataFrame for each file that was read. 
+        A list containing a DataFrame for each file that was read
 
     Notes
     -----
@@ -180,13 +181,13 @@ def set_to_hours(df):
     Parameters
     ----------
     df : pandas.DataFrame
-        The DataFrame whose index and frequency are to be changed. 
+        The DataFrame whose index and frequency are to be changed
 
     Returns
     -------
     df
         The modified DataFrame
-        
+
     """
 
     df['Time'] = pd.to_datetime(df['Time'])
