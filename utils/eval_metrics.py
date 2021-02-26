@@ -474,12 +474,12 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, s
 
     results_df = pd.DataFrame(data, index=models)
     if(save_to_disc):
-        results_df.to_csv(save_to_disc+models[0]+'.csv', sep=';', index=True)
+        results_df.to_csv(save_to_disc+models+'.csv', sep=';', index=True)
 
     return results_df
 
 def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
-    fig, ax = plt.subplots(1)
+    fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(target, '.-k', label="Truth")  # true values
     ax.plot(pred, 'b', label='Predicted')
     # insert actual time
@@ -490,7 +490,6 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     ax.fill_between(np.arange(pred.shape[0]), pred.squeeze(), y_pred_upper.squeeze(), alpha=0.1, color='g')
     ax.fill_between(np.arange(pred.shape[0]), y_pred_lower.squeeze(), pred.squeeze(), alpha=0.1, color='g')
 
-    ax.set_title('Forecast along horizon', fontsize=22)
     ax.set_xlabel("Hour", fontsize=18)
     ax.set_ylabel("Scaled Residual Load (-1,1)", fontsize=20)
     ax.legend(fontsize=20)
@@ -549,5 +548,5 @@ def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,
         st.set_y(1.08)
         fig.subplots_adjust(top=0.95)
         plt.tight_layout()
-        plt.savefig(OUTPATH + 'metrics_plot')
+        plt.savefig(OUTPATH + title+'_metrics_plot')
         # plt.show()
