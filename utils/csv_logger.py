@@ -17,6 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
+"""
+Provide functions for logging training results and reading and writing those logs to/from csv files.
+"""
 
 from plf_util.config_util import *
 
@@ -26,6 +29,29 @@ import os
 
 # Loads a logfile if one exists, else creates a pd dataframe (create log)
 def create_log(log_path=None, station_path=None) -> pd.DataFrame:
+    """
+    Provide a pandas.Dataframe to use for logging the training results.
+
+    Load a .csv log file, if one exists, into the DataFrame.
+    If no .csv file exists, create the DataFrame using the parameters stored in the log.json config.
+
+    Parameters
+    ----------
+    log_path : string
+        Path to where logfiles are stored
+    station_path : string
+        Path to where the log.json file is stored for a given station
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame containing the loaded or created logfile
+
+    Raises
+    ------
+    Bare except
+        If unable to load log feature set from config file or if no existing log file found
+    """
     try:
         feature_list = [x['name'] for x in read_config(config_path=os.path.join(station_path, "log.json"))['features']]
     except:
@@ -61,7 +87,35 @@ def create_log(log_path=None, station_path=None) -> pd.DataFrame:
 
 # recieves a df and some data to log and writes the data to that df
 def log_data(PAR, ARGS, LOSS_OPTIONS, total_time, final_epoch_loss, val_loss_min, score, log_df = None) -> pd.DataFrame:
+    """
+    Recieve a pandas.DataFrame and some data to log and write the data to that DataFrame
 
+    Only the features defined in the log.json config should be logged.
+
+    Parameters
+    ----------
+    PAR : dict
+        A dictionary containing all model parameters originally read from the config file
+    ARGS : Namespace
+        An object that stores the station name and loss function as attributes
+    LOSS_OPTIONS : dict
+        Contains extra options if the loss functions mis or quantile score are used
+    total_time : float
+        Total training time
+    final_epoch_loss : float
+        The value of the final epoch loss
+    val_loss_min : float
+        The value of the minimum validation loss
+    score : torch.Tensor or float
+        The score after training
+    log_df : pandas.DataFrame
+        The DataFrame that will be written to
+
+    Returns
+    -------
+    pandas.DataFrame
+        The DataFrame that has been written to
+    """
     if log_df is not None:
         print("--saving to log--")
         # Fetch all data that is of interest
@@ -101,8 +155,26 @@ def log_data(PAR, ARGS, LOSS_OPTIONS, total_time, final_epoch_loss, val_loss_min
     return log_df
 
 
-# recieves a df and tries to save that to a path, if the path is nonexistant it gets created
+# recieves a df and tries to save that to a path, if the path is non-existent it gets created
 def write_log_to_csv(log_df, path = None, model_name = None):
+    """
+    Recieve a pandas.DataFrame and save it as a .csv file using the given path.
+
+    If the path doesn't exist, create it. If no path or no model name are given, do nothing.
+
+    Parameters
+    ----------
+    log_df : pandas.DataFrame
+        The DataFrame that should be saved as a .csv file
+    path : string, default = None
+        Path to where the log (.csv file) should be saved
+    model_name : string, default = None
+        The name of the resulting .csv file. Should include '.csv' file extension
+
+    Returns
+    -------
+    No return value
+    """
     if not log_df.empty:
         if path and model_name:
             if not os.path.exists(path):
