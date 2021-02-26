@@ -81,7 +81,7 @@ def eval_baseline(mean_forecast, df_target, upper_PI, lower_PI, load_limit, hour
     rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon = \
         baselines.eval_forecast(mean_forecast, df_target,
                                 upper_PI, lower_PI, total=False)
-    print(metrics.results_table([baseline_method + '_' + ARGS.station], mse.numpy(), rmse.numpy(), mase.numpy(),
+    print(metrics.results_table(baseline_method + '_' + ARGS.station, mse.numpy(), rmse.numpy(), mase.numpy(),
                                 rae.numpy(), mae.numpy(), sharpness.numpy(), coverage.numpy(), mis.numpy(),
                                 save_to_disc=OUTDIR))
     # plot metrics
@@ -326,5 +326,5 @@ if __name__ == '__main__':
     SEASONALITY=24
     ALPHA = 1.96
     EXOG = True
-    APPLY_EXISTING_MODEL = False
+    APPLY_EXISTING_MODEL = True
     main(infile=os.path.join(MAIN_PATH, PAR['data_path']), target_id=PAR['target_id'])
