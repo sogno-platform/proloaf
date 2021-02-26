@@ -472,7 +472,7 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, s
         'Mean PICP': coverage,
         'Mean IS': mis}
 
-    results_df = pd.DataFrame(data, index=models)
+    results_df = pd.DataFrame(data, index=[models])
     if(save_to_disc):
         results_df.to_csv(save_to_disc+models+'.csv', sep=';', index=True)
 
