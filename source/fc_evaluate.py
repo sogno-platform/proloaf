@@ -148,7 +148,7 @@ if __name__ == '__main__':
             hours = actual_time.iloc[i:i + FORECAST_HORIZON]
             metrics.evaluate_hours(record_targets[i].detach().numpy(), record_expected_values[i].detach().numpy(), y_pred_upper[i].detach().numpy(), y_pred_lower[i].detach().numpy(), i, OUTDIR, PAR['cap_limit'], hours)
 
-        target_stations = [PAR['model_name']]
+        target_stations = PAR['model_name']
         print(metrics.results_table(target_stations, mse.cpu().numpy(), rmse.cpu().numpy(), mase.cpu().numpy(), rae.cpu().numpy(),
                           mae.cpu().numpy(), sharpness.cpu().numpy(), coverage.cpu().numpy(), mis.cpu().numpy(), save_to_disc=OUTDIR))
 
