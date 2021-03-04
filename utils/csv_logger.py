@@ -37,9 +37,9 @@ def create_log(log_path=None, station_path=None) -> pd.DataFrame:
 
     Parameters
     ----------
-    log_path : string
-        Path to where logfiles are stored
-    station_path : string
+    log_path : string, default = None
+        Path to where logfiles are stored. If None, a new DataFrame will be created
+    station_path : string, default = None
         Path to where the log.json file is stored for a given station
 
     Returns
@@ -108,7 +108,7 @@ def log_data(PAR, ARGS, LOSS_OPTIONS, total_time, final_epoch_loss, val_loss_min
         The value of the minimum validation loss
     score : torch.Tensor or float
         The score after training
-    log_df : pandas.DataFrame
+    log_df : pandas.DataFrame, default = None
         The DataFrame that will be written to
 
     Returns
