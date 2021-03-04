@@ -173,8 +173,8 @@ def make_model(df: pd.DataFrame, scalers, encoder_features, decoder_features, ba
     ----------
     df : pandas.DataFrame
         The data frame containing the model features, to be split into sets for training
-    scalers : list
-        A list with scaler name (e.g. "minmax", "robust") as first entry, followed by scaler values (float or int)
+    scalers : dict
+        A dict of sklearn.preprocessing scalers with scaler names (e.g. "minmax", "robust") as keywords
     encoder_features : string list
         A list containing desired encoder feature names as strings 
     decoder_features : string list
@@ -480,8 +480,8 @@ def objective(selected_features, scalers, hyper_param, log_df, **_):
     ----------
     selected_features : pandas.DataFrame 
         The data frame containing the model features, to be split into sets for training
-    scalers : list
-        A list with scaler name (e.g. "minmax", "robust") as first entry, followed by scaler values (float or int)
+    scalers : dict
+        A dict of sklearn.preprocessing scalers with scaler names (e.g. "minmax", "robust") as keywords
     hyper_param: dict
         A dictionary containing hyperparameters for the Optuna optimizer
     log_df : pandas.DataFrame
