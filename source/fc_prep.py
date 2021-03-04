@@ -24,8 +24,7 @@ Transforms the data to a common format (pandas.DataFrame as csv) for all station
 
 Notes
 -----
-- This script can load xlsx or csv files. It currently doesn't take timezone into account
-when loading csv files.
+- This script can load xlsx or csv files.
 - If your data does not match the criteria, you can use a custom script that saves your
 data as a pandas.DataFrame with datetimeindex to a csv file with a “;” as separator to
 accomplish the same thing.
@@ -48,9 +47,9 @@ import plf_util.datatuner as dt
 
 def load_raw_data_xlsx(files):
     """
-    Read load data.
+    Load data from an xlsx file
 
-    The source load_file is assumed to be a xlsx load_file and to have an hourly resolution.
+    After loading, the date column in the raw data is converted to a UTC datetime
 
     Parameters
     ----------
@@ -115,9 +114,9 @@ def load_raw_data_xlsx(files):
 
 def load_raw_data_csv(files):
     """
-    Read e.g. temperature data.
+    Load data from a csv file
 
-    The source files are assumed to be csv, in hourly resolution. Windspeed and temperature...
+    After loading, the date column in the raw data is converted to a UTC datetime
 
     Parameters
     ----------
