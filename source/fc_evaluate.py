@@ -197,7 +197,7 @@ if __name__ == "__main__":
     with torch.no_grad():
         net = torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
 
-        df_new, _ = dt.scale_all(df, scalers=net.scalers ** PAR)
+        df_new, _ = dt.scale_all(df, scalers=net.scalers, **PAR)
 
         target_index = df_new.columns.get_loc(target_id)
 
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         criterion = net.criterion
         # get metrics parameters
         y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(
-            record_output, criterion
+            record_output, criterion, df[target_id]
         )
 
         # rescale(test_output, test_targets)
