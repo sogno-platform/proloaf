@@ -4,3 +4,4 @@
 [submodule "plf-util"]
 	path = plf_util
 	url = ../plf-util.git
+	branch = 1-fix-rescaling-bug
