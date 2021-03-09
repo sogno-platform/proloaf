@@ -255,8 +255,8 @@ def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers={}, **_
                 )
             else:
                 raise RuntimeError("scaler could not be generated")
-
-            scaler.fit(df_to_scale)
+            if scaler is not None:
+                scaler.fit(df_to_scale)
 
         if group["features"] is not None:
             df_to_scale = df.filter(group["features"])[start_date:]
