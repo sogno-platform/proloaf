@@ -126,36 +126,36 @@ def set_optimizer(name, model, learning_rate):
     Parameters
     ----------
     name : string or None, default = 'adam'
-        The name of the torch.optim optimizer to be used. The following 
+        The name of the torch.optim optimizer to be used. The following
         strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
     model : plf_util.fc_network.EncoderDecoder
         The model which is to be optimized
     learning_rate : float or None
         The learning rate to be used by the optimizer. If set to None, the default value as defined in
         torch.optim is used
-    
+
     Returns
     -------
-    torch.optim optimizer class 
+    torch.optim optimizer class
         A torch.optim optimizer that implements one of the following algorithms:
         Adagrad, Adam, Adamax, AdamW, RMSprop, or SGD (stochastic gradient descent)
         SGD is set to use a momentum of 0.5.
-        
+
     """
 
 
+    if name == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     if name == 'sgd':
         optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.5)
-    elif name == 'adamw':
+    if name == 'adamw':
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    elif name == 'adagrad':
+    if name == 'adagrad':
         optimizer = torch.optim.Adagrad(model.parameters(), lr=learning_rate)
-    elif name == 'adamax':
+    if name == 'adamax':
         optimizer = torch.optim.Adamax(model.parameters(), lr=learning_rate)
-    elif name == 'rmsprop':
+    if name == 'rmsprop':
         optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
-    else: #name == 'adam'
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     return optimizer
 
 
@@ -373,6 +373,10 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     t0_start = perf_counter()
     step_counter = 0
     final_epoch_loss = 0.0
+
+    for name, param in net.named_parameters():
+        torch.nn.init.uniform_(param.data, -0.08, 0.08)
+
     for epoch in range(max_epochs):
         epoch_loss = 0.0
         t1_start = perf_counter()
@@ -382,6 +386,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             optimizer.zero_grad()
             loss = criterion(targets, prediction, **(LOSS_OPTIONS))
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
             step_counter += 1
             epoch_loss += loss.item() / len(train_data_loader)
@@ -536,7 +541,7 @@ def main(infile, outmodel, target_id, log_path=None):
 
     selected_features, scalers = dt.scale_all(df, **PAR)
 
-    #path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
+    path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
     # print(path)
     log_df = create_log(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv"), os.path.join(MAIN_PATH, 'targets', ARGS.station))
 
