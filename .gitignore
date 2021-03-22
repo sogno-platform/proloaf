@@ -1,7 +1,7 @@
 build/
 oracles/
-data/
-targets/sege
+data/*
+targets/sege*
 dist/
 plf_util.egg-info/
 old-yml.yml
@@ -13,4 +13,6 @@ parallel_coordinate_fig.png
 old/
 .idea
 .run
-__pycache__
+/targets/seq-res-load/
+.ipynb_checkpoints
+/run tensorboard in jupyter.ipynb
