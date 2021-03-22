@@ -108,7 +108,7 @@ def fill_if_missing(df):
         print('No missing data \n')
     return df
 
-def extract(df, horizon):
+def extract(df, horizon, anchor_key=0, filter_df=False):
 
     """
     Extracts data from the input data frame and reshapes into suitable input form for LSTM cell
@@ -128,6 +128,7 @@ def extract(df, horizon):
     """
 
     number_of_samples = df.shape[0] - horizon + 1
+    idx_remove=[]
     if number_of_samples <= 0:
         number_of_samples = 1
     if df.ndim > 1:
@@ -135,10 +136,20 @@ def extract(df, horizon):
         reshaped_data = np.empty([number_of_samples, horizon, number_of_features])
         for i in range(number_of_samples):
             reshaped_data[i, :, :] = df.iloc[i:i + horizon, :]
+            if isinstance(anchor_key, str) and anchor_key not in df.iloc[i].name:
+                idx_remove.append(i)
     else:
         reshaped_data = np.empty([number_of_samples, horizon])
         for i in range(number_of_samples):
             reshaped_data[i, :] = df.iloc[i:i + horizon]
+            if isinstance(anchor_key, str) and anchor_key not in df.iloc[i].name:
+                idx_remove.append(i)
+    if isinstance(anchor_key, str):
+        reshaped_data = np.delete(reshaped_data, idx_remove, axis=0)
+    if filter_df:
+        filtered_df=df
+        filtered_df=filtered_df.drop(filtered_df.index[idx_remove], inplace=True)
+        return reshaped_data, filtered_df
     return reshaped_data
 
 def scale(df, scaler):

@@ -68,7 +68,7 @@ def nll_gauss(target, predictions:list, total = True):
         return torch.mean(squared_errors / (2 * log_variance.exp()) + 0.5 * log_variance, dim=0)
 
 def pinball_loss(target, predictions:list, quantiles:list, total = True):
-    assert (len(predictions) == (len(quantiles) + 1))
+    #assert (len(predictions) == (len(quantiles) + 1))
     #quantiles = options
 
     """
@@ -98,7 +98,7 @@ def pinball_loss(target, predictions:list, quantiles:list, total = True):
         assert quantile < 1
         assert target.shape == predictions[i].shape
         errors = (target - predictions[i])
-        loss += (torch.mean(torch.max(quantile * errors, (quantile - 1) * errors)))/len(quantiles)
+        loss += (torch.mean(torch.max(quantile * errors, (quantile - 1) * errors)))
 
     return loss
 
@@ -107,9 +107,10 @@ def quantile_score(target, predictions:list, quantiles:list, total = True):
     # we use the MSE to adjust the mean. one could also use 0.5 as third quantile,
     # but further code adjustments would be necessary then
     loss1 = pinball_loss(target, predictions, quantiles, total)
-    loss2 = mse(target, [predictions[len(quantiles)]])
+    #loss2 = pinball_loss(target, [predictions[2]], [0.5], total)
+    loss2 = rmse(target, [predictions[len(quantiles)]])
 
-    return loss1+loss2
+    return (loss1+loss2)
 
 def crps_gaussian(target, predictions:list, total = True):
     assert len(predictions) == 2
@@ -156,6 +157,33 @@ def crps_gaussian(target, predictions:list, total = True):
     # the actual crps
     crps = sig * (sx * (2 * cdf - 1) + 2 * pdf - pi_inv)
     return torch.mean(crps)
+
+def residuals(target, predictions:list, total = True):
+    """
+        Calculates mean squared error
+
+        Parameters
+        ----------
+        target          : torch.Tensor
+                          true values of the target variable
+        predictions     : torch.Tensor
+                          predicted expected values of the target variable
+
+        Returns
+        -------
+        1)float    : total mse (lower the better)
+        2)1d-array :  mse loss along the horizon (lower the better)
+                    --- it is expected to increase as we move along the horizon
+
+        """
+    if predictions[0].shape != target.shape:
+        raise ValueError('dimensions of predictions and targets need to be compatible')
+
+    error = target - predictions[0]
+    if total:
+        return torch.mean(error)
+    else:
+        return torch.mean(error, dim=0)
 
 def mse(target, predictions:list, total = True):
     """
@@ -234,7 +262,7 @@ def mape(target, predictions:list, total = True):
 
     return torch.mean(torch.abs((target - predictions[0]) / target)) * 100
 
-def mase(target, predictions:list, freq, insample, total = True):
+def mase(target, predictions:list, freq=1, total = True, insample_target=None):
 
     """
         Calculates Mean Absolute scaled error(https://en.wikipedia.org/wiki/Mean_absolute_scaled_error)
@@ -251,7 +279,7 @@ def mase(target, predictions:list, freq, insample, total = True):
         y_hat_test : torch.Tensor
                      predicted values of the target variable
         freq        : int scalar
-                     frequency of season type considered
+                     frequency of season type considered, default: 1-step
 
         Returns
         -------
@@ -264,19 +292,15 @@ def mase(target, predictions:list, freq, insample, total = True):
         raise NotImplementedError("mase does not support loss over the horizon")
     
     y_hat_test = predictions[0]
-    y_hat_naive = insample.clone()
-    y_hat_naive.roll(freq) 
-    # y_hat_naive = insample.clone()
+    if insample_target==None: y_hat_naive = torch.roll(target,freq,0)# shift all values by frequency, so that at time t,
+    # y_hat_naive returns the value of insample [t-freq], as the first values are 0-freq = negative,
+    # all values at the beginning are filled with values of the end of the tensor. so to not falsify the evaluation,
+    # exclude all terms before freq
+    else: y_hat_naive = insample_target
     
-    # for i in range(freq, insample.shape[0]):
-    #     y_hat_naive[i] = insample[(i - freq)]
-    # before: asep = torch.mean(torch.abs(insample[freq:] - y_hat_naive[freq:]))
-    masep = torch.mean(torch.abs(insample[:,freq:] - y_hat_naive[:,freq:]))
-    # denominator is the mean absolute error of the one-step "seasonal naive forecast method"
-    # on the training set
-    # this works one input sample for multiple horizon
-    # to work on the whole set of the test data, we have to extend it. by calculating for each row/input sample in the test set
-    return torch.mean(torch.abs(target - y_hat_test)) / masep
+    masep = torch.mean(torch.abs(target[freq:] - y_hat_naive[freq:]))
+    # denominator is the mean absolute error of the "seasonal naive forecast method"
+    return torch.mean(torch.abs(target[freq:] - y_hat_test[freq:])) / masep
 
 def sharpness(target, predictions:list, total = True):
     """
@@ -461,7 +485,7 @@ def nmae(target, predictions: list, total=True):
 
     return torch.sum(torch.abs(target - y_hat_test)) / torch.sum(torch.abs(target))
 
-def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, save_to_disc=False):
+def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, quantile_score=0, save_to_disc=False):
     data = {
         'MSE': mse,
         'RMSE': rmse,
@@ -470,7 +494,8 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, s
         'nMAE':mae,
         'Mean sharpness': sharpness,
         'Mean PICP': coverage,
-        'Mean IS': mis}
+        'Mean IS': mis,
+        'Quantile Score': quantile_score}
 
     results_df = pd.DataFrame(data, index=[models])
     if(save_to_disc):
@@ -504,6 +529,7 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     ax.set_xlabel("Hour of Day", fontsize=20)
     plt.autoscale(enable=True, axis='x', tight=True)
     plt.savefig(OUTPATH + 'eval_hour{}'.format(hour))
+    plt.close(fig)
 
 def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
     with plt.style.context('seaborn'):

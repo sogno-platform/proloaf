@@ -104,7 +104,7 @@ def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='n'):
     # use AICc - Take corrected Akaike Information Criterion here as default for performance check
     return fitted, model, fitted.aicc
 
-def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seasonal=True, trend='n',
+def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seasonal=True, m=1, lag=1, trend='c',
                          grid_search = False, train_limit= 300):
     print('Train a (S)ARIMA(X) timeseries model...')
     if len(endog)>train_limit:
@@ -118,12 +118,12 @@ def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seas
         # Apply parameter tuning script for (seasonal) ARIMA using [auto-arima]
         # (https://github.com/alkaline-ml/pmdarima)
         print('Training SARIMA(X) with parameter grid search by auto-arima...')
-
+        if not seasonal: m=1
         auto_model = auto_arima(endog[-train_limit:], exog,
-                                start_p=1, start_q=1, max_p=3, max_q=3, m=24, start_P=0,
+                                start_p=1, start_q=1, max_p=lag, max_q=lag, m=m, start_P=0,
                                 start_D=0, max_D=2, seasonal=seasonal, trend=trend,
                                 stepwise=True, trace=True, suppress_warnings=True, error_action='ignore')
-        # TODO: Not sure if m is set correctly per default. Check if there are better options
+
         auto_model.summary()
         order = auto_model.order
         if seasonal: seasonal_order = auto_model.seasonal_order
@@ -185,13 +185,14 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
     if total:
         mse = metrics.mse(true_values, [forecasts])
         rmse = metrics.rmse(true_values, [forecasts])
-        mase=metrics.mase(true_values, [forecasts], seasonality, true_values) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
+        mase=metrics.mase(true_values, [forecasts], 7*24) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
         rae= metrics.rae(true_values, [forecasts])
         mae=metrics.nmae(true_values, [forecasts])
         sharpness = metrics.sharpness(None,[upper_limits, lower_limits])
         coverage = metrics.picp(true_values, [upper_limits, lower_limits])
         mis = metrics.mis(true_values, [upper_limits, lower_limits], alpha=alpha)
-        return mse, rmse, mase, rae, mae, sharpness, coverage, mis
+        qs = metrics.pinball_loss(true_values, [upper_limits, lower_limits], [0.025, 0.975])
+        return mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs
     else:
         rmse_horizon = metrics.rmse(true_values, [forecasts], total)
         sharpness_horizon = metrics.sharpness(None,[upper_limits, lower_limits], total)
@@ -236,7 +237,7 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
 
     """
 
-    num_cores = multiprocessing.cpu_count()
+    num_cores = max(multiprocessing.cpu_count()-2,1)
     test_period = range(endog_val.shape[0])
 
     if limit_steps:
@@ -332,8 +333,8 @@ def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha = 1.9
 
     return fc_u, fc_l
 
-def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, mean_forecast=None, p=1, q=1, alpha = 1.96,
-                             limit_steps=False):
+def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, periodicity=1, mean_forecast=None, p=1, q=1,
+                             alpha = 1.96, limit_steps=False):
 
     """
     Calculates predictioninterval for given forecasts with GARCH method https://github.com/bashtage/arch
@@ -357,21 +358,21 @@ def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, mean_fore
     """
     print('Train a General autoregressive conditional heteroeskedasticity (GARCH) model...')
     test_period = range(endog_val.shape[0])
-    num_cores = multiprocessing.cpu_count()
+    num_cores = max(multiprocessing.cpu_count()-2,1)
 
     if limit_steps:
         test_period = range(limit_steps)
 
-    model_garch = arch_model(endog_train, vol = 'GARCH', p=p, q=q)#(endog_val[1:]
+    model_garch = arch_model(endog_train, vol = 'GARCH', mean='LS',lags = periodicity, p=p, q=q)#(endog_val[1:]
     res = model_garch.fit(update_freq=5)
-    # do stepwise iterion and prolongation of the train data again, as a forecast can only work in-sample
+    # do stepwise iteration and prolongation of the train data again, as a forecast can only work in-sample
     def garch_PI_predict(i):
         # extend the train-series with observed values as we move forward in the prediction horizon
         # to achieve a receding window prediction
         y_train_i = pd.concat([endog_train, endog_val.iloc[0:i]])
         #need to refit, since forecast cannot do out of sample forecasts
-        model_garch = arch_model(y_train_i, vol='GARCH', p=p, q=q)
-        res = model_garch.fit(update_freq=5)
+        model_garch = arch_model(y_train_i, vol='GARCH',mean='LS', lags = periodicity, p=p, q=q)
+        res = model_garch.fit(update_freq=20)
         forecast = model_garch.forecast(res.params, horizon=forecast_horizon)# , start=endog_train.index[-1]
         #TODO: checkout that mean[0] might be NAN because it starts at start -2
         # TODO: could try to use the previous calculates sarimax mean forecast instead...
@@ -388,12 +389,13 @@ def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, mean_fore
         fc_l = expected_value - alpha * sigma
 
         print('Training and validating GARCH model completed.')
-        return fc_u, fc_l
+        return expected_value, fc_u, fc_l
 
-    fc_u, fc_l = zip(*Parallel(n_jobs=min(num_cores,len(test_period)), mmap_mode='c',
+    expected_value, fc_u, fc_l = zip(*Parallel(n_jobs=min(num_cores,len(test_period)), mmap_mode='c',
                                temp_folder='/tmp')(delayed(garch_PI_predict)(i)
                                                    for i in test_period if i+forecast_horizon<=endog_val.shape[0]))
-    return np.asarray(fc_u), np.asarray(fc_l)
+    print('Training and validating GARCH model completed.')
+    return np.asarray(expected_value), np.asarray(fc_u), np.asarray(fc_l)
 
 def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog, forecast_horizon):
 
@@ -451,7 +453,8 @@ def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog, fo
 def simple_naive(series, horizon):
     return np.array([series[-1]] * horizon)
 
-def persist_forecast(x_train, x_test, y_train, forecast_horizon, decomposed=False, alpha = 1.96):
+def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = None, seasonality=1,
+                     decomposed=False, alpha = 1.96):
     '''
     fits persistence forecast over the train data,
     calcuates the std deviation of residuals for each horizon over the horizon and
@@ -480,8 +483,10 @@ def persist_forecast(x_train, x_test, y_train, forecast_horizon, decomposed=Fals
 
     if decomposed:
         for j in range(forecast_horizon):
-            x_train[:, j] = seasonal_decomposed(np.reshape(x_train[:, j], (len(x_train), 1)))
-            x_test[:, j] = seasonal_decomposed(np.reshape(x_test[:, j], (len(x_test), 1)))
+            x_train[:, j] = seasonal_decomposed(np.reshape(x_train[:, j], (len(x_train), 1)),
+                                                periodicity=periodicity,seasonality=seasonality)
+            x_test[:, j] = seasonal_decomposed(np.reshape(x_test[:, j], (len(x_test), 1)),
+                                               periodicity=periodicity,seasonality=seasonality)
 
     for i in range(len(x_train)):
         point_forecast_train[i, :] = simple_naive(x_train[i, :], forecast_horizon)
@@ -507,24 +512,24 @@ def persist_forecast(x_train, x_test, y_train, forecast_horizon, decomposed=Fals
 
     return expected_value, fc_u, fc_l
 
-def seasonal_naive(series, forecast_horizon, periodicity):
+def seasonal_naive(series, forecast_horizon, periodicity, seasonality=1):
     forecast = np.empty([forecast_horizon])
     for i in range(len(forecast)):
-        if i + 1 > periodicity:
-            forecast[i] = series[i - 2 * periodicity]
+        if i + 1 > periodicity*seasonality:
+            forecast[i] = series[i - 2 * periodicity*seasonality]
         else:
-            forecast[i] = series[i - periodicity]
+            forecast[i] = series[i - periodicity*seasonality]
     return forecast
 
-def seasonal_decomposed(series, periodicity=24):
+def seasonal_decomposed(series, periodicity=None, seasonality=1):
     # seasonally adjusted time series Y(t)-S(t).
-    stl = STL(series.squeeze(), period=periodicity)
+    stl = STL(series.squeeze(), period=periodicity, seasonal=seasonality)
     res = stl.fit()
     #plt = res.plot()
     #plt.show()
     return series.squeeze()-res.seasonal
 
-def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, seasonality=24, decomposed=False, alpha = 1.96):
+def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 1,seasonality=1, decomposed=False, alpha = 1.96):
     '''
     fits periodic forecast over the train data,
     calcuates the std deviation of residuals for each horizon over the horizon and
@@ -551,11 +556,11 @@ def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, seasonality=24
 
     if decomposed:
         for j in range(forecast_horizon):
-            x_train[:, j] = seasonal_decomposed(np.reshape(x_train[:, j], (len(x_train), 1)))
-            x_test[:, j] = seasonal_decomposed(np.reshape(x_test[:, j], (len(x_test), 1)))
+            x_train[:, j] = seasonal_decomposed(np.reshape(x_train[:, j], (len(x_train), 1)), periodicity, seasonality)
+            x_test[:, j] = seasonal_decomposed(np.reshape(x_test[:, j], (len(x_test), 1)), periodicity, seasonality)
 
     for i in range(len(x_train)):
-        naive_forecast[i, :] = seasonal_naive(x_train[i, :], forecast_horizon, periodicity=seasonality)
+        naive_forecast[i, :] = seasonal_naive(x_train[i, :], forecast_horizon, periodicity, seasonality)
         residuals[i, :] = y_train[i, :] - naive_forecast[i, :]
 
     # std deviation of residual for each hour(column wise)
@@ -568,7 +573,7 @@ def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, seasonality=24
 
     expected_value = np.zeros(shape=(len(x_test), forecast_horizon))
     for i in range(len(x_test)):
-        expected_value[i, :] = seasonal_naive(x_test[i, :], forecast_horizon, periodicity=seasonality)
+        expected_value[i, :] = seasonal_naive(x_test[i, :], forecast_horizon, periodicity, seasonality)
 
     fc_u = expected_value + alpha * std_dev
     fc_l = expected_value - alpha * std_dev
@@ -606,7 +611,7 @@ def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alp
     '''
     """
     print('Train an exponential smoothing timeseries model (ETS)...')
-    num_cores = multiprocessing.cpu_count()
+    num_cores = max(multiprocessing.cpu_count()-2,1)
 
     model = ETSModel(y_train, error="add", trend="add", damped_trend=True, seasonal="add",
                      dates=y_train.index)

@@ -155,10 +155,10 @@ def log_data(PAR, ARGS, LOSS_OPTIONS, total_time, final_epoch_loss, val_loss_min
     return log_df
 
 
-# recieves a df and tries to save that to a path, if the path is non-existent it gets created
+# receives a df and tries to save that to a path, if the path is non-existent it gets created
 def write_log_to_csv(log_df, path = None, model_name = None):
     """
-    Recieve a pandas.DataFrame and save it as a .csv file using the given path.
+    Receive a pandas.DataFrame and save it as a .csv file using the given path.
 
     If the path doesn't exist, create it. If no path or no model name are given, do nothing.
 
