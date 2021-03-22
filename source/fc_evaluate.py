@@ -17,6 +17,20 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
+"""
+Evaluate a previously trained model.
+
+Run the trained net on test data and evaluate the result. 
+Provide several graphs as outputs that show the performance of the trained model.
+
+Notes
+-----
+- The output consists of the actual load prediction graph split up into multiple svg images and 
+a metrics plot containing information about the model’s performance.
+- The output path for the graphs can be changed under the "evaluation_path": option 
+in the corresponding config file.
+
+"""
 
 import plf_util.datatuner as dt
 import plf_util.tensorloader as dl
@@ -40,15 +54,6 @@ MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
 warnings.filterwarnings('ignore')
-
-def shape_model_input(df, columns_p, horizon_p, horizon_f):
-    # shape input data that is measured in the Past and can be fetched from UDW/LDW
-    x_p = dt.extract(df[columns_p].iloc[:-horizon_f, :], horizon_p)
-    # shape input data that is known for the Future, here take perfect hourly temp-forecast
-    x_f = dt.extract(df.drop(columns_p, axis=1).iloc[horizon_p:, :], horizon_f)
-    # shape y
-    y = dt.extract(df[[target_id]].iloc[horizon_p:, :], horizon_f)
-    return x_p, x_f, y
 
 if __name__ == '__main__':
     ARGS = parse_basic()
@@ -86,7 +91,7 @@ if __name__ == '__main__':
         net = torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
 
         df_new, _ = dt.scale_all(df, **PAR)
-
+        df_new.index = df['Time']
         target_index = df_new.columns.get_loc(target_id)
 
         split_index = int(len(df_new.index) * SPLIT_RATIO)
@@ -94,7 +99,7 @@ if __name__ == '__main__':
         test_df = df_new.iloc[split_index:]
 
         train_data_loader = dl.make_dataloader(train_df, target_id, PAR['encoder_features'], PAR['decoder_features'],
-                                              history_horizon=PAR['history_horizon'], forecast_horizon=PAR['forecast_horizon'],
+                                             history_horizon=PAR['history_horizon'], forecast_horizon=PAR['forecast_horizon'],
                                               shuffle=False).to(DEVICE)
         test_data_loader = dl.make_dataloader(test_df, target_id, PAR['encoder_features'], PAR['decoder_features'],
                                               history_horizon=PAR['history_horizon'], forecast_horizon=PAR['forecast_horizon'],
@@ -122,13 +127,13 @@ if __name__ == '__main__':
         coverage_horizon = metrics.picp(record_targets, [y_pred_upper,
                                                         y_pred_lower], total=False)
         mis_horizon = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05, total=False)
-
         # collect metrics by disregarding the development over the horizon
         mse = metrics.mse(record_targets, [record_expected_values])
         rmse = metrics.rmse(record_targets, [record_expected_values])
-        mase = metrics.mase(record_targets, [record_expected_values], 7 * 24, train_data_loader.dataset.targets)
+        mase = metrics.mase(record_targets, [record_expected_values], 7*24)
         rae = metrics.rae(record_targets, [record_expected_values])
         mae = metrics.nmae(record_targets, [record_expected_values])
+        qs = metrics.pinball_loss(record_targets, [y_pred_upper, y_pred_lower], [0.025, 0.975])
 
         sharpness = metrics.sharpness(None, [y_pred_upper, y_pred_lower])
         coverage = metrics.picp(record_targets, [y_pred_upper, y_pred_lower])
@@ -143,13 +148,64 @@ if __name__ == '__main__':
         else:
             testhours = [0, 12, 24, 48, 100, 112]
 
-        actual_time = pd.to_datetime(df.loc[split_index:, 'Time'])
+        actual_time = pd.to_datetime(df.loc[PAR['history_horizon']+split_index:, 'Time'])
+        #actual_time = pd.to_datetime(actual_time[:-PAR['forecast_horizon']])
+        #indexes = actual_time[actual_time.dt.hour.to_numpy() == 9].index
+       # i_DA = np.zeros(len(indexes))
+       # for iter, i in enumerate(indexes):
+       #     if (iter <= len(record_targets) / 24):
+       #         i_DA[iter] = actual_time.index.get_loc(i)
+
+        #filtered_time = actual_time.loc[indexes]
         for i in testhours:
             hours = actual_time.iloc[i:i + FORECAST_HORIZON]
             metrics.evaluate_hours(record_targets[i].detach().numpy(), record_expected_values[i].detach().numpy(), y_pred_upper[i].detach().numpy(), y_pred_lower[i].detach().numpy(), i, OUTDIR, PAR['cap_limit'], hours)
-
+        #TODO: wrap up all following sample tests
         target_stations = PAR['model_name']
         print(metrics.results_table(target_stations, mse.cpu().numpy(), rmse.cpu().numpy(), mase.cpu().numpy(), rae.cpu().numpy(),
-                          mae.cpu().numpy(), sharpness.cpu().numpy(), coverage.cpu().numpy(), mis.cpu().numpy(), save_to_disc=OUTDIR))
+                          mae.cpu().numpy(), sharpness.cpu().numpy(), coverage.cpu().numpy(), mis.cpu().numpy(),qs.cpu().numpy(), save_to_disc=OUTDIR))
+        # BOXPLOTS
+        mse_per_sample = [metrics.mse(record_targets[i], [record_expected_values[i]]) for i, value in
+                          enumerate(record_targets)]
+        rmse_per_sample = [metrics.rmse(record_targets[i], [record_expected_values[i]]) for i, value in
+                          enumerate(record_targets)]
+        sharpness_per_sample = [metrics.sharpness(None, [y_pred_upper[i],y_pred_lower[i]]) for i, value in
+                          enumerate(record_targets)]
+        coverage_per_sample = [metrics.picp(record_targets[i], [y_pred_upper[i],y_pred_lower[i]]) for i, value in
+                          enumerate(record_targets)]
+        rae_per_sample = [metrics.rae(record_targets[i], [record_expected_values[i]]) for i, value in
+                          enumerate(record_targets)]
+        mae_per_sample = [metrics.nmae(record_targets[i], [record_expected_values[i]]) for i, value in
+                          enumerate(record_targets)]
+        mis_per_sample = [metrics.mis(record_targets[i], [y_pred_upper[i], y_pred_lower[i]], alpha=0.05) for i, value in
+                          enumerate(record_targets)]
+        mase_per_sample = [metrics.mase(record_targets[i], [record_expected_values[i]], 0,
+                                        insample_target=record_targets.roll(7*24,0)[i]) for i, value in
+                          enumerate(record_targets)]
 
+        residuals_per_sample = [metrics.residuals(record_targets[i],
+                                            [record_expected_values[i]]) for i, value in enumerate(record_targets)]
+        quantile_score_per_sample = [metrics.pinball_loss(record_targets[i], [y_pred_upper[i], y_pred_lower[i]], [0.025,0.975])
+                                  for i, value in enumerate(record_targets)]
+
+        metrics_per_sample = pd.DataFrame(mse_per_sample).astype('float')
+        metrics_per_sample['MSE'] = pd.DataFrame(mse_per_sample).astype('float')
+        metrics_per_sample['RMSE'] = pd.DataFrame(rmse_per_sample).astype('float')
+        metrics_per_sample['Sharpness'] = pd.DataFrame(sharpness_per_sample).astype('float')
+        metrics_per_sample['PICP'] = pd.DataFrame(coverage_per_sample).astype('float')
+        metrics_per_sample['RAE'] = pd.DataFrame(rae_per_sample).astype('float')
+        metrics_per_sample['MAE'] = pd.DataFrame(mae_per_sample).astype('float')
+        metrics_per_sample['MASE'] = pd.DataFrame(mase_per_sample).astype('float')
+        metrics_per_sample['MIS'] = pd.DataFrame(mis_per_sample).astype('float')
+        metrics_per_sample['Quantile Score'] = pd.DataFrame(quantile_score_per_sample).astype('float')
+        metrics_per_sample['Residuals'] = pd.DataFrame(residuals_per_sample).astype('float')
+
+        ax1 = metrics_per_sample.iloc[::24].boxplot(column=['RMSE', 'MASE', 'Quantile Score'],
+                                                    color=dict(boxes='k', whiskers='k', medians='k', caps='k'),
+                                                    figsize=(8.5, 10), fontsize=24)
+        ax1.set_xlabel('Mean error per sample on 40h prediction horizon', fontsize=24)
+        ax1.set_ylabel('Error measure on scaled data', fontsize=24)
+        ymin, ymax = -0.01, 1.5
+        ax1.set_ylim([ymin, ymax])
+        plt.show()
     print('Done!!')
