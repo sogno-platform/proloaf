@@ -485,7 +485,35 @@ def nmae(target, predictions: list, total=True):
 
     return torch.sum(torch.abs(target - y_hat_test)) / torch.sum(torch.abs(target))
 
+
 def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, quantile_score=0, save_to_disc=False):
+    """
+    Put the models' scores for the given metrics in a DataFrame.
+
+    Parameters
+    ----------
+    models : string list or None
+        The names of the models to use as index e.g. "gc17ct_GRU_gnll_test_hp"
+    mse : torch.Tensor, float or ndarray
+        The value(s) for mean squared error
+    rmse : torch.Tensor, float or ndarray
+        The value(s) for root mean squared error
+    sharpness : torch.Tensor, float or ndarray
+        The value(s) for sharpness
+    coverage : torch.Tensor, float or ndarray
+        The value(s) for PICP (prediction interval coverage probability or % of true
+        values in the predicted intervals)
+    mis : torch.Tensor, float or ndarray
+        The value(s) for mean interval score
+    quantile_score : torch.Tensor, float or ndarray
+        The value(s) for quantile score
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame containing the models' scores for the given metrics
+
+    """
     data = {
         'MSE': mse,
         'RMSE': rmse,
@@ -503,7 +531,33 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, q
 
     return results_df
 
+
 def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
+    """
+    Create a matplotlib.pyplot.subplot to compare true and predicted values
+
+    Save the resulting plot at (OUTPATH + 'eval_hour{}'.format(hour))
+
+    Parameters
+    ----------
+    target : ndarray
+        Numpy array containing true values
+    pred : ndarray
+        Numpy array containing predicted values
+    y_pred_upper : ndarray
+        Numpy array containing upper limit of prediction confidence interval
+    y_pred_lower : ndarray
+        Numpy array containing lower limit of prediction confidence interval
+    hour : int
+        The hour of the prediction
+    OUTPATH : string
+        Path to where the plot should be saved
+    limit : float
+        The cap limit. Used to draw a horizontal line with height = limit.
+    actual_hours : pandas.Series, default = None
+        The actual time from the data set
+
+    """
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(target, '.-k', label="Truth")  # true values
     ax.plot(pred, 'b', label='Predicted')
@@ -531,7 +585,31 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     plt.savefig(OUTPATH + 'eval_hour{}'.format(hour))
     plt.close(fig)
 
+
 def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
+    """
+    Create a matplotlib.pyplot.figure with plots for the given metrics
+
+    Save the resulting figure at (OUTPATH + 'metrics_plot')
+
+    Parameters
+    ----------
+    rmse_horizon : ndarray
+        The values for the root mean square error over the horizon
+    sharpness_horizon : ndarray
+        The values for the sharpness over the horizon
+    coverage_horizon : ndarray
+        The values for the PICP (prediction interval coverage probability or % of true
+        values in the predicted intervals) over the horizon
+    mis_horizon : ndarray
+        The values for the mean interval score over the horizon
+    OUTPATH : string
+        The path to where the figure should be saved
+    title : string
+        The text for a centered title for the figure
+
+    """
+
     with plt.style.context('seaborn'):
         fig = plt.figure(figsize=(16, 12))
         st = fig.suptitle(title, fontsize=25)
