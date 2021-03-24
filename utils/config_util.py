@@ -148,7 +148,7 @@ def parse_with_loss(args = sys.argv[1:]):
     AND (only) one of the following options:
     - "-s", "--station", the name of the station to be trained for. 'gefcom2017/nh_data' by default.
     - "-c", "--config", the path to the config file relative to the project root
-    AND (only) one of the following options (which gets stored as the 'loss' attribute):
+    AND (only) one of the following options (which gets stored in the 'loss' attribute as a callable):
     - "--nll_gauss", Enables training with nll guassian loss
     - "--quantiles", Enables training with pinball loss and MSE with q1 and q2 being the upper and lower quantiles
     - "--crps","--crps_gaussian", Enables training with crps gaussian loss
