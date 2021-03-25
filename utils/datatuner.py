@@ -18,7 +18,13 @@
 # under the License.
 # ==============================================================================
 
-"""   Handles dataframes and holds functions for scaling, rescaling, fill_missing..."""
+"""
+Handle and manipulate dataframes
+
+Includes functions for scaling, rescaling, filling missing values etc.
+Some functions are no longer used directly in the project, but may nonetheless be
+useful for testing or future applications.
+"""
 
 import numpy as np
 import pandas as pd
@@ -34,6 +40,24 @@ from sklearn.preprocessing import MinMaxScaler
 # import sklearn
 
 def load_dataframe(data_path):
+    """
+    Load the excel file at the given path into a pandas.DataFrame
+
+    .. deprecated::
+            This function is no longer used. Instead, use fc_prep.load_raw_data_xlsx, which
+            does the same thing but allows multiple files to be read at once, and ensures the
+            date column is correctly formatted.
+
+    Parameters
+    ----------
+    data_path : string
+        The path to the excel file that is to be loaded
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame containing the loaded data
+    """
     def parser(x):
         return pd.datetime.strptime(x, '%Y-%m-%d %H:%M:%S')
 
@@ -44,6 +68,24 @@ def load_dataframe(data_path):
     return df
 
 def ranges(nums):
+    """
+    Take a list of numbers (sorted or unsorted) and return all contiguous ranges within the list
+
+    Ranges should be returned as tuples, where the first value is the start of the range and
+    the last value is the end (inclusive). Single numbers are returned as tuples where both
+    values equal the number. e.g. [0, 2, 3, 4, 6] -> [(0,0), (2,4), (6,6)]
+
+    Parameters
+    ----------
+    nums : ndarray
+        A ndarray containing a list of numbers
+
+    Returns
+    -------
+    List
+        A list containing tuples, where each tuple represents a contiguous range from the
+        input ndarray
+    """
     nums = sorted(set(nums))
     gaps = [[s, e] for s, e in zip(nums, nums[1:]) if s + 1 < e]
     edges = iter(nums[:1] + sum(gaps, []) + nums[-1:])
@@ -51,18 +93,25 @@ def ranges(nums):
 
 def custom_interpolate(df):
     """
-    Interpolates the features with missing values in a time series data frame
+    Interpolate the features with missing values in a time series data frame
 
     for each feature/columns,
-    ---> finds the range of intervals of missing values
-    ---> for each of the missing value in these intervals
-        ---> collect the the previous day's value and the next day's value (t-24 & t+24) at that time instant
-        ---> if any of them is missing, go for the next day(t-48 , t+48 as such)
-        ---> take average of them
-        ---> to account for the trend, shift the values by the slope of the interval extremes
+    - finds the range of intervals of missing values
+    - for each of the missing value in these intervals
+        + collect the the previous day's value and the next day's value (t-24 & t+24) at that time instant
+        + if any of them are missing, go for the next day(t-48 , t+48 and so on)
+        + take their average
+        + to account for the trend, shift the values by the slope of the interval extremes
 
-    :param: data frame with missing values
-    :return: data frame with interpolated values
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame with missing values
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with interpolated values
     """
     rows, columns = np.where(pd.isnull(df))
     miss_rows_ranges = ranges(rows)
@@ -100,6 +149,19 @@ def custom_interpolate(df):
     return df
 
 def fill_if_missing(df):
+    """
+    If the given pandas.DataFrame has any NaN values, they are replaced with interpolated values
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        A pandas.DataFrame for which NaN values need to be replaced by interpolated values
+
+    Returns
+    -------
+    pandas.DataFrame
+        A pandas.DataFrame with no NaN values
+    """
     if df.isnull().values.any():
         print('Some values are NaN. They are being filled...')
         custom_interpolate(df)
@@ -109,22 +171,20 @@ def fill_if_missing(df):
     return df
 
 def extract(df, horizon):
-
     """
-    Extracts data from the input data frame and reshapes into suitable input form for LSTM cell
+    Extract data from the input DataFrame and reshape it into a suitable input form for a LSTM cell
 
     Parameters
     ----------
-    df      : pandas.dataframe
-              input dataframe
-
+    df : pandas.DataFrame
+        The input DataFrame
     horizon : int
-              horizon/forecast length
+        The horizon/forecast length
 
     Returns
     -------
-    reshaped_data: nd-array
-                   numpy input array
+    ndarray
+        A numpy input array
     """
 
     number_of_samples = df.shape[0] - horizon + 1
@@ -143,22 +203,69 @@ def extract(df, horizon):
 
 def scale(df, scaler):
     """
+    Scales the given pandas.DataFrame using the specified scikit-learn scaler
 
-    :param df: input dataframe
-    :param scaler: scikit-learn scaler used by the model while training
-    :return: scaled dataframe
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The input DataFrame
+    scaler : sklearn.preprocessing scaler
+        The scikit-learn scaler used by the model while training
+
+    Returns
+    -------
+    pandas.DataFrame
+        The scaled DataFrame
     """
     df_new = scaler.transform(df)
     df_new = pd.DataFrame(df_new, columns=df.columns)
     return df_new
 
 def rescale(values, scaler):
-    # rescaling
+    """
+    Scale the given data back to its original representation
+
+    Parameters
+    ----------
+    values : array-like, sparse matric of shape (n samples, n features)
+        The data to be rescaled
+    scaler : sklearn.preprocessing scaler
+        The scaler that was used to scale the data originally
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame containing the rescaled data
+    """
     df_rescaled = pd.DataFrame(scaler.inverse_transform(values))
     return df_rescaled
 
 def rescale_manually(net, output, targets, target_position=0, **PAR):
+    """
+    Manually rescales data that was previously scaled
+
+    Parameters
+    ----------
+    net : plf_util.fc_network.EncoderDecoder
+        The model that was used to generate the predictions.
+    output : list
+        A list containing predicted values. Each entry in the list is a set of predictions
+    targets : torch.Tensor
+        The actual or true values
+    target_position : int, default = 0
+        Which column of the data to rescale
+    **PAR : dict
+        A dictionary containing config parameters, see fc_train.py for more.
+
+    Returns
+    -------
+    torch.Tensor
+        The expected values of the prediction, after rescaling
+    torch.Tensor
+        The targets (untransformed)
+    """
     #TODO: isn't this also in a function of datatuner
+    #TODO: finish documentation
     #get parameters 'scale' and 'center'
     for group in PAR['feature_groups']:
         if group['features'] is not None and PAR['target_id'] in group['features']:
@@ -188,7 +295,8 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
         data_min = scaler.data_min_.take(target_position)
         scale = (data_max - data_min) / (range_max - range_min)
         center = data_min - range_min * scale
-
+    #TODO: else options
+    
     #rescale
     loss_type = net.criterion # check the name here
     targets_rescaled = (targets * scale) + center
@@ -203,8 +311,39 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     return expected_values, targets
 
 def scale_all(df:pd.DataFrame, feature_groups, start_date = None, **_):
+    """
+    Scale and return the specified feature groups of the given DataFrame, each with their own
+    scaler, beginning at the index 'start_date'
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame with the data to be scaled
+    feature_groups : array
+        An array of dicts. Each dict has entries with the following keywords:
+        - "name", stores the name of the feature group
+        - "scaler", stores a list in which the first entry is the name of the feature
+        group's scaler. Valid names are 'standard', 'robust' or 'minmax'. Additional
+        entries in the list are for scaler parameters.
+        - "features", stores a list with the names of the features belonging to the feature group
+    start_date : int, default = None
+        The index of the date from which to begin scaling
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame with the scaled features/targets
+    dict
+        A dict of sklearn.preprocessing scalers with their corresponding feature group
+        names (e.g."main", "add") as keywords
+
+    Raises
+    ------
+    RuntimeError
+        Raised when no scaler could be generated - invalid scaler name in config file.
+    """
     # grouping should be an array of dicts.
-    # each dict defines a scaler and the featrues to be scaled
+    # each dict defines a scaler and the features to be scaled
     # returns a list of dataframes with the scaled features/targets, and the according scalers in a dict defined by the "name" keyword.
     # TODO should these be named for potential double scaling (name can be used as suffix in join)
     # TODO check if it is critical that we do not use fitted scalers in evaluate script
@@ -224,49 +363,50 @@ def scale_all(df:pd.DataFrame, feature_groups, start_date = None, **_):
         elif(group['scaler'][0] == 'minmax'):
             scaler = MinMaxScaler(feature_range=(group['scaler'][1],group['scaler'][2]))
         else:
-            raise RuntimeError("scaler could not be generated") 
+            raise RuntimeError("scaler could not be generated")
 
         if group['features'] is not None:
             df_to_scale = df.filter(group['features'])[start_date:]
-            if scaler is not None: 
+            if scaler is not None:
                 add_scaled_features = pd.DataFrame(scaler.fit_transform(df_to_scale), columns=df_to_scale.columns, index=df_to_scale.index)
                 scaled_features = scaled_features.join(add_scaled_features)  #merge differently scaled dataframes
                 scalers[group['name']] = scaler
             else:
                 scaled_features = scaled_features.join(df_to_scale)
-                
+
     return scaled_features, scalers
 
 def constructDf(data, columns, train_split, forecast_horizon, history_horizon,
                 interval=1, number_forecasts=0, limit_memory=False):
     """
-    Constructs and re-orders data for training
+    Construct and reorder data for training
 
     Parameters
     ----------
-    data                     : DataFrame with all data
-
-    columns                  : columns used in model target+exog
-
-    forecast_time            : str Time where forecasts should start
-
-    forecast_horizon         : number of forecast steps into the future
-
-    number_forecasts         : number of forecasts er default 0 -->forecast over whole test-period
-
-    interval                 : number of time_steps between every forecast, default 1 -->simulate forecast with moving
-                                window of 1 timestep
-
-    recent_memory            : number of past time_steps if None all past data is used
-
-    limit_memory             : true when history horizon shall limit the recent memory
-
+    data : pandas.DataFrame with all data
+        The DataFrame containing all data to be reordered
+    columns : list
+        List of columns used in model target+exog
+    train_split : float
+        Fraction of data to use for training
+    forecast_horizon : int
+        The number of forecast steps into the future
+    history_horizon : int
+        The size of the history horizon
+    interval : int, default = 1
+        The number of time_steps between every forecast. By default, forecast with moving
+        window of 1 timestep
+    number_forecasts : int, default = 0
+        The number of forecast.  By default, forecast over whole test-period
+    limit_memory : bool, default = False
+        Set to True when the history horizon should limit the recent memory
 
     Returns
     -------
-    1)input_matrix          : list of DataFrames for input
-    2)output_matrix         : list of DataFrames for output
-
+    List
+         A list of DataFrames for input
+    List
+        A list of DataFrames for output
     """
     train = []
     test = []
