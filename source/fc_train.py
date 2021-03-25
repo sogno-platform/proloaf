@@ -40,6 +40,8 @@ Hyperparameter exploration
 """
 
 from torch.utils.tensorboard import SummaryWriter
+#TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
+#if 'exploration' is used, this would violate our license policy as LGPL is not compatible with apache
 from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
 from plf_util.csv_logger import create_log, log_data, write_log_to_csv
 from datetime import datetime
@@ -124,36 +126,36 @@ def set_optimizer(name, model, learning_rate):
     Parameters
     ----------
     name : string or None, default = 'adam'
-        The name of the torch.optim optimizer to be used. The following 
+        The name of the torch.optim optimizer to be used. The following
         strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
     model : plf_util.fc_network.EncoderDecoder
         The model which is to be optimized
     learning_rate : float or None
         The learning rate to be used by the optimizer. If set to None, the default value as defined in
         torch.optim is used
-    
+
     Returns
     -------
-    torch.optim optimizer class 
+    torch.optim optimizer class
         A torch.optim optimizer that implements one of the following algorithms:
         Adagrad, Adam, Adamax, AdamW, RMSprop, or SGD (stochastic gradient descent)
         SGD is set to use a momentum of 0.5.
-        
+
     """
 
 
+    if name == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     if name == 'sgd':
         optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.5)
-    elif name == 'adamw':
+    if name == 'adamw':
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    elif name == 'adagrad':
+    if name == 'adagrad':
         optimizer = torch.optim.Adagrad(model.parameters(), lr=learning_rate)
-    elif name == 'adamax':
+    if name == 'adamax':
         optimizer = torch.optim.Adamax(model.parameters(), lr=learning_rate)
-    elif name == 'rmsprop':
+    if name == 'rmsprop':
         optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
-    else: #name == 'adam'
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     return optimizer
 
 
@@ -371,6 +373,10 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
     t0_start = perf_counter()
     step_counter = 0
     final_epoch_loss = 0.0
+
+    for name, param in net.named_parameters():
+        torch.nn.init.uniform_(param.data, -0.08, 0.08)
+
     for epoch in range(max_epochs):
         epoch_loss = 0.0
         t1_start = perf_counter()
@@ -380,6 +386,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             optimizer.zero_grad()
             loss = criterion(targets, prediction, **(LOSS_OPTIONS))
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
             step_counter += 1
             epoch_loss += loss.item() / len(train_data_loader)
@@ -407,6 +414,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             for name, weight in net.decoder.named_parameters():
                 tb.add_histogram(name, weight, epoch + 1)
                 tb.add_histogram(f'{name}.grad', weight.grad, epoch + 1)
+                #.add_scalar(f'{name}.grad', weight.grad, epoch + 1)
 
         early_stopping(validation_loss, net)
         if early_stopping.early_stop:
@@ -454,7 +462,8 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
             'hparam/score': score,
             'hparam/relative_score': rel_score
         }
-
+        # TODO: we could add the fc_evaluate images and metrics to tb to inspect the best model here.
+        #tb.add_figure(f'{hour}th_hour-forecast')
         # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
         # https://pytorch.org/docs/master/tensorboard.html
         tb.add_hparams(params, values)
@@ -532,7 +541,7 @@ def main(infile, outmodel, target_id, log_path=None):
 
     selected_features, scalers = dt.scale_all(df, **PAR)
 
-    #path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
+    path = os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv")
     # print(path)
     log_df = create_log(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'], PAR['model_name'] + "_training.csv"), os.path.join(MAIN_PATH, 'targets', ARGS.station))
 
@@ -557,36 +566,23 @@ def main(infile, outmodel, target_id, log_path=None):
             sampler = optuna.samplers.TPESampler(seed=10)  # Make the sampler behave in a deterministic way.
             study = optuna.create_study(sampler=sampler, direction="minimize", pruner=optuna.pruners.MedianPruner())
             print('Max. number of iteration trials for hyperparameter tuning: ', n_trials)
-            if 'parallel_jobs' in hyper_param.keys():
-                parallel_jobs = hyper_param['parallel_jobs']
-                study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, n_jobs=parallel_jobs, timeout=timeout)  # ,timeout=timeout
+            if 'timeout' in hyper_param.keys():
+                if 'parallel_jobs' in hyper_param.keys():
+                    parallel_jobs = hyper_param['parallel_jobs']
+                    study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, n_jobs=parallel_jobs, timeout=timeout)
+                else:
+                    study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, timeout=timeout)
             else:
-                study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, timeout=timeout)
-
+                if 'parallel_jobs' in hyper_param.keys():
+                    parallel_jobs = hyper_param['parallel_jobs']
+                    study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials, n_jobs=parallel_jobs)
+                else:
+                    study.optimize(objective(selected_features, scalers, hyper_param, log_df=log_df, **PAR), n_trials=n_trials)
             print("Number of finished trials: ", len(study.trials))
             # trials_df = study.trials_dataframe()
 
             if not os.path.exists(os.path.join(MAIN_PATH, PAR['log_path'])):
                 os.mkdir(os.path.join(MAIN_PATH, PAR['log_path']))
-
-            # trials_df.to_csv(os.path.join(MAIN_PATH, PAR['log_path'], PAR['model_name'] + '_tuning.csv'), sep=';')
-
-            # if not ARGS.ci:
-            #     # optuna.visualization.plot_optimization_history(study).show()
-            #     opt_history_fig = optuna.visualization.plot_optimization_history(study)
-            #     # opt_history_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'opt_history_fig.png'))
-            #     opt_history_fig.write_image('opt_history_fig.png')
-            #
-            #     # Select parameters to visualize.
-            #     # optuna.visualization.plot_slice(study).show()
-            #     # slice_fig= optuna.visualization.plot_slice(study)
-            #     # slice_fig.write_image(os.path.join(MAIN_PATH, PAR['hypopt_log_dir'], 'slice_fig.png'))
-            #
-            #
-            #     # Visualize high-dimensional parameter relationships.
-            #     # optuna.visualization.plot_parallel_coordinate(study).show()
-            #     parallel_coordinate_fig = optuna.visualization.plot_parallel_coordinate(study)
-            #     parallel_coordinate_fig.write_image('parallel_coordinate_fig.png')
 
             print("Best trial:")
             trial = study.best_trial
