@@ -57,3 +57,29 @@ c444dca1fb24a56715e270c86bf2f8e8cc6ef0e4 Update .gitlab-ci.yml
 6bd50466b21bc84a2ec00ee5ec6108f92f357408 First test without build phase.
 f6c62424da112d604a1bcb5121e8f05efadd34c4 Update .gitlab-ci.yaml
 698d6709a0d76454a9b7c51e930d8cf9be2beeb1 Add new file
+
+I, Rouben Rehman hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: rouben.rehman@gmail.com and rouben.rehman@rwth-aachen.de
+
+42136ac46207c51cf8963cdef7a73e6fe94d0a93 Changed background images
+12d881b11f32021a7bb5c2e3b1d26a32da96d338 Fixed artifacts settings
+b4f5b15b45779f3670600503e075a9991ffa631b Testing ci
+1f27a04b9ced02fd7591672ac641db685a76c8d5 Added cd line
+f42f2696ee266b3d7b4a4a9a319c6ab25d51814a Added mkdir to create dir to clone into
+4307e62f81fa2ce935957786c0f884b6b6a1c000 Test commit to get working dir
+e193ce8eeaed77da368cc04e251c263f3370c3ce Integrated plf-oracles as clone instead of submodule
+4c18d7f95db27df15ec18dd8cd2833b89e2e7582 Removed submodule plf-oracles
+e660beaaf33a8e7fb5c784b4d1d7041d57d0dd20 Using goncas access token
+8efcd66bad10cd3b18844c4c2c34fa54608a4b04 Added plf-oracles as submodule
+97c64a0772cbc96aa20b093a558a2e6157013a6c Modified theme and added results tab
+ed9438cd32d9c9f8b60830ff3858698c147b14b1 Added About page
+42e7d4f045ab1591f4ce2e30478061a823dd1e5a Added About page
+7d9d1ed0c48e25b905acf8af0962158917b5d4f0 Updated gitignore
+529cd0e93a157b1f8e8452635bec92d2356a82a9 Updated some links and layout
+cdf96cfda38989ab126a701b5af96deb893b5bfe Updated footer links
+20dc0c99e41db913a831f1480b60561974f93eed Updated footer links
+bca5ab56f6baa9a60c62f3b2b38832993c5bb15e Trying to finish ci
+13824d7c2c4781b139555cc4982c6a7210e45023 Updated some files
+4381eac25a57340802a58aab869af87d0ea92abc Testing availability
+df4bb02552a35ade8d60435806505ab22096961d Delete featured-background.jpg
+5fade994cd95edc29126d4604a600deb4343b295 Revert "Update .gitlab-ci.yml"
+909c1b521099fee33ea13790f559b0ddbdab50ac Update .gitlab-ci.yml
