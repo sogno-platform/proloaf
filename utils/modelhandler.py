@@ -18,7 +18,11 @@
 # under the License.
 # ==============================================================================
 
-'''modelhandler.py holds the functions and classes of the general model architecture'''
+"""
+modelhandler.py holds functions and classes for using the models to get predictions
+and testing model performance.
+"""
+
 import numpy as np
 import torch
 import plf_util.eval_metrics as metrics
@@ -28,19 +32,25 @@ import matplotlib
 import tempfile
 
 class EarlyStopping:
-# implement early stopping
-# Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
-    """Early stops the training if validation loss doesn't improve after a given patience."""
+    """
+    Early stop the training if validation loss doesn't improve after a given patience
+
+    Parameters
+    ----------
+    patience : int, default = 7
+        How long to wait after last time validation loss improved.
+    verbose : bool, default = False
+        If True, prints a message for each validation loss improvement.
+    delta : float, default = 0.0
+        Minimum change in the monitored quantity to qualify as an improvement.
+
+    Notes
+    -----
+    Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
+    """
+    # implement early stopping
+    # Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     def __init__(self, patience=7, verbose=False, delta=0):
-        """
-        Args:
-            patience (int): How long to wait after last time validation loss improved.
-                            Default: 7
-            verbose (bool): If True, prints a message for each validation loss improvement.
-                            Default: False
-            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-                            Default: 0
-        """
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -68,7 +78,16 @@ class EarlyStopping:
             self.counter = 0
 
     def save_checkpoint(self, val_loss, model):
-        '''Saves model when validation loss decrease.'''
+        """
+        Save model when validation loss decreases
+
+        Parameters
+        ----------
+        val_loss : float
+            The validation loss, as calculated by one of the metrics in plf_util.eval_metrics
+        model : plf_util.fc_network.EncoderDecoder
+            The model being trained
+        """
         if self.verbose:
             print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         temp_dir = tempfile.mktemp()
@@ -77,6 +96,27 @@ class EarlyStopping:
         self.temp_dir=temp_dir
 
 def get_prediction(net, data_loader, horizon, number_of_targets):
+    """
+    Get the predictions for the given model and data
+
+    Parameters
+    ----------
+    net : plf_util.fc_network.EncoderDecoder
+        The model with which to calculate the predictions
+    data_loader : plf_util.tensorloader.CustomTensorDataLoader
+        Contains the input data and targets
+    horizon : int
+        The horizon for the prediction
+    number_of_targets : int
+        The number of targets
+
+    Returns
+    -------
+    torch.Tensor
+        The targets (actual values)
+    torch.Tensor
+        The predictions from the given model
+    """
     record_targets = torch.zeros((len(data_loader), horizon, number_of_targets))
     #TODO: try to remove loop here to make less time-consuming,
     # was inspired from original numpy version of code but torches should be more intuitive
@@ -91,6 +131,27 @@ def get_prediction(net, data_loader, horizon, number_of_targets):
     return record_targets, record_output
 
 def get_pred_interval(predictions, criterion, targets):
+    """
+    Get the upper and lower limits and expected values of predictions
+
+    Parameters
+    ----------
+    predictions : torch.Tensor
+        The predicted values
+    criterion : callable
+        One of the metrics from plf_util.eval_metrics
+    targets : torch.Tensor
+        The the actual (not predicted) values
+
+    Returns
+    -------
+   torch.Tensor
+        The upper limit of the predictions
+    torch.Tensor
+        The lower limit of the predictions
+    torch.Tensor
+        The expected values of the predictions
+    """
     # Better solution for future: save criterion as class object of 'loss' with 'name' attribute
     #detect criterion
     if ('nll_gaus' in str(criterion)) or ('crps' in str(criterion)):
@@ -125,15 +186,80 @@ def get_pred_interval(predictions, criterion, targets):
     return y_pred_upper, y_pred_lower, expected_values
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+    """
+    Save the given Pytorch object as a checkpoint.
+
+    If is_best is true, create a copy of the object called 'model_best.pth.tar'
+
+    Parameters
+    ----------
+    state : PyTorch object
+        The object to save
+    is_best : bool
+        If true, create a copy of the saved object.
+    filename : string, default = 'checkpoint.pth.tar'
+        The name to give the saved object
+    """
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
 
 # ToDo: refactor best score, refactor relative_metric
 def calculate_relative_metric(curr_score, best_score):
+    """
+    Calculate the difference between the best score and the current score, as a percentage
+    relative to the best score.
+
+    A negative result indicates that the current score is higher than the best score
+
+    Parameters
+    ----------
+    curr_score : float
+        The current score
+    best_score : float
+        The best score
+
+    Returns
+    -------
+    float
+        The relative score in percent
+    """
     return (100 / best_score) * (best_score - curr_score)
 
 def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_horizon=True, horizon=1, number_of_targets=1):
+    """
+    Determine the score of the given model using the specified metrics in plf_util.eval_metrics
+
+    Return a single float value (total score) or a 1-D array (score over horizon) based on
+    the value of avg_on_horizon
+
+    Parameters
+    ----------
+    net : plf_util.fc_network.EncoderDecoder
+        The model for which the score is to be determined
+    data_loader : plf_util.tensorloader.CustomTensorDataLoader
+        Contains the input data and targets
+    score_type : string, default = 'mis'
+        The name of the metric to use for scoring. See functions in plf_util.eval_metrics for
+        possible values.
+    option : float or list, default = 0.05
+        An optional parameter in case the 'mis' or 'quantile_score' functions are used. In the
+        case of 'mis' it should be given the value for 'alpha'. In the case of QS, it should
+        contain a list with the quantiles.
+    avg_on_horizon : bool, default = true
+        Determines whether the return value is a float (total score, when true) or a 1-D array
+        (score over the horizon, when false).
+    horizon : int, default = 1
+        The horizon for the prediction
+    number_of_targets : int, default = 1
+        The number of targets for the prediction.
+
+    Returns
+    -------
+    float or 1-D array (torch.Tensor)
+        Either the total score (float) or the score over the horizon (array), depending on the
+        value of avg_on_horizon
+    """
     # check performance
     targets, raw_output = get_prediction(net, data_loader,horizon, number_of_targets) ##should be test data loader
     [y_pred_upper, y_pred_lower, expected_values] = get_pred_interval(raw_output, net.criterion, targets)

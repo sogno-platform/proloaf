@@ -17,13 +17,26 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
-
+"""
+Implementations of different loss functions, as well as functions for evaluating model performance
+"""
 import numpy as np
 import torch
 import pandas as pd
 import matplotlib.pyplot as plt
 
 class loss:
+    """
+    Stores loss functions and how many parameters they have.
+
+    Parameters
+    ----------
+    func : callable
+        A callable loss function
+    num_params : int
+        Number of parameters
+    """
+
     def __init__(self, func, num_params):
         self._func = func
         self.num_params = num_params
@@ -32,31 +45,33 @@ class loss:
         return self._func(*args,**kwargs)
 
 def nll_gauss(target, predictions:list, total = True):
-    assert len(predictions) == 2
-    expected_value = predictions[0]
-    log_variance = predictions[1]
     """
-    Calculates gaussian neg likelihood score
+    Calculates gaussian negative log likelihood score
 
     Parameters
     ----------
-    target          : torch.Tensor
-                    true values of the target variable
-    expected_value  : torch.Tensor
-                    predicted expected values of the target variable
-    variance        : torch.Tensor
-                    predicted variance values of the target variable
-    log_variance    : approx. equal to log(2*pi*sigma^2)
-    total           : bool
-                    if true returns 1) otherwise returns 2)
+    target : torch.Tensor
+        True values of the target variable
+    predictions : list
+        - predictions[0] = expected_value, a torch.Tensor containing predicted expected values
+        of the target variable
+        - predictions[1] = log_variance, approx. equal to log(2*pi*sigma^2)
+    total : bool, default = True
+        - When total is set to True, return overall gaussian negative log likelihood loss
+        - When total is set to False, return gaussian negative log likelihood loss along the horizon
 
     Returns
     -------
-    1)float    : total gaussian negative log likelihood loss (lower the better)
-    2)1d-array :  gaussian negative log likelihood loss along the horizon (lower the better)
-                --- it is expected to increase as we move along the horizon
-
+    torch.Tensor
+        The gaussian negative log likelihood loss, which depending on the value of 'total'
+        is either a scalar (overall loss) or 1d-array over the horizon, in which case it is
+        expected to increase as we move along the horizon. Generally, lower is better.
     """
+
+    assert len(predictions) == 2
+    expected_value = predictions[0]
+    log_variance = predictions[1]
+
     # y, y_pred, var_pred must have the same shape
     assert target.shape == expected_value.shape # target.shape = torch.Size([batchsize, horizon, # of target variables]) e.g.[64,40,1]
     assert target.shape == log_variance.shape
@@ -68,27 +83,35 @@ def nll_gauss(target, predictions:list, total = True):
         return torch.mean(squared_errors / (2 * log_variance.exp()) + 0.5 * log_variance, dim=0)
 
 def pinball_loss(target, predictions:list, quantiles:list, total = True):
+    """
+    Calculates pinball loss or quantile loss against the specified quantiles
+
+    Parameters
+    ----------
+    target : torch.Tensor
+        True values of the target variable
+    predictions : list(torch.Tensor)
+        predicted expected values of the target variable
+    quantiles : float list
+        Quantiles that we are estimating for
+    total : bool, default = True
+        Used in other loss functions to specify whether to return overall loss or loss over
+        the horizon. Piball_loss only supports the former.
+
+    Returns
+    -------
+    float
+        The total quantile loss (the lower the better)
+
+    Raises
+    ------
+    NotImplementedError
+        When 'total' is set to False, as pinball_loss does not support loss over the horizon
+    """
+
     #assert (len(predictions) == (len(quantiles) + 1))
     #quantiles = options
 
-    """
-        Calculates pinball loss or quantile loss against the specified quantiles
-
-        Parameters
-        ----------
-        quantiles    : float list
-                        quantiles that we are estimating for
-        target       : torch.Tensor
-                       true values of the target variable
-        predictions  : list(torch.Tensor)
-                       predicted expected values of the target variable
-
-        Returns
-        -------
-        1)float    : total quantile loss (lower the better)
-
-
-        """
     if not total:
         raise NotImplementedError("Pinball_loss does not support loss over the horizon")
     loss = 0.0
@@ -103,6 +126,27 @@ def pinball_loss(target, predictions:list, quantiles:list, total = True):
     return loss
 
 def quantile_score(target, predictions:list, quantiles:list, total = True):
+    """
+    Build upon the pinball loss, using the MSE to adjust the mean.
+
+    Parameters
+    ----------
+    target : torch.Tensor
+        True values of the target variable
+    predictions : list (torch.Tensor)
+        predicted expected values of the target variable
+    quantiles : float list
+        Quantiles that we are estimating for
+    total : bool, default = True
+        Used in other loss functions to specify whether to return overall loss or loss over
+        the horizon. Quantile_score (as an extension of pinball_loss) only supports the former.
+
+    Returns
+    -------
+    float
+        The total pinball loss + the mse loss
+    """
+
     #the quantile score builds upon the pinball loss,
     # we use the MSE to adjust the mean. one could also use 0.5 as third quantile,
     # but further code adjustments would be necessary then
@@ -113,13 +157,9 @@ def quantile_score(target, predictions:list, quantiles:list, total = True):
     return (loss1+loss2)
 
 def crps_gaussian(target, predictions:list, total = True):
-    assert len(predictions) == 2
-    mu = predictions[0]
-    log_variance = predictions[1]
-
     """
-    Computes normalized CRPS of observations x relative to normally distributed
-    forecasts with mean, mu, and standard deviation, sig.
+    Computes normalized CRPS (continuous ranked probability score) of observations x
+    relative to normally distributed forecasts with mean, mu, and standard deviation, sig.
     CRPS(N(mu, sig^2); x)
 
     Code Source: https://github.com/TheClimateCorporation/properscoring/blob/master/properscoring/_crps.py
@@ -128,23 +168,33 @@ def crps_gaussian(target, predictions:list, total = True):
     Statistics and Minimum CRPS Estimation. Gneiting, Raftery,
     Westveld, Goldman. Monthly Weather Review 2004
     http://journals.ametsoc.org/doi/pdf/10.1175/MWR2904.1
+
     Parameters
     ----------
     target : scalar or torch.Tensor
         The observation or set of observations.
-    mu : scalar or torch.Tensor
-        The mean of the forecast normal distribution
-    log_variance : scalar or torch.Tensor
-        The standard deviation of the forecast distribution
+    predictions : list
+        - predictions[0] = mu, the mean of the forecast normal distribution (scalar or torch.Tensor)
+        - predictions[1] = log_variance, The standard deviation of the forecast distribution (scalar or torch.Tensor)
+    total : bool, default = True
+        Used in other loss functions to specify whether to return overall loss or loss over
+        the horizon. This function only supports the former.
 
     Returns
     -------
-    crps : scalar or torch.Tensor or tuple of
-        The CRPS of each observation x relative to mu and sig.
-        The shape of the output array is determined by numpy
-        broadcasting rules. (lower the better )
+    torch.Tensor
+        A scalar with the overall CRPS score. (lower the better )
 
+    Raises
+    ------
+    NotImplementedError
+        When 'total' is set to False, as crps_gaussian does not support loss over the horizon
     """
+
+    assert len(predictions) == 2
+    mu = predictions[0]
+    log_variance = predictions[1]
+
     if not total:
         raise NotImplementedError("crps_gaussian does not support loss over the horizon")
     sig = torch.exp(log_variance * 0.5)
@@ -187,22 +237,31 @@ def residuals(target, predictions:list, total = True):
 
 def mse(target, predictions:list, total = True):
     """
-        Calculates mean squared error
+    Calculate the mean squared error (MSE)
 
-        Parameters
-        ----------
-        target          : torch.Tensor
-                          true values of the target variable
-        predictions     : torch.Tensor
-                          predicted expected values of the target variable
+    Parameters
+    ----------
+    target : torch.Tensor
+        The true values of the target variable
+    predictions : torch.Tensor
+        predicted expected values of the target variable
+    total : bool, default = True
+        - When total is set to True, return overall MSE
+        - When total is set to False, return MSE along the horizon
 
-        Returns
-        -------
-        1)float    : total mse (lower the better)
-        2)1d-array :  mse loss along the horizon (lower the better)
-                    --- it is expected to increase as we move along the horizon
+    Returns
+    -------
+    torch.Tensor
+        The MSE, which depending on the value of 'total' is either a scalar (overall loss)
+        or 1d-array over the horizon, in which case it is expected to increase as we move
+        along the horizon. Generally, lower is better.
 
-        """
+    Raises
+    ------
+    ValueError
+        When the dimensions of the predictions and targets are not compatible
+    """
+
     if predictions[0].shape != target.shape:
         raise ValueError('dimensions of predictions and targets need to be compatible')
 
@@ -214,22 +273,31 @@ def mse(target, predictions:list, total = True):
 
 def rmse(target, predictions:list, total = True):
     """
-        Calculates root mean squared error
+    Calculate the root mean squared error
 
-        Parameters
-        ----------
-        target : torch.Tensor
-            true values of the target variable
-        predictions : torch.Tensor
-            predicted expected values of the target variable
+    Parameters
+    ----------
+    target : torch.Tensor
+        true values of the target variable
+    predictions : torch.Tensor
+        predicted expected values of the target variable
+    total : bool, default = True
+        - When total is set to True, return overall rmse
+        - When total is set to False, return rmse along the horizon
 
-        Returns
-        -------
-        1)float    : total rmse (lower the better)
-        2)1d-array : rmse loss along the horizon (lower the better)
-                    --- it is expected to increase as we move along the horizon
+    Returns
+    -------
+    torch.Tensor
+        The rmse, which depending on the value of 'total' is either a scalar (overall loss)
+        or 1d-array over the horizon, in which case it is expected to increase as we move
+        along the horizon. Generally, lower is better.
 
-        """
+    Raises
+    ------
+    ValueError
+        When the dimensions of the predictions and targets are not compatible
+    """
+
     if predictions[0].shape != target.shape:
         raise ValueError('dimensions of predictions and targets need to be compatible')
 
@@ -241,20 +309,27 @@ def rmse(target, predictions:list, total = True):
 
 def mape(target, predictions:list, total = True):
     """
-        Calculates root mean absolute error
+    Calculate root mean absolute error (mean absolute percentage error in %)
 
-        Parameters
-        ----------
-        targets          : torch.Tensor
-                           true values of the target variable
-        predictions     : torch.Tensor
-                          predicted expected values of the target variable
+    Parameters
+    ----------
+    targets : torch.Tensor
+        true values of the target variable
+    predictions : list
+        - predictions[0] = predicted expected values of the target variable (torch.Tensor)
+    total : bool, default = True
+        Used in other loss functions to specify whether to return overall loss or loss over
+        the horizon. This function only supports the former.
 
-        Returns
-        -------
-        float    : mean absolute percentage error in % (lower the better)
+    Returns
+    -------
+    torch.Tensor
+        A scalar with the mean absolute percentage error in % (lower the better)
 
-
+    Raises
+    ------
+    NotImplementedError
+        When 'total' is set to False, as MAPE does not support loss over the horizon
     """
     
     if not total:
@@ -265,27 +340,34 @@ def mape(target, predictions:list, total = True):
 def mase(target, predictions:list, freq=1, total = True, insample_target=None):
 
     """
-        Calculates Mean Absolute scaled error(https://en.wikipedia.org/wiki/Mean_absolute_scaled_error)
-        For more clarity, please refer to the following paper
-        https://www.nuffield.ox.ac.uk/economics/Papers/2019/2019W01_M4_forecasts.pdf
+    Calculate the mean absolute scaled error (MASE)
+
+    (https://en.wikipedia.org/wiki/Mean_absolute_scaled_error)
+    For more clarity, please refer to the following paper
+    https://www.nuffield.ox.ac.uk/economics/Papers/2019/2019W01_M4_forecasts.pdf
 
 
-        Parameters
-        ----------
-        target   : torch.Tensor
-                     series input data for predicting a forecast
-        y_test     : torch.Tensor
-                     true values of the target variable
-        y_hat_test : torch.Tensor
-                     predicted values of the target variable
-        freq        : int scalar
-                     frequency of season type considered, default: 1-step
+    Parameters
+    ----------
+    target : torch.Tensor
+        true values of the target variable
+    predictions : list
+        - predictions[0] = y_hat_test, predicted expected values of the target variable (torch.Tensor)
+    freq : int scalar
+        frequency of season type considered
+    total : bool, default = True
+        Used in other loss functions to specify whether to return overall loss or loss over
+        the horizon. This function only supports the former.
 
-        Returns
-        -------
-        1)float    : total mase (lower the better)
+    Returns
+    -------
+    torch.Tensor
+        A scalar with the overall MASE (lower the better)
 
-
+    Raises
+    ------
+    NotImplementedError
+        When 'total' is set to False, as MASE does not support loss over the horizon
     """
     
     if not total:
@@ -304,22 +386,28 @@ def mase(target, predictions:list, freq=1, total = True, insample_target=None):
 
 def sharpness(target, predictions:list, total = True):
     """
-        Calculates mean size of the intervals called as sharpness (lower the better)
+    Calculate the mean size of the intervals, called the sharpness (lower the better)
 
-        Parameters
-        ----------
-        y_pred_upper     : torch.Tensor
-                           predicted upper limit of the target variable
-        y_pred_lower     : torch.Tensor
-                        predicted lower limit of the target variable
+    Parameters
+    ----------
+    target : torch.Tensor
+        The true values of the target variable
+    predictions : list
+        - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
+        - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.Tensor)
+    total : bool, default = True
+        - When total is set to True, return overall sharpness
+        - When total is set to False, return sharpness along the horizon
 
-        Returns
-        -------
-        1)float    : total sharpness (lower the better)
-        2)1d-array : sharpness along the horizon (lower the better)
-                        --- it is expected to increase as we move along the horizon
+    Returns
+    -------
+    torch.Tensor
+        The shaprness, which depending on the value of 'total' is either a scalar (overall sharpness)
+        or 1d-array over the horizon, in which case it is expected to increase as we move
+        along the horizon. Generally, lower is better.
 
-        """
+    """
+
     assert len(predictions) == 2
     y_pred_upper = predictions[0]
     y_pred_lower = predictions[1]
@@ -331,30 +419,33 @@ def sharpness(target, predictions:list, total = True):
 
 def picp(target, predictions:list, total = True):
     """
-    Calculates PICP : prediction interval coverage probability
-    or simply the % of true values in the predicted intervals
+    Calculate PICP (prediction interval coverage probability) or simply the % of true
+    values in the predicted intervals
 
     Parameters
     ----------
-    targets   : torch.Tensor
-                       true values of the target variable
-    y_pred_upper     : torch.Tensor
-                       predicted upper limit of the target variable
-    y_pred_lower     : torch.Tensor
-                       predicted lower limit of the target variable
+    targets : torch.Tensor
+        true values of the target variable
+    predictions : list
+        - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
+        - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.Tensor)
+    total : bool, default = True
+        - When total is set to True, return overall PICP
+        - When total is set to False, return PICP along the horizon
 
     Returns
     -------
-    1)float    : PICP in % (higher the better, for significance level alpha = 0.05, PICP should >= 95%)
-    2)1d-array : PICP along the horizon (higher the better)
-                  --- it is expected to decrease as we move along the horizon
-
+    torch.Tensor
+        The PICP, which depending on the value of 'total' is either a scalar (PICP in %, for
+        significance level alpha = 0.05, PICP should >= 95%)
+        or 1d-array over the horizon, in which case it is expected to decrease as we move
+        along the horizon. Generally, higher is better.
     """
 
     # coverage_horizon = torch.zeros(targets.shape[1], device= targets.device,requires_grad=True)
     # for i in range(targets.shape[1]):
     #     # for each step in forecast horizon, calcualte the % of true values in the predicted interval
-    #     coverage_horizon[i] = (torch.sum((targets[:, i] > y_pred_lower[:, i]) & 
+    #     coverage_horizon[i] = (torch.sum((targets[:, i] > y_pred_lower[:, i]) &
     #                             (targets[:, i] <= y_pred_upper[:, i])) / targets.shape[0]) * 100
     assert len(predictions) == 2
     #torch.set_printoptions(precision=5)
@@ -366,36 +457,58 @@ def picp(target, predictions:list, total = True):
     coverage_total = torch.sum(coverage_horizon) / target.shape[1]
     if total:
         return coverage_total
-    else:    
+    else:
         return coverage_horizon
 
 def picp_loss(target, predictions, total = True):
+    """
+    Calculate 1 - PICP (see eval_metrics.picp for more details)
+
+    target : torch.Tensor
+        The true values of the target variable
+    predictions : list
+        - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
+        - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.Tensor)
+    total : bool, default = True
+        - When total is set to True, return a scalar value for 1- PICP
+        - When total is set to False, return 1-PICP along the horizon
+
+    Returns
+    -------
+    torch.Tensor
+        Returns 1-PICP, either as a scalar or over the horizon
+    """
     return 1-picp(target, predictions, total)
 
 def mis(target, predictions:list, alpha=0.05, total = True):
     """
-       Calculates MIS : mean interval score without scaling by seasonal difference
-       -- It combines both the sharpness and PICP metrics into a scalar value
-       For more,please refer to https://www.m4.unic.ac.cy/wp-content/uploads/2018/03/M4-Competitors-Guide.pdf
+    Calculate MIS (mean interval score) without scaling by seasonal difference
 
-       Parameters
-       ----------
-       target           : torch.Tensor
-                          true values of the target variable
-       y_pred_upper     : torch.Tensor
-                          predicted upper limit of the target variable
-       y_pred_lower     : torch.Tensor
-                          predicted lower limit of the target variable
-       alpha            : float
-                          significance level for the prediction interval
+    This metric combines both the sharpness and PICP metrics into a scalar value
+    For more,please refer to https://www.m4.unic.ac.cy/wp-content/uploads/2018/03/M4-Competitors-Guide.pdf
 
-       Returns
-       -------
-       1)float    : MIS  (lower the better)
-       2)1d-array : MIS along the horizon (lower the better)
-                     --- it is expected to increase as we move along the horizon
+    Parameters
+    ----------
+    target : torch.Tensor
+        true values of the target variable
+    predictions : list
+        - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
+        - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.Tensor)
+                        predicted lower limit of the target variable
+    alpha : float
+        The significance level for the prediction interval
+    total : bool, default = True
+        - When total is set to True, return overall MIS
+        - When total is set to False, return MIS along the horizon
 
-       """
+    Returns
+    -------
+    torch.Tensor
+        The MIS, which depending on the value of 'total' is either a scalar (overall MIS)
+        or 1d-array over the horizon, in which case it is expected to increase as we move
+        along the horizon. Generally, lower is better.
+
+    """
 
     assert len(predictions) == 2
     y_pred_upper = predictions[0]
@@ -427,24 +540,30 @@ def mis(target, predictions:list, alpha=0.05, total = True):
 
 def rae(target, predictions: list, total=True):
     """
-        Calculates Relative Absolute Error
-        compared to a naive forecast that only assumes that the future will produce the average of the past observations
+    Calculate the RAE (Relative Absolute Error) compared to a naive forecast that only
+    assumes that the future will produce the average of the past observations
 
-        Parameters
-        ----------
-        target   : torch.Tensor
-                     series input data for predicting a forecast
-        y_test     : torch.Tensor
-                     true values of the target variable
-        y_hat_test : torch.Tensor
-                     predicted values of the target variable
+    Parameters
+    ----------
+    target : torch.Tensor
+        true values of the target variable
+    predictions : list
+        - predictions[0] = y_hat_test, predicted expected values of the target variable (torch.Tensor)
+    total : bool, default = True
+        Used in other loss functions to specify whether to return overall loss or loss over
+        the horizon. This function only supports the former.
 
-        Returns
-        -------
-        1)float    : total rae (lower the better)
+    Returns
+    -------
+    torch.Tensor
+        A scalar with the overall RAE (the lower the better)
 
-
+    Raises
+    ------
+    NotImplementedError
+        When 'total' is set to False, as rae does not support loss over the horizon
     """
+
     y_hat_test = predictions[0]
     y_hat_naive = target
     y_hat_naive = torch.mean(target)
@@ -459,23 +578,28 @@ def rae(target, predictions: list, total=True):
 
 def nmae(target, predictions: list, total=True):
     """
-        Calculates normalized absolute error
-        nMAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+    Calculates normalized absolute error
+    nMAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
 
-        Parameters
-        ----------
-        target   : torch.Tensor
-                     series input data for predicting a forecast
-        y_test     : torch.Tensor
-                     true values of the target variable
-        y_hat_test : torch.Tensor
-                     predicted values of the target variable
+    Parameters
+    ----------
+    target : torch.Tensor
+        true values of the target variable
+    predictions : list
+        - predictions[0] = y_hat_test, predicted expected values of the target variable (torch.Tensor)
+    total : bool, default = True
+        Used in other loss functions to specify whether to return overall loss or loss over
+        the horizon. This function only supports the former.
 
-        Returns
-        -------
-        1)float    : total nmae (lower the better)
+    Returns
+    -------
+    torch.Tensor
+        A scalar with the overall nmae (the lower the better)
 
-
+    Raises
+    ------
+    NotImplementedError
+        When 'total' is set to False, as nmae does not support loss over the horizon
     """
 
     if not total:
@@ -507,13 +631,15 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, q
         The value(s) for mean interval score
     quantile_score : torch.Tensor, float or ndarray
         The value(s) for quantile score
+    save_to_disc : bool, default = False
+        If True, save the scores to the hard drive as a csv
 
     Returns
     -------
     pandas.DataFrame
         A DataFrame containing the models' scores for the given metrics
-
     """
+    
     data = {
         'MSE': mse,
         'RMSE': rmse,
@@ -534,8 +660,7 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, q
 
 def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
     """
-    Create a matplotlib.pyplot.subplot to compare true and predicted values
-
+    Create a matplotlib.pyplot.subplot to compare true and predicted values.
     Save the resulting plot at (OUTPATH + 'eval_hour{}'.format(hour))
 
     Parameters
@@ -588,26 +713,24 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
 
 def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
     """
-    Create a matplotlib.pyplot.figure with plots for the given metrics
-
-    Save the resulting figure at (OUTPATH + 'metrics_plot')
+    Create a matplotlib.pyplot.figure with plots for the given metrics
+    Save the resulting figure at (OUTPATH + 'metrics_plot')
 
     Parameters
     ----------
-    rmse_horizon : ndarray
-        The values for the root mean square error over the horizon
-    sharpness_horizon : ndarray
-        The values for the sharpness over the horizon
-    coverage_horizon : ndarray
-        The values for the PICP (prediction interval coverage probability or % of true
-        values in the predicted intervals) over the horizon
-    mis_horizon : ndarray
-        The values for the mean interval score over the horizon
-    OUTPATH : string
-        The path to where the figure should be saved
-    title : string
-        The text for a centered title for the figure
-
+    rmse_horizon : ndarray
+        The values for the root mean square error over the horizon
+    sharpness_horizon : ndarray
+        The values for the sharpness over the horizon
+    coverage_horizon : ndarray
+        The values for the PICP (prediction interval coverage probability or % of true 
+        values in the predicted intervals) over the horizon
+    mis_horizon : ndarray
+        The values for the mean interval score over the horizon
+    OUTPATH : string
+        The path to where the figure should be saved
+    title : string
+        The text for a centered title for the figure
     """
 
     with plt.style.context('seaborn'):
