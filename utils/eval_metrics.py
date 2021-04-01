@@ -109,7 +109,7 @@ def pinball_loss(target, predictions:list, quantiles:list, total = True):
         When 'total' is set to False, as pinball_loss does not support loss over the horizon
     """
 
-    assert (len(predictions) == (len(quantiles) + 1))
+    #assert (len(predictions) == (len(quantiles) + 1))
     #quantiles = options
 
     if not total:
@@ -121,7 +121,7 @@ def pinball_loss(target, predictions:list, quantiles:list, total = True):
         assert quantile < 1
         assert target.shape == predictions[i].shape
         errors = (target - predictions[i])
-        loss += (torch.mean(torch.max(quantile * errors, (quantile - 1) * errors)))/len(quantiles)
+        loss += (torch.mean(torch.max(quantile * errors, (quantile - 1) * errors)))
 
     return loss
 
@@ -151,7 +151,7 @@ def quantile_score(target, predictions:list, quantiles:list, total = True):
     # we use the MSE to adjust the mean. one could also use 0.5 as third quantile,
     # but further code adjustments would be necessary then
     loss1 = pinball_loss(target, predictions, quantiles, total)
-    loss2 = mse(target, [predictions[len(quantiles)]])
+    loss2 = rmse(target, [predictions[len(quantiles)]])
 
     return loss1+loss2
 
