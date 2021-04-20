@@ -20,8 +20,19 @@
 
 # -*- coding: utf-8 -*-
 """
-Baseline Functions
+Create baseline forecasts and evaluate them. 
+
+First, load and prepare training and validation data. Then optionally create any/all of the
+following baseline forecasts:
+- A forecast using a created or loaded fitted (S)ARIMA(X) model
+- A simple naive forecast
+- A seasonal naive forecast
+- A forecast using a naive STL model
+- A forecast using an ETS model
+- A forecast using a GARCH model
+Finally evaluate all baseline forecasts using several different metrics and plot the results
 """
+
 import os
 import sys
 import argparse
@@ -75,6 +86,37 @@ class flag_and_store(argparse._StoreAction):
 
 def eval_baseline(mean_forecast, df_target, upper_PI, lower_PI, load_limit, hours, baseline_method='baseline',
                   forecast_horizon=1, anchor_adjustment =0):
+    """
+    Evaluate a baseline forecast using several different metrics and plot the results.
+
+    A non-zero value for anchor_adjustment can additionally adjust benchmark forecasts to the
+    forecast start time of the ProLoaF RNN method, to facilitate the comparison of sample days
+
+    Parameters
+    ----------
+    mean_forecast : array-like
+        Contains forecasted expected values
+    df_target : array-like
+        The reference or measured target variable
+    upper_PI : array-like
+        Upper prediction interval
+    lower_PI : array-like
+        Lower prediction interval
+    load_limit : float
+        The cap limit
+    hours : array-like
+        The actual time from the data set
+    baseline_method : string, default = 'baseline'
+        The text for the title of the plot
+    forecast_horizon : int, default = 1
+        Number of future steps to be forecasted
+    anchor_adjustment : int, default = 0
+        A positive value which is subtracted from the standard evaluation hours (0, 12, 24,
+        48, 100, and 112), enabling hours at a fixed offset from the standard ones to be
+        evaluated. I.e.:
+        - For anchor_adjustment = 3, evaluate forecasts for hours 9, 21, 45, 97, and 109
+    """
+
     mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs = \
         baselines.eval_forecast(mean_forecast, df_target,
                                 upper_PI, lower_PI,total=True)
@@ -308,7 +350,7 @@ def main(infile, target_id):
         #gradboosting --already existing in old project
 
         #==========================Evaluate ALL==========================
-        #for a propoer benchmark with the rnn we need to consider that the rnn starts at anchor=t0(first data-entry)+history horizon
+        #for a proper benchmark with the rnn we need to consider that the rnn starts at anchor=t0(first data-entry)+history horizon
         #our baseline forecasts start at anchor=t0+forecast_horizon
         #so we have a shift in the start of the forecast simulation of about shift=Par[forecast-horizon]-Par[hist-horizon]
         shift=PAR['forecast_horizon']-PAR['history_horizon']
