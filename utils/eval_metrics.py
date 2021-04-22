@@ -322,7 +322,7 @@ def mape(target, predictions:list, total = True):
 
     Parameters
     ----------
-    targets : torch.Tensor
+    target : torch.Tensor
         true values of the target variable
     predictions : list
         - predictions[0] = predicted expected values of the target variable (torch.Tensor)
@@ -434,7 +434,7 @@ def picp(target, predictions:list, total = True):
 
     Parameters
     ----------
-    targets : torch.Tensor
+    target : torch.Tensor
         true values of the target variable
     predictions : list
         - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)

@@ -92,6 +92,10 @@ def load_baseline(path, name = 'sarimax'):
     """
     Load a fitted sarimax model with the given name from the specified path
 
+    .. warning::
+        Loading pickled models is not secure against erroneous or maliciously constructed data.
+        Never unpickle data received from an untrusted or unauthenticated source.
+
     Parameters
     ----------
     path : string
