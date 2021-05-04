@@ -54,7 +54,7 @@ def save_baseline(path, fitted,name='sarimax', predictions=None, save_prediction
     ----------
     path : string
         The destination path
-    fitted : statsmodels.tsa.statespace.mlemodel.MLEResults
+    fitted : statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
         A class that holds a trained model instance
     name : string, default = 'sarimax'
         The name to give the saved model
@@ -93,8 +93,8 @@ def load_baseline(path, name = 'sarimax'):
     Load a fitted sarimax model with the given name from the specified path
 
     .. warning::
-        Loading pickled models is not secure against erroneous or maliciously constructed data.
-        Never unpickle data received from an untrusted or unauthenticated source.
+        Loading pickled models can be insecure, if the data are erroneous or maliciously constructed.
+        Only unpickle data from a trusted, authenticated source.
 
     Parameters
     ----------
@@ -105,7 +105,7 @@ def load_baseline(path, name = 'sarimax'):
 
     Returns
     -------
-    statsmodels.tsa.statespace.mlemodel.MLEResults or None
+    statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper or None
         Return a trained model instance, or None if loading was unsuccessful
     """
 
@@ -142,8 +142,9 @@ def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='n'):
 
     Returns
     -------
-    statsmodels.tsa.statespace.mlemodel.MLEResults
-        A class that holds the trained model instance
+    statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
+        A class that holds the trained model instance. Methods from statsmodels.tsa.statespace.mlemodel.MLEResults can
+        be called on it
     statsmodels.tsa.statespace.sarimax.SARIMAX
         The untrained model instance
     float
@@ -187,8 +188,9 @@ def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seas
 
     Returns
     -------
-    statsmodels.tsa.statespace.mlemodel.MLEResults
-        A class that holds the trained model instance
+    statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
+        A class that holds the trained model instance. Methods from statsmodels.tsa.statespace.mlemodel.MLEResults can
+        be called on it
     statsmodels.tsa.statespace.sarimax.SARIMAX
         The untrained model instance
     float
@@ -546,7 +548,7 @@ def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog, fo
     ----------
     model : statsmodels.tsa.statespace.sarimax.SARIMAX
         The untrained model instance
-    fitted : statsmodels.tsa.statespace.mlemodel.MLEResults
+    fitted : statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
         The fitted model instance
     input_matrix : list
         list of DataFrames for input
@@ -644,11 +646,11 @@ def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = N
     -------
     ndarray
         Expected forecast values for each test sample over the forecast horizon.
-        (Shape: (len(y_train),forecast_horizon))
+        (Shape: (len(x_test),forecast_horizon))
     ndarray
-        The upper interval for the given forecasts. (Shape: (1,forecast_horizon))
+        The upper interval for the given forecasts. (Shape: (len(x_test),forecast_horizon))
     ndarray
-        The lower interval for the  forecasts. (Shape: (1,forecast_horizon))
+        The lower interval for the  forecasts. (Shape: (len(x_test),forecast_horizon))
     """
 
     if decomposed: print('Train a naive timeseries model cleared with seasonal decomposition (STL)...')
