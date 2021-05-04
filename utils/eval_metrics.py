@@ -667,8 +667,9 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, q
         'Quantile Score': quantile_score}
 
     results_df = pd.DataFrame(data, index=[models])
-    if(save_to_disc):
-        results_df.to_csv(save_to_disc+models+'.csv', sep=';', index=True)
+    if save_to_disc:
+        save_path = save_to_disc+models.replace("/", "_")
+        results_df.to_csv(save_path+'.csv', sep=';', index=True)
 
     return results_df
 
@@ -728,24 +729,24 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
 
 def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
     """
-    Create a matplotlib.pyplot.figure with plots for the given metrics
-    Save the resulting figure at (OUTPATH + 'metrics_plot')
+    Create a matplotlib.pyplot.figure with plots for the given metrics
+    Save the resulting figure at (OUTPATH + 'metrics_plot')
 
     Parameters
     ----------
-    rmse_horizon : ndarray
-        The values for the root mean square error over the horizon
-    sharpness_horizon : ndarray
-        The values for the sharpness over the horizon
-    coverage_horizon : ndarray
-        The values for the PICP (prediction interval coverage probability or % of true 
-        values in the predicted intervals) over the horizon
-    mis_horizon : ndarray
-        The values for the mean interval score over the horizon
-    OUTPATH : string
-        The path to where the figure should be saved
-    title : string
-        The text for a centered title for the figure
+    rmse_horizon : ndarray
+        The values for the root mean square error over the horizon
+    sharpness_horizon : ndarray
+        The values for the sharpness over the horizon
+    coverage_horizon : ndarray
+        The values for the PICP (prediction interval coverage probability or % of true
+        values in the predicted intervals) over the horizon
+    mis_horizon : ndarray
+        The values for the mean interval score over the horizon
+    OUTPATH : string
+        The path to where the figure should be saved
+    title : string
+        The text for a centered title for the figure
     """
 
     with plt.style.context('seaborn'):
