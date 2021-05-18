@@ -174,7 +174,8 @@ def make_model(df: pd.DataFrame, scalers, encoder_features, decoder_features, ba
     df : pandas.DataFrame
         The data frame containing the model features, to be split into sets for training
     scalers : dict
-        A dict of sklearn.preprocessing scalers with scaler names (e.g. "minmax", "robust") as keywords
+        A dict of sklearn.preprocessing scalers with their corresponding feature group
+        names (e.g."main", "add") as keywords
     encoder_features : string list
         A list containing desired encoder feature names as strings 
     decoder_features : string list
@@ -324,7 +325,7 @@ def train(train_data_loader, validation_data_loader, test_data_loader, net,
         A DataFrame in which the results and parameters of the training have been logged
     float
         The minimum validation loss of the trained model
-    float or 1d-array or torch.Tensor or tuple
+    float or torch.Tensor
         The score returned by the performance test. The data type depends on which metric was used. 
         The current implementation calculates the Mean Interval Score and returns either a float, or 1d-Array with the MIS along the horizon.
         A lower score is generally better
@@ -486,7 +487,8 @@ def objective(selected_features, scalers, hyper_param, log_df, **_):
     selected_features : pandas.DataFrame 
         The data frame containing the model features, to be split into sets for training
     scalers : dict
-        A dict of sklearn.preprocessing scalers with scaler names (e.g. "minmax", "robust") as keywords
+        A dict of sklearn.preprocessing scalers with their corresponding feature group
+        names (e.g."main", "add") as keywords
     hyper_param: dict
         A dictionary containing hyperparameters for the Optuna optimizer
     log_df : pandas.DataFrame
