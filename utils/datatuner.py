@@ -174,6 +174,12 @@ def extract(df, horizon, anchor_key=0, filter_df=False):
     """
     Extract data from the input DataFrame and reshape it into a suitable input form for a LSTM cell
 
+    The input DataFrame is reshaped into an ndarray with a number of entries (samples), such that each entry
+    contains n = 'horizon' rows (including all features) from the input DataFrame. There are i = 1,...,m entries in the
+    output ndarray, with m such that row (m + n - 1) is the final row from the input DataFrame.
+    e.g. The first entries in the ndarray would be:
+     [row 1, row 2, ..., row n], [row 2, row 3, ..., row n+1], etc.
+
     Parameters
     ----------
     df : pandas.DataFrame
@@ -184,7 +190,7 @@ def extract(df, horizon, anchor_key=0, filter_df=False):
     Returns
     -------
     ndarray
-        A numpy input array
+        The reshaped data in a numpy array (Shape: (number of samples, horizon, number of features))
     """
 
     number_of_samples = df.shape[0] - horizon + 1

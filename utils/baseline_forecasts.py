@@ -292,7 +292,7 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
     torch.Tensor
         mis over the horizon (only if total is False)
     """
-
+    # TODO the parameter 'seasonality' is unused
     forecasts = torch.tensor(forecasts)
     true_values = torch.tensor(endog_val)
     upper_limits = torch.tensor(upper_limits)
@@ -339,7 +339,7 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
         The new exogenous features for new training
     exog_forecast : pandas.DataFrame
         The exogenous variables to match the prediction horizon
-    fitted : statsmodels.tsa.statespace.mlemodel.MLEResults
+    fitted : statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
         The trained model
     forecast_horizon : int, default = 1
         Number of future steps to be forecasted
@@ -430,10 +430,10 @@ def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha = 1.9
 
     Parameters
     ----------
-    forecasts : pandas.DataFrame
-        List of forecasts
-    endog_val : pandas.DataFrame
-        List of true values for given forecasts
+    forecasts : pandas.Series
+        List of forecasts (with length = forecast_horizon)
+    endog_val : pandas.Series
+        List of true values for given forecasts (with length = forecast_horizon)
     forecast_horizon : int
         Number of future steps to be forecasted
     alpha : float, default = 1.96
@@ -441,9 +441,9 @@ def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha = 1.9
 
     Returns
     -------
-    pandas.DataFrame
+    pandas.Series
         upper interval for given forecasts with length:= forecast_horizon
-    pandas.DataFrame
+    pandas.Series
         lower interval for given forecasts with length:= forecast_horizon
     """
 
@@ -598,6 +598,8 @@ def simple_naive(series, horizon):
     """
     A simple naive forecast
 
+    Return a forecast of length = 'horizon', where all elements are equal to the last element of 'series'
+
     Parameters
     ----------
     series : ndarray
@@ -608,7 +610,7 @@ def simple_naive(series, horizon):
     Returns
     -------
     ndarray
-        A simple naive forecast
+        A simple naive forecast (Shape: ('horizon', ))
     """
 
     return np.array([series[-1]] * horizon)
@@ -618,18 +620,18 @@ def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = N
     Train and validate a naive (persistence) timeseries model or, (if decomposed = True), a naive
     timeseries model cleared with seasonal decomposition (STL)
 
-    Fit persistence forecast over the train data,
-    calculate the standard deviation of residuals for each horizon over the horizon and
-    finally output persistence forecast over the test data and std_deviation for each hour
+    Fit persistence forecast over the train data, and calculate the standard deviation of residuals for each horizon
+    over the horizon. Output the persistence forecast over the test data, and std_deviation (upper and lower intervals)
+    for each hour.
 
     Parameters
     ----------
     x_train : ndarray
-        the input training dataset
+        the input training dataset. (Shape: (length of training data,forecast_horizon))
     x_test : ndarray
-        the input test dataset
+        the input test dataset. (Shape: (length of test data,forecast_horizon))
     y_train : ndarray
-        The target training dataset
+        The targets (actual values) of the training dataset. (Shape: (length of training data,forecast_horizon))
     forecast_horizon : int
         Number of future steps to be forecasted
     periodicity : int, default = None
@@ -750,18 +752,18 @@ def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 
     """
     Train and validate a seasonal naive timeseries model with the given seasonality
 
-    Fit periodic forecast over the train data, calcuate the standard deviation of residuals for
-    each horizon over the horizon and finally output the periodic forecast over the test
-    data and std_deviation for each hour
+    Fit periodic forecast over the train data, calculate the standard deviation of residuals for
+    each horizon over the horizon. Output the periodic forecast generated using the test
+    data and the std_deviation (upper and lower intervals) for each hour.
 
     Parameters
     ----------
     x_train : ndarray
-        the input training dataset
+        the input training dataset (Shape: (length of training data,forecast_horizon))
     x_test : ndarray
-        the input test dataset
+        the input test dataset (Shape: (length of test data,forecast_horizon))
     y_train : ndarray
-        The target training dataset
+        The targets (actual values) of the training dataset. (Shape: (length of training data,forecast_horizon))
     forecast_horizon : int
         Number of future steps to be forecasted
     periodicity : int, default = 1
@@ -777,11 +779,11 @@ def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 
     -------
     ndarray
         Expected forecast values for each test sample over the forecast horizon.
-        (Shape: (len(y_train),forecast_horizon))
+        (Shape: (len(x_test),forecast_horizon))
     ndarray
-        The upper interval for the given forecasts. (Shape: (1,forecast_horizon))
+        The upper interval for the given forecasts. (Shape: (len(x_test),forecast_horizon))
     ndarray
-        The lower interval for the  forecasts. (Shape: (1,forecast_horizon))
+        The lower interval for the  forecasts. (Shape: (len(x_test),forecast_horizon))
     """
 
     print('Train a seasonal naive timeseries model with seasonality=', seasonality, '...')
