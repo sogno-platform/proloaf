@@ -585,10 +585,10 @@ def rae(target, predictions: list, total=True):
     return torch.mean(torch.abs(target - y_hat_test)) / torch.mean(torch.abs(target - y_hat_naive))
 
 
-def nmae(target, predictions: list, total=True):
+def mae(target, predictions: list, total=True):
     """
-    Calculates normalized mean absolute error
-    nMAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+    Calculates mean absolute error
+    MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
 
     Parameters
     ----------
@@ -603,20 +603,20 @@ def nmae(target, predictions: list, total=True):
     Returns
     -------
     torch.Tensor
-        A scalar with the overall nmae (the lower the better)
+        A scalar with the overall mae (the lower the better)
 
     Raises
     ------
     NotImplementedError
-        When 'total' is set to False, as nmae does not support loss over the horizon
+        When 'total' is set to False, as mae does not support loss over the horizon
     """
 
     if not total:
-        raise NotImplementedError("nmae does not support loss over the horizon")
+        raise NotImplementedError("mae does not support loss over the horizon")
 
     y_hat_test = predictions[0]
 
-    return torch.sum(torch.abs(target - y_hat_test)) / torch.sum(torch.abs(target))
+    return torch.mean(torch.abs(target - y_hat_test))
 
 
 def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, quantile_score=0, save_to_disc=False):
@@ -658,9 +658,9 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, q
     data = {
         'MSE': mse,
         'RMSE': rmse,
-        'MASE':mase,
-        'RAE':rae,
-        'nMAE':mae,
+        'MASE': mase,
+        'RAE': rae,
+        'MAE': mae,
         'Mean sharpness': sharpness,
         'Mean PICP': coverage,
         'Mean IS': mis,

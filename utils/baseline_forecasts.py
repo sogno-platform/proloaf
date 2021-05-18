@@ -305,17 +305,17 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
     if total:
         mse = metrics.mse(true_values, [forecasts])
         rmse = metrics.rmse(true_values, [forecasts])
-        mase=metrics.mase(true_values, [forecasts], 7*24) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
-        rae= metrics.rae(true_values, [forecasts])
-        mae=metrics.nmae(true_values, [forecasts])
-        sharpness = metrics.sharpness(None,[upper_limits, lower_limits])
+        mase = metrics.mase(true_values, [forecasts], 7*24) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
+        rae = metrics.rae(true_values, [forecasts])
+        mae = metrics.mae(true_values, [forecasts])
+        sharpness = metrics.sharpness(None, [upper_limits, lower_limits])
         coverage = metrics.picp(true_values, [upper_limits, lower_limits])
         mis = metrics.mis(true_values, [upper_limits, lower_limits], alpha=alpha)
         qs = metrics.pinball_loss(true_values, [upper_limits, lower_limits], [0.025, 0.975])
         return mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs
     else:
         rmse_horizon = metrics.rmse(true_values, [forecasts], total)
-        sharpness_horizon = metrics.sharpness(None,[upper_limits, lower_limits], total)
+        sharpness_horizon = metrics.sharpness(None, [upper_limits, lower_limits], total)
         coverage_horizon = metrics.picp(true_values, [upper_limits, lower_limits], total)
         mis_horizon = metrics.mis(true_values, [upper_limits, lower_limits], alpha=alpha, total=total)
         return rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon
