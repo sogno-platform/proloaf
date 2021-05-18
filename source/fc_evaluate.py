@@ -132,7 +132,7 @@ if __name__ == '__main__':
         rmse = metrics.rmse(record_targets, [record_expected_values])
         mase = metrics.mase(record_targets, [record_expected_values], 7*24)
         rae = metrics.rae(record_targets, [record_expected_values])
-        mae = metrics.nmae(record_targets, [record_expected_values])
+        mae = metrics.mae(record_targets, [record_expected_values])
         qs = metrics.pinball_loss(record_targets, [y_pred_upper, y_pred_lower], [0.025, 0.975])
 
         sharpness = metrics.sharpness(None, [y_pred_upper, y_pred_lower])
@@ -175,7 +175,7 @@ if __name__ == '__main__':
                           enumerate(record_targets)]
         rae_per_sample = [metrics.rae(record_targets[i], [record_expected_values[i]]) for i, value in
                           enumerate(record_targets)]
-        mae_per_sample = [metrics.nmae(record_targets[i], [record_expected_values[i]]) for i, value in
+        mae_per_sample = [metrics.mae(record_targets[i], [record_expected_values[i]]) for i, value in
                           enumerate(record_targets)]
         mis_per_sample = [metrics.mis(record_targets[i], [y_pred_upper[i], y_pred_lower[i]], alpha=0.05) for i, value in
                           enumerate(record_targets)]
