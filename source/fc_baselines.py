@@ -150,6 +150,9 @@ def main(infile, target_id):
     # Read load data
     df = pd.read_csv(infile, sep=';',index_col=0)
     dt.fill_if_missing(df)
+    df['Time'] = pd.to_datetime(df['Time'])
+    df = df.set_index('Time')
+    df = df.asfreq(freq='H')
     time_delta = pd.to_datetime(df.index[1]) - pd.to_datetime(df.index[0])
     timestamps = pd.date_range(start=pd.to_datetime(df.index, dayfirst=DAY_FIRST)[0],
                           end=pd.to_datetime(df.index, dayfirst=DAY_FIRST)[-1],
@@ -356,14 +359,14 @@ def main(infile, target_id):
         shift=PAR['forecast_horizon']-PAR['history_horizon']
         for i, mean_forecast in enumerate(mean_forecast):
             if len(mean_forecast) - PAR['forecast_horizon'] == len(y_val):
-                eval_baseline(mean_forecast[PAR['forecast_horizon']:,:], y_val[:,:,target_column],
+                eval_baseline(mean_forecast[PAR['forecast_horizon']:,:], y_val[:NUM_PRED,:,target_column],
                               upper_PI[i][PAR['forecast_horizon']:,:], lower_PI[i][PAR['forecast_horizon']:,:],
                               PAR['cap_limit'],
                               hours = pd.to_datetime(df_val[PAR['forecast_horizon']:].index).to_series(),
                               baseline_method='test'+baseline_method[i], forecast_horizon= PAR['forecast_horizon'],
                               anchor_adjustment=shift)
             else:
-                eval_baseline(mean_forecast, y_val[:, :, target_column],
+                eval_baseline(mean_forecast, y_val[:NUM_PRED, :, target_column],
                               upper_PI[i], lower_PI[i],
                               PAR['cap_limit'],
                               hours=pd.to_datetime(df_val[PAR['forecast_horizon']:].index).to_series(),
