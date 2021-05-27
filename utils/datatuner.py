@@ -19,7 +19,7 @@
 # ==============================================================================
 
 """
-Handle and manipulate dataframes
+Provides functions for handling and manipulating dataframes
 
 Includes functions for scaling, rescaling, filling missing values etc.
 Some functions are no longer used directly in the project, but may nonetheless be
@@ -95,7 +95,8 @@ def custom_interpolate(df):
     """
     Interpolate the features with missing values in a time series data frame
 
-    for each feature/columns,
+    For each feature/columns:
+
     - finds the range of intervals of missing values
     - for each of the missing value in these intervals
         + collect the the previous day's value and the next day's value (t-24 & t+24) at that time instant
@@ -178,7 +179,8 @@ def extract(df, horizon, anchor_key=0, filter_df=False):
     contains n = 'horizon' rows (including all features) from the input DataFrame. There are i = 1,...,m entries in the
     output ndarray, with m such that row (m + n - 1) is the final row from the input DataFrame.
     e.g. The first entries in the ndarray would be:
-     [row 1, row 2, ..., row n], [row 2, row 3, ..., row n+1], etc.
+
+    [row 1, row 2, ..., row n], [row 2, row 3, ..., row n+1], etc.
 
     Parameters
     ----------
@@ -338,6 +340,7 @@ def scale_all(df:pd.DataFrame, feature_groups, start_date = None, **_):
         The DataFrame with the data to be scaled
     feature_groups : array
         An array of dicts. Each dict has entries with the following keywords:
+
         - "name", stores the name of the feature group
         - "scaler", stores a list in which the first entry is the name of the feature
         group's scaler. Valid names are 'standard', 'robust' or 'minmax'. Additional

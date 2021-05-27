@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-FC_Network.py holds the functions and classes of the general model architecture
+Holds the functions and classes of the general model architecture
 """
 import importlib
 import sys
@@ -199,7 +199,7 @@ class EncoderDecoder(nn.Module):
         The loss function
     out_size : int, default = 1
         Dimension of Decoder output (number of predictions)
-    rel_linear_hidden_size : float, default = 1.
+    rel_linear_hidden_size : float, default = 1
         The relative linear hidden size, as a fraction of the total number of features in the training data
     rel_core_hidden_size : c
         The relative core hidden size, as a fraction of the total number of features in the training data

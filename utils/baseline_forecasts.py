@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-Includes functions to load and save baselines, as well as functions to train (S)ARIMA(X) and GARCH models
+Provides functions to load and save baselines, as well as functions to train (S)ARIMA(X) and GARCH models
 and generate various baseline forecasts.
 """
 
@@ -93,7 +93,7 @@ def load_baseline(path, name = 'sarimax'):
     Load a fitted sarimax model with the given name from the specified path
 
     .. warning::
-        Loading pickled models can be insecure, if the data are erroneous or maliciously constructed.
+        Loading pickled models can be insecure if the data are erroneous or maliciously constructed.
         Only unpickle data from a trusted, authenticated source.
 
     Parameters
@@ -240,9 +240,10 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
     Calculate evaluation metrics
 
     Returned values depend on the value of the 'total' parameter.
+
     - When total is True, returns overall values calculated using the following metrics:
     mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs
-    - When total is True, returns values over the horizon, calculated using the following metrics:
+    - When total is False, returns values over the horizon, calculated using the following metrics:
     rmse, sharpness, coverage, mis
 
     Parameters
@@ -265,32 +266,35 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
 
     Returns
     -------
+    ### If **total** is True:
     torch.Tensor
-        overall value calculated using mse (only if total is True)
+        overall value calculated using mse
     torch.Tensor
-        overall value calculated using rmse (only if total is True)
+        overall value calculated using rmse
     torch.Tensor
-        overall value calculated using mase (only if total is True)
+        overall value calculated using mase
     torch.Tensor
-        overall value calculated using rae (only if total is True)
+        overall value calculated using rae
     torch.Tensor
-        overall value calculated using mae (only if total is True)
+        overall value calculated using mae
     torch.Tensor
-        overall value calculated using sharpness (only if total is True)
+        overall value calculated using sharpness
     torch.Tensor
-        overall value calculated using coverage (only if total is True)
+        overall value calculated using coverage
     torch.Tensor
-        overall value calculated using mis (only if total is True)
+        overall value calculated using mis
+
+    ### If **total** is False:
     torch.Tensor
-        overall value calculated using qs (only if total is True)
+        overall value calculated using qs
     torch.Tensor
-        rmse over the horizon (only if total is False)
+        rmse over the horizon
     torch.Tensor
-        sharpness over the horizon (only if total is False)
+        sharpness over the horizon
     torch.Tensor
-        coverage over the horizon (only if total is False)
+        coverage over the horizon
     torch.Tensor
-        mis over the horizon (only if total is False)
+        mis over the horizon
     """
     # TODO the parameter 'seasonality' is unused
     forecasts = torch.tensor(forecasts)

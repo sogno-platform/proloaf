@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-Implementations of different loss functions, as well as functions for evaluating model performance
+Provides implementations of different loss functions, as well as functions for evaluating model performance
 """
 import numpy as np
 import torch
@@ -474,6 +474,8 @@ def picp_loss(target, predictions, total = True):
     """
     Calculate 1 - PICP (see eval_metrics.picp for more details)
 
+    Parameters
+    ----------
     target : torch.Tensor
         The true values of the target variable
     predictions : list
@@ -698,6 +700,9 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     actual_hours : pandas.Series, default = None
         The actual time from the data set
 
+    Returns
+    -------
+    No return value
     """
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(target, '.-k', label="Truth")  # true values
@@ -747,6 +752,10 @@ def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,
         The path to where the figure should be saved
     title : string
         The text for a centered title for the figure
+
+    Returns
+    -------
+    No return value
     """
 
     with plt.style.context('seaborn'):

@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-Provide functions for logging training results and reading and writing those logs to/from csv files.
+Provides functions for logging training results and reading and writing those logs to/from csv files.
 """
 
 from plf_util.config_util import *

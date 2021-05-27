@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-Provide structures for storing and loading data (e.g. training, validation or test data)
+Provides structures for storing and loading data (e.g. training, validation or test data)
 """
 import numpy as np
 import torch

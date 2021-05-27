@@ -117,6 +117,7 @@ def parse_basic(args = sys.argv[1:]):
     Parse command line arguments and store them in attributes of a Python object.
 
     Accepts (only) one of the following options:
+
     - "-s", "--station", the name of the station to be trained for. 'gefcom2017/nh_data' by default.
     - "-c", "--config", the path to the config file relative to the project root
 
@@ -143,12 +144,17 @@ def parse_with_loss(args = sys.argv[1:]):
     Parse command line arguments, including arguments for the loss function, and store them in attributes of a Python object.
 
     Accepts the following options:
+
     - "--ci", Enables execution mode optimized for GitLab's CI
     - "--logname", Name of the run, displayed in Tensorboard
+
     AND (only) one of the following options:
+
     - "-s", "--station", the name of the station to be trained for. 'gefcom2017/nh_data' by default.
     - "-c", "--config", the path to the config file relative to the project root
+
     AND (only) one of the following options (which gets stored in the 'loss' attribute as a callable):
+
     - "--nll_gauss", Enables training with nll guassian loss
     - "--quantiles", Enables training with pinball loss and MSE with q1 and q2 being the upper and lower quantiles.
     Requires at least 2 float arguments e.g. "--quantiles q1, q2, ..."
@@ -169,6 +175,7 @@ def parse_with_loss(args = sys.argv[1:]):
     -------
     Namespace
         An object that stores the following attributes:
+
         - ci : True/False (see function comment)
         - logname : A string (see function comment), '' by default
         - station : A string (see function comment) e.g. 'gefcom2017/nh_data'
@@ -179,6 +186,7 @@ def parse_with_loss(args = sys.argv[1:]):
         - loss : The specified callable loss function from plf_util.eval_metrics.py
     dict
         Contains extra options if the loss functions mis or quantile score are used.
+
         - if '--mis a' is used, where 'a' is a float: the dict has a single entry i.e. {'alpha': a }
         - if "--quantiles q1 q2 ..." is used, where q1, q2,... are a series of (at least 2) floats: the dict contains a
         list with the entries q1, q2, ... i.e. {'quantiles': [q1, q2, ...]}
