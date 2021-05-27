@@ -24,6 +24,7 @@ Create baseline forecasts and evaluate them.
 
 First, load and prepare training and validation data. Then optionally create any/all of the
 following baseline forecasts:
+
 - A forecast using a created or loaded fitted (S)ARIMA(X) model
 - A simple naive forecast
 - A seasonal naive forecast
