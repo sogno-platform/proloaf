@@ -26,7 +26,7 @@ Provide several graphs as outputs that show the performance of the trained model
 Notes
 -----
 - The output consists of the actual load prediction graph split up into multiple svg images and 
-a metrics plot containing information about the modelâ€™s performance.
+a metrics plot containing information about the model’s performance.
 - The output path for the graphs can be changed under the "evaluation_path": option 
 in the corresponding config file.
 
@@ -39,7 +39,7 @@ import plf_util.modelhandler as mh
 # from sklearn.preprocessing import RobustScaler
 # from sklearn.preprocessing import StandardScaler
 # from sklearn.preprocessing import MinMaxScaler
-from plf_util.config_util import read_config, parse_basic
+
 
 # TODO: find workaround for PICP numpy issue
 import numpy as np
@@ -53,44 +53,46 @@ import os
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-warnings.filterwarnings('ignore')
+from plf_util.config_util import read_config, parse_basic
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ARGS = parse_basic()
-    PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
+    PAR = read_config(
+        model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH
+    )
 
     # DEFINES
     torch.manual_seed(1)
-    INFILE = os.path.join(MAIN_PATH, PAR['data_path'])  # input factsheet
+    INFILE = os.path.join(MAIN_PATH, PAR["data_path"])  # input factsheet
 
     # after training
-    INMODEL = os.path.join(MAIN_PATH, PAR['output_path'], PAR['model_name'])
-    OUTDIR = os.path.join(MAIN_PATH, PAR['evaluation_path'])
+    INMODEL = os.path.join(MAIN_PATH, PAR["output_path"], PAR["model_name"])
+    OUTDIR = os.path.join(MAIN_PATH, PAR["evaluation_path"])
 
-    target_id = PAR['target_id']
-    DEVICE = 'cpu'
-    SPLIT_RATIO = PAR['validation_split']
+    target_id = PAR["target_id"]
+    DEVICE = "cpu"
+    SPLIT_RATIO = PAR["validation_split"]
 
-    HISTORY_HORIZON = PAR['history_horizon']
-    FORECAST_HORIZON = PAR['forecast_horizon']
-    feature_groups = PAR['feature_groups']
+    HISTORY_HORIZON = PAR["history_horizon"]
+    FORECAST_HORIZON = PAR["forecast_horizon"]
+    feature_groups = PAR["feature_groups"]
 
     if not os.path.exists(OUTDIR):
         os.makedirs(OUTDIR)
 
     # Read load data
-    df = pd.read_csv(INFILE, sep=';')
+    df = pd.read_csv(INFILE, sep=";")
     df = dt.fill_if_missing(df)
 
-    if ('target_list' in PAR):
-        if(PAR['target_list'] is not None):
-            df[target_id] = df[PAR['target_list']].sum(axis=1)
+    if "target_list" in PAR:
+        if PAR["target_list"] is not None:
+            df[target_id] = df[PAR["target_list"]].sum(axis=1)
 
     # reload trained NN
     with torch.no_grad():
         net = torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
 
-        df_new, _ = dt.scale_all(df, **PAR)
+        df_new, _ = dt.scale_all(df, scalers=net.scalers, **PAR)
         df_new.index = df['Time']
         target_index = df_new.columns.get_loc(target_id)
 
@@ -98,35 +100,49 @@ if __name__ == '__main__':
         train_df = df_new.iloc[0:split_index]
         test_df = df_new.iloc[split_index:]
 
-        train_data_loader = dl.make_dataloader(train_df, target_id, PAR['encoder_features'], PAR['decoder_features'],
-                                             history_horizon=PAR['history_horizon'], forecast_horizon=PAR['forecast_horizon'],
-                                              shuffle=False).to(DEVICE)
-        test_data_loader = dl.make_dataloader(test_df, target_id, PAR['encoder_features'], PAR['decoder_features'],
-                                              history_horizon=PAR['history_horizon'], forecast_horizon=PAR['forecast_horizon'],
-                                              shuffle=False).to(DEVICE)
+        test_data_loader = dl.make_dataloader(
+            test_df,
+            target_id,
+            PAR["encoder_features"],
+            PAR["decoder_features"],
+            history_horizon=PAR["history_horizon"],
+            forecast_horizon=PAR["forecast_horizon"],
+            shuffle=False,
+        ).to(DEVICE)
 
         # check performance
         horizon = test_data_loader.dataset.targets.shape[1]
         number_of_targets = test_data_loader.dataset.targets.shape[2]
 
-        record_targets, record_output = mh.get_prediction(net, test_data_loader, horizon, number_of_targets)
+        record_targets, record_output = mh.get_prediction(
+            net, test_data_loader, horizon, number_of_targets
+        )
 
         net.eval()
         # TODO: check model type (e.g gnll)
         criterion = net.criterion
         # get metrics parameters
-        y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(record_output, criterion, record_targets)
+        y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(
+            record_output, criterion, df[target_id]
+        )
 
         # rescale(test_output, test_targets)
         # dt.rescale_manually(..)
 
         # calculate the metrics
         mse_horizon = metrics.mse(record_targets, [record_expected_values], total=False)
-        rmse_horizon = metrics.rmse(record_targets, [record_expected_values], total=False)
-        sharpness_horizon = metrics.sharpness(None, [y_pred_upper, y_pred_lower], total=False)
-        coverage_horizon = metrics.picp(record_targets, [y_pred_upper,
-                                                        y_pred_lower], total=False)
-        mis_horizon = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05, total=False)
+        rmse_horizon = metrics.rmse(
+            record_targets, [record_expected_values], total=False
+        )
+        sharpness_horizon = metrics.sharpness(
+            None, [y_pred_upper, y_pred_lower], total=False
+        )
+        coverage_horizon = metrics.picp(
+            record_targets, [y_pred_upper, y_pred_lower], total=False
+        )
+        mis_horizon = metrics.mis(
+            record_targets, [y_pred_upper, y_pred_lower], alpha=0.05, total=False
+        )
         # collect metrics by disregarding the development over the horizon
         mse = metrics.mse(record_targets, [record_expected_values])
         rmse = metrics.rmse(record_targets, [record_expected_values])
@@ -140,26 +156,35 @@ if __name__ == '__main__':
         mis = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05)
 
         # plot metrics
-        metrics.plot_metrics(rmse_horizon.detach().numpy(), sharpness_horizon.detach().numpy(), coverage_horizon.detach().numpy(), mis_horizon.detach().numpy(), OUTDIR, 'metrics-evaluation')
+        plot_metrics(
+            rmse_horizon.detach().numpy(),
+            sharpness_horizon.detach().numpy(),
+            coverage_horizon.detach().numpy(),
+            mis_horizon.detach().numpy(),
+            OUTDIR,
+            "metrics-evaluation",
+        )
 
         # plot forecast for sample days
-        if 'ci_tests' in PAR['data_path']:
+        if "ci_tests" in PAR["data_path"]:
             testhours = [0, 12]
         else:
             testhours = [0, 12, 24, 48, 100, 112]
 
-        actual_time = pd.to_datetime(df.loc[PAR['history_horizon']+split_index:, 'Time'])
-        #actual_time = pd.to_datetime(actual_time[:-PAR['forecast_horizon']])
-        #indexes = actual_time[actual_time.dt.hour.to_numpy() == 9].index
-       # i_DA = np.zeros(len(indexes))
-       # for iter, i in enumerate(indexes):
-       #     if (iter <= len(record_targets) / 24):
-       #         i_DA[iter] = actual_time.index.get_loc(i)
-
-        #filtered_time = actual_time.loc[indexes]
+        actual_time = pd.to_datetime(df.loc[split_index:, "Time"])
         for i in testhours:
-            hours = actual_time.iloc[i:i + FORECAST_HORIZON]
-            metrics.evaluate_hours(record_targets[i].detach().numpy(), record_expected_values[i].detach().numpy(), y_pred_upper[i].detach().numpy(), y_pred_lower[i].detach().numpy(), i, OUTDIR, PAR['cap_limit'], hours)
+            hours = actual_time.iloc[i : i + FORECAST_HORIZON]
+            metrics.evaluate_hours(
+                record_targets[i].detach().numpy(),
+                record_expected_values[i].detach().numpy(),
+                y_pred_upper[i].detach().numpy(),
+                y_pred_lower[i].detach().numpy(),
+                i,
+                OUTDIR,
+                PAR["cap_limit"],
+                hours,
+            )
+
         #TODO: wrap up all following sample tests
         target_stations = PAR['model_name']
         print(metrics.results_table(target_stations, mse.cpu().numpy(), rmse.cpu().numpy(), mase.cpu().numpy(), rae.cpu().numpy(),
@@ -182,6 +207,18 @@ if __name__ == '__main__':
         mase_per_sample = [metrics.mase(record_targets[i], [record_expected_values[i]], 0,
                                         insample_target=record_targets.roll(7*24,0)[i]) for i, value in
                           enumerate(record_targets)]
+
+        target_stations = [PAR["model_name"]]
+        print(
+            results_table(
+                target_stations,
+                mse.detach().numpy(),
+                rmse.detach().numpy(),
+                sharpness.detach().numpy(),
+                coverage.detach().numpy(),
+                mis.detach().numpy(),
+            )
+        )
 
         residuals_per_sample = [metrics.residuals(record_targets[i],
                                             [record_expected_values[i]]) for i, value in enumerate(record_targets)]

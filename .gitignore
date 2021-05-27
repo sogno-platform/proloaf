@@ -3,7 +3,7 @@ oracles/
 data/*
 targets/sege*
 dist/
-plf_util.egg-info/
+plf_util/*
 old-yml.yml
 .python-version
 runs/
@@ -16,3 +16,4 @@ old/
 /targets/seq-res-load/
 .ipynb_checkpoints
 /run tensorboard in jupyter.ipynb
+/plf_util
