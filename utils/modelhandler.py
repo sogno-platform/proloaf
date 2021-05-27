@@ -19,7 +19,7 @@
 # ==============================================================================
 
 """
-modelhandler.py holds functions and classes for using the models to get predictions
+Provides functions and classes for using the models to get predictions
 and testing model performance.
 """
 
@@ -145,7 +145,7 @@ def get_pred_interval(predictions, criterion, targets):
 
     Returns
     -------
-   torch.Tensor
+    torch.Tensor
         The upper limit of the predictions
     torch.Tensor
         The lower limit of the predictions

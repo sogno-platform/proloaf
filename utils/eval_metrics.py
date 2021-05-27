@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-Implementations of different loss functions, as well as functions for evaluating model performance
+Provides implementations of different loss functions, as well as functions for evaluating model performance
 """
 import numpy as np
 import torch
@@ -51,7 +51,7 @@ def nll_gauss(target, predictions:list, total = True):
     Parameters
     ----------
     target : torch.Tensor
-        True values of the target variable
+        The true values of the target variable
     predictions : list
         - predictions[0] = expected_value, a torch.Tensor containing predicted expected values
         of the target variable
@@ -89,14 +89,14 @@ def pinball_loss(target, predictions:list, quantiles:list, total = True):
     Parameters
     ----------
     target : torch.Tensor
-        True values of the target variable
+        The true values of the target variable
     predictions : list(torch.Tensor)
-        predicted expected values of the target variable
+        The predicted expected values of the target variable
     quantiles : float list
         Quantiles that we are estimating for
     total : bool, default = True
         Used in other loss functions to specify whether to return overall loss or loss over
-        the horizon. Piball_loss only supports the former.
+        the horizon. Pinball_loss only supports the former.
 
     Returns
     -------
@@ -134,7 +134,7 @@ def quantile_score(target, predictions:list, quantiles:list, total = True):
     target : torch.Tensor
         True values of the target variable
     predictions : list (torch.Tensor)
-        predicted expected values of the target variable
+        The predicted expected values of the target variable
     quantiles : float list
         Quantiles that we are estimating for
     total : bool, default = True
@@ -144,7 +144,7 @@ def quantile_score(target, predictions:list, quantiles:list, total = True):
     Returns
     -------
     float
-        The total pinball loss + the mse loss
+        The total pinball loss + the rmse loss
     """
 
     #the quantile score builds upon the pinball loss,
@@ -210,22 +210,31 @@ def crps_gaussian(target, predictions:list, total = True):
 
 def residuals(target, predictions:list, total = True):
     """
-        Calculates mean squared error
+    Calculates the mean of the prediction error
 
-        Parameters
-        ----------
-        target          : torch.Tensor
-                          true values of the target variable
-        predictions     : torch.Tensor
-                          predicted expected values of the target variable
+    Parameters
+    ----------
+    target : torch.Tensor
+        The true values of the target variable
+    predictions : list (torch.Tensor)
+        The predicted expected values of the target variable
+    total : bool, default = True
+        - When total is set to True, return the overall mean of the error
+        - When total is set to False, return the mean of the error along the horizon
 
-        Returns
-        -------
-        1)float    : total mse (lower the better)
-        2)1d-array :  mse loss along the horizon (lower the better)
-                    --- it is expected to increase as we move along the horizon
+    Returns
+    -------
+    torch.Tensor
+        The mean of the error, which depending on the value of 'total'
+        is either a scalar (overall mean) or 1d-array over the horizon, in which case it is
+        expected to increase as we move along the horizon. Generally, lower is better.
 
-        """
+    Raises
+    ------
+    ValueError
+        When the dimensions of the predictions and targets are not compatible
+    """
+
     if predictions[0].shape != target.shape:
         raise ValueError('dimensions of predictions and targets need to be compatible')
 
@@ -313,7 +322,7 @@ def mape(target, predictions:list, total = True):
 
     Parameters
     ----------
-    targets : torch.Tensor
+    target : torch.Tensor
         true values of the target variable
     predictions : list
         - predictions[0] = predicted expected values of the target variable (torch.Tensor)
@@ -338,7 +347,6 @@ def mape(target, predictions:list, total = True):
     return torch.mean(torch.abs((target - predictions[0]) / target)) * 100
 
 def mase(target, predictions:list, freq=1, total = True, insample_target=None):
-
     """
     Calculate the mean absolute scaled error (MASE)
 
@@ -350,14 +358,16 @@ def mase(target, predictions:list, freq=1, total = True, insample_target=None):
     Parameters
     ----------
     target : torch.Tensor
-        true values of the target variable
+        The true values of the target variable
     predictions : list
         - predictions[0] = y_hat_test, predicted expected values of the target variable (torch.Tensor)
     freq : int scalar
-        frequency of season type considered
+        The frequency of the season type being considered
     total : bool, default = True
         Used in other loss functions to specify whether to return overall loss or loss over
         the horizon. This function only supports the former.
+    insample_target : torch.Tensor, default = None
+        Contains insample values (e.g. target values shifted by season frequency)
 
     Returns
     -------
@@ -369,17 +379,17 @@ def mase(target, predictions:list, freq=1, total = True, insample_target=None):
     NotImplementedError
         When 'total' is set to False, as MASE does not support loss over the horizon
     """
-    
+
     if not total:
         raise NotImplementedError("mase does not support loss over the horizon")
-    
+
     y_hat_test = predictions[0]
     if insample_target==None: y_hat_naive = torch.roll(target,freq,0)# shift all values by frequency, so that at time t,
     # y_hat_naive returns the value of insample [t-freq], as the first values are 0-freq = negative,
-    # all values at the beginning are filled with values of the end of the tensor. so to not falsify the evaluation,
+    # all values at the beginning are filled with values of the end of the tensor. So to not falsify the evaluation,
     # exclude all terms before freq
     else: y_hat_naive = insample_target
-    
+
     masep = torch.mean(torch.abs(target[freq:] - y_hat_naive[freq:]))
     # denominator is the mean absolute error of the "seasonal naive forecast method"
     return torch.mean(torch.abs(target[freq:] - y_hat_test[freq:])) / masep
@@ -424,7 +434,7 @@ def picp(target, predictions:list, total = True):
 
     Parameters
     ----------
-    targets : torch.Tensor
+    target : torch.Tensor
         true values of the target variable
     predictions : list
         - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
@@ -464,6 +474,8 @@ def picp_loss(target, predictions, total = True):
     """
     Calculate 1 - PICP (see eval_metrics.picp for more details)
 
+    Parameters
+    ----------
     target : torch.Tensor
         The true values of the target variable
     predictions : list
@@ -546,7 +558,7 @@ def rae(target, predictions: list, total=True):
     Parameters
     ----------
     target : torch.Tensor
-        true values of the target variable
+        The true values of the target variable
     predictions : list
         - predictions[0] = y_hat_test, predicted expected values of the target variable (torch.Tensor)
     total : bool, default = True
@@ -565,7 +577,6 @@ def rae(target, predictions: list, total=True):
     """
 
     y_hat_test = predictions[0]
-    y_hat_naive = target
     y_hat_naive = torch.mean(target)
 
     if not total:
@@ -576,10 +587,10 @@ def rae(target, predictions: list, total=True):
     return torch.mean(torch.abs(target - y_hat_test)) / torch.mean(torch.abs(target - y_hat_naive))
 
 
-def nmae(target, predictions: list, total=True):
+def mae(target, predictions: list, total=True):
     """
-    Calculates normalized absolute error
-    nMAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+    Calculates mean absolute error
+    MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
 
     Parameters
     ----------
@@ -594,20 +605,20 @@ def nmae(target, predictions: list, total=True):
     Returns
     -------
     torch.Tensor
-        A scalar with the overall nmae (the lower the better)
+        A scalar with the overall mae (the lower the better)
 
     Raises
     ------
     NotImplementedError
-        When 'total' is set to False, as nmae does not support loss over the horizon
+        When 'total' is set to False, as mae does not support loss over the horizon
     """
 
     if not total:
-        raise NotImplementedError("nmae does not support loss over the horizon")
+        raise NotImplementedError("mae does not support loss over the horizon")
 
     y_hat_test = predictions[0]
 
-    return torch.sum(torch.abs(target - y_hat_test)) / torch.sum(torch.abs(target))
+    return torch.mean(torch.abs(target - y_hat_test))
 
 
 def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, quantile_score=0, save_to_disc=False):
@@ -618,42 +629,49 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, q
     ----------
     models : string list or None
         The names of the models to use as index e.g. "gc17ct_GRU_gnll_test_hp"
-    mse : torch.Tensor, float or ndarray
+    mse : ndarray
         The value(s) for mean squared error
-    rmse : torch.Tensor, float or ndarray
+    rmse : ndarray
         The value(s) for root mean squared error
-    sharpness : torch.Tensor, float or ndarray
+    mase : ndarray
+        The value(s) for mean absolute squared error
+    rae : ndarray
+        The value(s) for relative absolute error
+    mae : ndarray
+        The value(s) for mean absolute error
+    sharpness : ndarray
         The value(s) for sharpness
-    coverage : torch.Tensor, float or ndarray
+    coverage : ndarray
         The value(s) for PICP (prediction interval coverage probability or % of true
         values in the predicted intervals)
-    mis : torch.Tensor, float or ndarray
+    mis : ndarray
         The value(s) for mean interval score
-    quantile_score : torch.Tensor, float or ndarray
+    quantile_score : ndarray
         The value(s) for quantile score
-    save_to_disc : bool, default = False
-        If True, save the scores to the hard drive as a csv
+    save_to_disc : string, default = False
+        If not False, save the scores as a csv, to the path specified in the string
 
     Returns
     -------
     pandas.DataFrame
         A DataFrame containing the models' scores for the given metrics
     """
-    
+
     data = {
         'MSE': mse,
         'RMSE': rmse,
-        'MASE':mase,
-        'RAE':rae,
-        'nMAE':mae,
+        'MASE': mase,
+        'RAE': rae,
+        'MAE': mae,
         'Mean sharpness': sharpness,
         'Mean PICP': coverage,
         'Mean IS': mis,
         'Quantile Score': quantile_score}
 
     results_df = pd.DataFrame(data, index=[models])
-    if(save_to_disc):
-        results_df.to_csv(save_to_disc+models+'.csv', sep=';', index=True)
+    if save_to_disc:
+        save_path = save_to_disc+models.replace("/", "_")
+        results_df.to_csv(save_path+'.csv', sep=';', index=True)
 
     return results_df
 
@@ -682,6 +700,9 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     actual_hours : pandas.Series, default = None
         The actual time from the data set
 
+    Returns
+    -------
+    No return value
     """
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(target, '.-k', label="Truth")  # true values
@@ -713,24 +734,28 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
 
 def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
     """
-    Create a matplotlib.pyplot.figure with plots for the given metrics
-    Save the resulting figure at (OUTPATH + 'metrics_plot')
+    Create a matplotlib.pyplot.figure with plots for the given metrics
+    Save the resulting figure at (OUTPATH + 'metrics_plot')
 
     Parameters
     ----------
-    rmse_horizon : ndarray
-        The values for the root mean square error over the horizon
-    sharpness_horizon : ndarray
-        The values for the sharpness over the horizon
-    coverage_horizon : ndarray
-        The values for the PICP (prediction interval coverage probability or % of true 
-        values in the predicted intervals) over the horizon
-    mis_horizon : ndarray
-        The values for the mean interval score over the horizon
-    OUTPATH : string
-        The path to where the figure should be saved
-    title : string
-        The text for a centered title for the figure
+    rmse_horizon : ndarray
+        The values for the root mean square error over the horizon
+    sharpness_horizon : ndarray
+        The values for the sharpness over the horizon
+    coverage_horizon : ndarray
+        The values for the PICP (prediction interval coverage probability or % of true
+        values in the predicted intervals) over the horizon
+    mis_horizon : ndarray
+        The values for the mean interval score over the horizon
+    OUTPATH : string
+        The path to where the figure should be saved
+    title : string
+        The text for a centered title for the figure
+
+    Returns
+    -------
+    No return value
     """
 
     with plt.style.context('seaborn'):

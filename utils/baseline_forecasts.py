@@ -17,6 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
+"""
+Provides functions to load and save baselines, as well as functions to train (S)ARIMA(X) and GARCH models
+and generate various baseline forecasts.
+"""
 
 import os
 import plf_util.eval_metrics as metrics
@@ -43,6 +47,27 @@ from pmdarima.arima import auto_arima
 # =============================================================================
 
 def save_baseline(path, fitted,name='sarimax', predictions=None, save_predictions = True):
+    """
+    Save the given fitted sarimax model
+
+    Parameters
+    ----------
+    path : string
+        The destination path
+    fitted : statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
+        A class that holds a trained model instance
+    name : string, default = 'sarimax'
+        The name to give the saved model
+    predictions : ndarray, default = None
+        The predictions to be saved
+    save_predictions : bool, default = True
+        If True, save the given predictions to a file called 'sarimax_predictions.csv'
+
+    Returns
+    -------
+    No return value
+    """
+
     print('Saving fitted sarimax model')
     if 'ResultsWrapper' in str(type(fitted)):
         fitted.save(path+name+".pkl")
@@ -64,6 +89,26 @@ def save_baseline(path, fitted,name='sarimax', predictions=None, save_prediction
 # =============================================================================
 
 def load_baseline(path, name = 'sarimax'):
+    """
+    Load a fitted sarimax model with the given name from the specified path
+
+    .. warning::
+        Loading pickled models can be insecure if the data are erroneous or maliciously constructed.
+        Only unpickle data from a trusted, authenticated source.
+
+    Parameters
+    ----------
+    path : string
+        The path to the file which should be loaded
+    name : string, default = 'sarimax'
+        The name of the file to load
+
+    Returns
+    -------
+    statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper or None
+        Return a trained model instance, or None if loading was unsuccessful
+    """
+
     full_path_to_file = path + name+".pkl"
     if os.path.isfile(full_path_to_file):
         with open(full_path_to_file, "rb") as f:
@@ -76,28 +121,36 @@ def load_baseline(path, name = 'sarimax'):
 # =============================================================================
 
 def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='n'):
-
     """
-    Trains a SARIMAX model
+    Train a SARIMAX model
+
+    For more information on the parameters, see
+    https://www.statsmodels.org/dev/generated/statsmodels.tsa.statespace.sarimax.SARIMAX.html
 
     Parameters
     ----------
-    endog                   : train values of target variable of type pd.df or np.array
-
-    exog                    : values of exogenous features of type pd.df or np.array
-
-    order                   : order of model
-
-    seasonal_order          : seasonal order of model
-
-    trend                   : trend method used for training, here we always use trend = n as default
+    endog : array_like
+        Train values of target variable of type pandas.DataFrame or np.array
+    exog : array_like
+        Array of exogenous features of type pandas.DataFrame or np.array
+    order : iterable
+        The (p,d,q) order of the model
+    seasonal_order : iterable
+        The (P,D,Q,s) order of the seasonal component of the model
+    trend : string, default = 'n'
+        Indicates type of trend polynomial. Valid options are 'n', 'c', 't', or 'ct'
 
     Returns
     -------
-    1)fitted                : trained model instance
-    2)model                 : model instance
-
+    statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
+        A class that holds the trained model instance. Methods from statsmodels.tsa.statespace.mlemodel.MLEResults can
+        be called on it
+    statsmodels.tsa.statespace.sarimax.SARIMAX
+        The untrained model instance
+    float
+        Akaike Information Criterion with small sample correction
     """
+
     model = sarimax.SARIMAX(endog, exog,
                             order=order, seasonal_order=seasonal_order, trend=trend) #time_varying_regression = True,
     fitted = model.fit(disp=-1)
@@ -106,6 +159,44 @@ def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='n'):
 
 def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seasonal=True, m=1, lag=1, trend='c',
                          grid_search = False, train_limit= 300):
+    """
+    Train a (S)ARIMA(X) timeseries model
+
+    Parameters
+    ----------
+    endog : array_like
+        Train values of target variable of type pandas.DataFrame or np.array
+    exog : array_like
+        Array of exogenous features of type pandas.DataFrame or np.array
+    order : iterable
+        The (p,d,q) order of the model
+    seasonal_order : iterable
+        The (P,D,Q,s) order of the seasonal component of the model
+    seasonal : bool, default = True
+        Specifies whether to fit a seasonal ARIMA or not
+    m : int, default = 1
+        The number of periods in each season (4 is quarterly, 12 is monthly, etc.)
+    lag : int, default = 1
+        Maximum seasonal moving average order
+    trend : string, default = 'n'
+        Indicates type of trend polynomial
+    grid_search : bool, default = False
+        Specifies whether to apply parameter tuning script for (seasonal) ARIMA using [auto-arima]
+    train_limit : int, default = 300
+        Used to set the maximum length of the training set. This way, the training set contains
+        up to 'train_limit' of the latest entries.
+
+    Returns
+    -------
+    statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
+        A class that holds the trained model instance. Methods from statsmodels.tsa.statespace.mlemodel.MLEResults can
+        be called on it
+    statsmodels.tsa.statespace.sarimax.SARIMAX
+        The untrained model instance
+    float
+        Akaike Information Criterion with small sample correction
+    """
+
     print('Train a (S)ARIMA(X) timeseries model...')
     if len(endog)>train_limit:
         print('Training set too long for ARIMA model. '
@@ -145,34 +236,67 @@ def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seas
 # =============================================================================
 
 def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=24, alpha=0.05, total=True):
-
     """
-    Calculates evaluation metrics
+    Calculate evaluation metrics
+
+    Returned values depend on the value of the 'total' parameter.
+
+    - When total is True, returns overall values calculated using the following metrics:
+    mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs
+    - When total is False, returns values over the horizon, calculated using the following metrics:
+    rmse, sharpness, coverage, mis
 
     Parameters
     ----------
-    forecasts               : calculated forecasts
-
-    endog_val               : reference, measured target variable, if available
-
-    upper_limits            : upper interval for given forecasts
-
-    lower_limits            : lower interval for given forecasts
-
-    total                   : true if metrics shall be calculated over horizon
-
-    num_pred:               : number of independent predictions with length=forecast_horizon over validation period
-
+    forecasts : array_like
+        The calculated forecasts
+    endog_val : array_like
+        The reference or measured target variable, if available
+    upper_limits : array_like
+        The upper interval for the given forecasts
+    lower_limits : array_like
+        The lower interval for the given forecasts
+    seasonality : int, default = 24
+        The seasonality of the data
+    alpha : float, default = 0.05
+        The significance level for the prediction interval (required for MIS)
+    total : bool, default = True
+        - When total is set to True, metrics calculate an overall value
+        - When total is set to False, metrics are calculated over the horizon
 
     Returns
     -------
-    1)mse_horizon
-    2)rmse_horizon
-    4)sharpness_horizon
-    5)coverage_horizon
-    6)mis_horizon
+    ### If **total** is True:
+    torch.Tensor
+        overall value calculated using mse
+    torch.Tensor
+        overall value calculated using rmse
+    torch.Tensor
+        overall value calculated using mase
+    torch.Tensor
+        overall value calculated using rae
+    torch.Tensor
+        overall value calculated using mae
+    torch.Tensor
+        overall value calculated using sharpness
+    torch.Tensor
+        overall value calculated using coverage
+    torch.Tensor
+        overall value calculated using mis
 
+    ### If **total** is False:
+    torch.Tensor
+        overall value calculated using qs
+    torch.Tensor
+        rmse over the horizon
+    torch.Tensor
+        sharpness over the horizon
+    torch.Tensor
+        coverage over the horizon
+    torch.Tensor
+        mis over the horizon
     """
+    # TODO the parameter 'seasonality' is unused
     forecasts = torch.tensor(forecasts)
     true_values = torch.tensor(endog_val)
     upper_limits = torch.tensor(upper_limits)
@@ -185,17 +309,17 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
     if total:
         mse = metrics.mse(true_values, [forecasts])
         rmse = metrics.rmse(true_values, [forecasts])
-        mase=metrics.mase(true_values, [forecasts], 7*24) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
-        rae= metrics.rae(true_values, [forecasts])
-        mae=metrics.nmae(true_values, [forecasts])
-        sharpness = metrics.sharpness(None,[upper_limits, lower_limits])
+        mase = metrics.mase(true_values, [forecasts], 7*24) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
+        rae = metrics.rae(true_values, [forecasts])
+        mae = metrics.mae(true_values, [forecasts])
+        sharpness = metrics.sharpness(None, [upper_limits, lower_limits])
         coverage = metrics.picp(true_values, [upper_limits, lower_limits])
         mis = metrics.mis(true_values, [upper_limits, lower_limits], alpha=alpha)
         qs = metrics.pinball_loss(true_values, [upper_limits, lower_limits], [0.025, 0.975])
         return mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs
     else:
         rmse_horizon = metrics.rmse(true_values, [forecasts], total)
-        sharpness_horizon = metrics.sharpness(None,[upper_limits, lower_limits], total)
+        sharpness_horizon = metrics.sharpness(None, [upper_limits, lower_limits], total)
         coverage_horizon = metrics.picp(true_values, [upper_limits, lower_limits], total)
         mis_horizon = metrics.mis(true_values, [upper_limits, lower_limits], alpha=alpha, total=total)
         return rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon
@@ -206,35 +330,41 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
 
 def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted=None, forecast_horizon=1,
                    limit_steps=False, pi_alpha=1.96, online = False, train_limit=300):
-
     """
-    Calculates a number of forecasts
+    Calculate a number of forecasts
 
     Parameters
     ----------
-    endog_train             : the new values of the target variable
+    endog_train : pandas.DataFrame
+        the new values of the target variable
+    endog_val : pandas.DataFrame
+        The retraining set
+    exog : pandas.DataFrame
+        The new exogenous features for new training
+    exog_forecast : pandas.DataFrame
+        The exogenous variables to match the prediction horizon
+    fitted : statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
+        The trained model
+    forecast_horizon : int, default = 1
+        Number of future steps to be forecasted
+    limit_steps : int, default = False
+        limits the number of simulation/predictions into the future. If False, steps is equal to length of validation set
+    pi_alpha : float, default = 1.96
+        Measure to adjust confidence interval, default is set to 1.96, which is a 95% PI
+    online : bool, default = False
+         If True, the new observations are used to fit the model again
+    train_limit : int, default = 300
+        Used to set the maximum length of the re-training set. This way, the re-training set contains
+        up to 'train_limit' of the latest entries.
 
-    output_matrix           : the observed values of the target variable
-
-    exog                    : the new exogenous features for new training
-
-    exog_forecast           : the exogenous variables to match the prediction horizon
-
-    fitted                  : trained model
-
-    forecast_horizon        : number of future forecast time_steps, default = 1
-
-    limit_steps             : limits the number of simulation/predictions into the future,
-                              if None, steps is equal to length of validation set
-
-    pi_alpha                : measure to adjust confidence interval, default is set to 1.96, which is a 95% PI
-
-    online                  : bool value, if True the new observations are used to fit the model again
-                                default = False
     Returns
     -------
-    1)forecasts             : calculated forecasts
-
+    numpy.ndarray
+        Expected values of the prediction
+    numpy.ndarray
+        Upper limit of prediction
+    numpy.ndarray
+        Lower limit of prediction
     """
 
     num_cores = max(multiprocessing.cpu_count()-2,1)
@@ -297,28 +427,30 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
 # =============================================================================
 
 def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha = 1.96):
-
     """
-    Calculates predictioninterval for given forecasts with Naive method https://otexts.com/fpp2/prediction-intervals.html
-    So it's rather an ex-post uncertainty measure than one which one can use for prob. forecasting
-    as it assumes to have the future target values.
+    Calculate the prediction interval for the given forecasts using the Naive method https://otexts.com/fpp2/prediction-intervals.html
+    It is rather an ex-post uncertainty measure than one for probabilistic forecasting as it
+    assumes availability of the future target values.
 
     Parameters
     ----------
-    forecasts               : List of forecasts
-
-    endog_val               : List of True Values for given forecasts
-
-    alpha                   : Confidence: default 1.96 equals to 95% confidence
-
-    forecast_horizon        : number of future forecast time_steps
+    forecasts : pandas.Series
+        List of forecasts (with length = forecast_horizon)
+    endog_val : pandas.Series
+        List of true values for given forecasts (with length = forecast_horizon)
+    forecast_horizon : int
+        Number of future steps to be forecasted
+    alpha : float, default = 1.96
+        Measure to adjust confidence interval. Default is set to 1.96, which equals to 95% confidence
 
     Returns
     -------
-    1)fc_u                  : upper interval for given forecasts with length:= forecast_horizon
-    2)fc_l                  : lower interval for given forecasts with length:= forecast_horizon
-
+    pandas.Series
+        upper interval for given forecasts with length:= forecast_horizon
+    pandas.Series
+        lower interval for given forecasts with length:= forecast_horizon
     """
+
     residuals = endog_val-forecasts
     sigma = np.std(residuals)
 
@@ -335,27 +467,41 @@ def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha = 1.9
 
 def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, periodicity=1, mean_forecast=None, p=1, q=1,
                              alpha = 1.96, limit_steps=False):
-
     """
-    Calculates predictioninterval for given forecasts with GARCH method https://github.com/bashtage/arch
+    Calculate the prediction interval for the given forecasts using the GARCH method https://github.com/bashtage/arch
 
     Parameters
     ----------
-    endog_train             : train-set of target variable
-
-    endog_val               : validation-set of target variable
-
-    forecast_horizon        : number of future forecast time_steps
-
-    alpha                   : Confidence: default 1.96 equals to 95% confidence
-
+    endog_train : pandas.DataFrame
+        Training set of target variable
+    endog_val : pandas.DataFrame
+        Validation set of target variable
+    forecast_horizon : int
+        Number of future steps to be forecasted
+    periodicity : int or int list
+	    Either a scalar integer value indicating lag length or a list of integers specifying lag locations.
+    mean_forecast : numpy.ndarray, default = None
+	    Previously forecasted expected values (e.g. the sarimax mean forecast). If set to None,
+        the mean values of the GARCH forecast are used instead.
+    p : int
+	    Lag order of the symmetric innovation
+    q : int
+	    Lag order of lagged volatility or equivalent
+    alpha : float, default = 1.96
+        Measure to adjust confidence interval. Default is set to 1.96, which equals to 95% confidence
+    limit_steps : int, default = False
+        Limits the number of simulation/predictions into the future. If False, steps is equal to length of validation set
 
     Returns
     -------
-    1)upper_limits          : List of upper intervall for given forecasts
-    2)lower_limits          : List of lower intervall for given forecasts
-
+    pandas.Series
+        The forecasted expected values
+    pandas.Series
+        The upper interval for the given forecasts
+    pandas.Series
+        The lower interval for the given forecasts
     """
+
     print('Train a General autoregressive conditional heteroeskedasticity (GARCH) model...')
     test_period = range(endog_val.shape[0])
     num_cores = max(multiprocessing.cpu_count()-2,1)
@@ -375,7 +521,7 @@ def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, periodici
         res = model_garch.fit(update_freq=20)
         forecast = model_garch.forecast(res.params, horizon=forecast_horizon)# , start=endog_train.index[-1]
         #TODO: checkout that mean[0] might be NAN because it starts at start -2
-        # TODO: could try to use the previous calculates sarimax mean forecast instead...
+        # TODO: could try to use the previously calculated sarimax mean forecast instead...
         if isinstance(mean_forecast,np.ndarray):
             expected_value=pd.Series(mean_forecast[i])
         else:
@@ -398,31 +544,33 @@ def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, periodici
     return np.asarray(expected_value), np.asarray(fc_u), np.asarray(fc_l)
 
 def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog, forecast_horizon):
-
     """
-    Calculates custom predictioninterval --> Confidence intervals are used as model parameter. intervals added to forecast
+    Calculate custom prediction interval --> Confidence intervals are used as model parameters.
+    Intervals are added to the forecast.
 
     Parameters
     ----------
-    model                   : model instance
-
-    fitted                 : fitted model instance
-
-    input_matrix           : list of DataFrames for input
-
-    output_matrix          : list of DataFrames for output
-
-    target                  : str target column
-
-    exog                    : str features
-
-    forecast_horizon        : number of future forecast time_steps
+    model : statsmodels.tsa.statespace.sarimax.SARIMAX
+        The untrained model instance
+    fitted : statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
+        The fitted model instance
+    input_matrix : list
+        list of DataFrames for input
+    output_matrix : list
+        list of DataFrames for output
+    target : string
+        Name of target column
+    exog : string
+        Feature names
+    forecast_horizon : int
+        Number of future steps to be forecasted
 
     Returns
     -------
-    1)upper_limits          : List of upper intervall for given forecasts
-    2)lower_limits          : List of lower intervall for given forecasts
-
+    list
+        The upper interval for the given forecasts
+    list
+        The lower interval for the given forecasts
     """
 
     lower_limits = []
@@ -451,28 +599,66 @@ def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog, fo
     return upper_limits, lower_limits
 
 def simple_naive(series, horizon):
+    """
+    A simple naive forecast
+
+    Return a forecast of length = 'horizon', where all elements are equal to the last element of 'series'
+
+    Parameters
+    ----------
+    series : ndarray
+        The data to use for the naive forecast
+    horizon : int
+        The length of the forecast
+
+    Returns
+    -------
+    ndarray
+        A simple naive forecast (Shape: ('horizon', ))
+    """
+
     return np.array([series[-1]] * horizon)
 
-def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = None, seasonality=1,
-                     decomposed=False, alpha = 1.96):
-    '''
-    fits persistence forecast over the train data,
-    calcuates the std deviation of residuals for each horizon over the horizon and
-    finally outputs persistence forecast over the test data and std_deviation for each hour
+def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = None, seasonality=1, decomposed=False, alpha = 1.96):
+    """
+    Train and validate a naive (persistence) timeseries model or, (if decomposed = True), a naive
+    timeseries model cleared with seasonal decomposition (STL)
 
+    Fit persistence forecast over the train data, and calculate the standard deviation of residuals for each horizon
+    over the horizon. Output the persistence forecast over the test data, and std_deviation (upper and lower intervals)
+    for each hour.
 
-    :param x_train,x_test: input train and test datasets
-    :param y_train: target train dataset
-    :param forecast_horizon: no. of future steps to be forecasted
-    :param alpha: Confidence: default 1.96 equals to 95% confidence
+    Parameters
+    ----------
+    x_train : ndarray
+        the input training dataset. (Shape: (length of training data,forecast_horizon))
+    x_test : ndarray
+        the input test dataset. (Shape: (length of test data,forecast_horizon))
+    y_train : ndarray
+        The targets (actual values) of the training dataset. (Shape: (length of training data,forecast_horizon))
+    forecast_horizon : int
+        Number of future steps to be forecasted
+    periodicity : int, default = None
+        The periodicity of the sequence. If endog (first arg of seasonal_decomposed) is ndarray,
+        periodicity must be provided.
+    seasonality : int, default = 1
+        Length of the seasonal smoother. Must be an odd integer, and should normally be >= 7
+    decomposed : bool, default = False
+        If True, use seasonal decomposition
+    alpha : float, default = 1.96
+        Measure to adjust confidence interval. Default is set to 1.96, which equals to 95% confidence
 
-    returns
-    :expected_value : expected forecast values for each test sample over the forecast horizon
-                        (shape:len(y_train),forecast_horizon)
-    :upper_limits   : upper interval for given forecasts (shape: (1,forecast_horizon))
-    :lower_limits   : lower interval for given forecasts (shape: (1,forecast_horizon))
+    Returns
+    -------
+    ndarray
+        Expected forecast values for each test sample over the forecast horizon.
+        (Shape: (len(x_test),forecast_horizon))
+    ndarray
+        The upper interval for the given forecasts. (Shape: (len(x_test),forecast_horizon))
+    ndarray
+        The lower interval for the  forecasts. (Shape: (len(x_test),forecast_horizon))
+    """
 
-    '''
     if decomposed: print('Train a naive timeseries model cleared with seasonal decomposition (STL)...')
     else: print('Train a naive (persistence) timeseries model...')
 
@@ -513,6 +699,26 @@ def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = N
     return expected_value, fc_u, fc_l
 
 def seasonal_naive(series, forecast_horizon, periodicity, seasonality=1):
+    """
+    A seasonal naive forecast
+
+    Parameters
+    ----------
+    series : ndarray
+        The data to use for the seasonal naive forecast
+    forecast_horizon : int
+        Number of future steps to be forecasted
+    periodicity : int
+        The periodicity of the sequence.
+    seasonality : int, default = 1
+        Length of the seasonal smoother. Must be an odd integer, and should normally be >= 7
+
+    Returns
+    -------
+    ndarray
+        A seasonal naive forecast
+    """
+
     forecast = np.empty([forecast_horizon])
     for i in range(len(forecast)):
         if i + 1 > periodicity*seasonality:
@@ -522,6 +728,23 @@ def seasonal_naive(series, forecast_horizon, periodicity, seasonality=1):
     return forecast
 
 def seasonal_decomposed(series, periodicity=None, seasonality=1):
+    """
+    Return the given time series after seasonal adjustment ( Y(t) - S(t) )
+
+    Parameters
+    ----------
+    series : ndarray
+        The series to be seasonally decomposed
+    periodicity : int
+        The periodicity of the sequence.
+    seasonality : int, default = 1
+        Length of the seasonal smoother. Must be an odd integer, and should normally be >= 7
+
+    Returns
+    -------
+    ndarray
+        The seasonally decomposed series
+    """
     # seasonally adjusted time series Y(t)-S(t).
     stl = STL(series.squeeze(), period=periodicity, seasonal=seasonality)
     res = stl.fit()
@@ -530,24 +753,43 @@ def seasonal_decomposed(series, periodicity=None, seasonality=1):
     return series.squeeze()-res.seasonal
 
 def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 1,seasonality=1, decomposed=False, alpha = 1.96):
-    '''
-    fits periodic forecast over the train data,
-    calcuates the std deviation of residuals for each horizon over the horizon and
-    finally outputs persistence forecast over the test data and std_deviation for each hour
+    """
+    Train and validate a seasonal naive timeseries model with the given seasonality
 
+    Fit periodic forecast over the train data, calculate the standard deviation of residuals for
+    each horizon over the horizon. Output the periodic forecast generated using the test
+    data and the std_deviation (upper and lower intervals) for each hour.
 
-    :param x_train, x_test: input train and test datasets
-    :param y_train: target train dataset
-    :param forecast_horizon: no. of future steps to be forecasted
-    :param alpha: Confidence: default 1.96 equals to 95% confidence
+    Parameters
+    ----------
+    x_train : ndarray
+        the input training dataset (Shape: (length of training data,forecast_horizon))
+    x_test : ndarray
+        the input test dataset (Shape: (length of test data,forecast_horizon))
+    y_train : ndarray
+        The targets (actual values) of the training dataset. (Shape: (length of training data,forecast_horizon))
+    forecast_horizon : int
+        Number of future steps to be forecasted
+    periodicity : int, default = 1
+        The periodicity of the sequence.
+    seasonality : int, default = 1
+        Length of the seasonal smoother. Must be an odd integer, and should normally be >= 7
+    decomposed : bool, default = False
+        If True, use seasonal decomposition
+    alpha : float, default = 1.96
+        Measure to adjust confidence interval. Default is set to 1.96, which equals to 95% confidence
 
-    returns
-    :expected_value : expected forecast values for each test sample over the forecast horizon
-                        (shape:len(y_train),forecast_horizon)
-    :upper_limits   : upper interval for given forecasts (shape: (1,forecast_horizon))
-    :lower_limits   : lower interval for given forecasts (shape: (1,forecast_horizon))
+    Returns
+    -------
+    ndarray
+        Expected forecast values for each test sample over the forecast horizon.
+        (Shape: (len(x_test),forecast_horizon))
+    ndarray
+        The upper interval for the given forecasts. (Shape: (len(x_test),forecast_horizon))
+    ndarray
+        The lower interval for the  forecasts. (Shape: (len(x_test),forecast_horizon))
+    """
 
-    '''
     print('Train a seasonal naive timeseries model with seasonality=', seasonality, '...')
 
     naive_forecast = np.zeros(shape=(len(x_train), forecast_horizon))
@@ -583,33 +825,34 @@ def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 
 
 def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alpha=1.96, online = True):
     """
-    Trains a SARIMAX model
+    Train an exponential smoothing timeseries model (ETS)
 
     Parameters
     ----------
-    y_train                 : train values of target variable of type pd.df or np.array
-
-    y_test                  : values of exogenous features of type pd.df or np.array
-
-    forecast_horizon        : number of future forecast time_steps, default = 1
-
-    limit_steps             : limits the number of simulation/predictions into the future,
-                              default False, meaning that steps is equal to length of validation set
-
-    pi_alpha                : measure to adjust confidence interval, default is set to 1.96, which is a 95% PI
-
-    update                  : bool value, if True the new observations are used to fit the model again
-                                default = True
+    y_train : pandas.DataFrame
+        The train values of the target variable
+    y_test : pandas.DataFrame
+        Values of exogenous features
+    forecast_horizon : int, default = 1
+        Number of future steps to be forecasted
+    limit_steps : int, default = False
+        limits the number of simulation/predictions into the future. If False, steps is equal to length of validation set
+    pi_alpha : float, default = 1.96
+        Measure to adjust confidence interval, default is set to 1.96, which is a 95% PI
+    online : bool, default = True
+        if True the new observations are used to fit the model again
 
     Returns
     -------
-    :expected_value : expected forecast values for each test sample over the forecast horizon
-                        (shape:len(y_train),forecast_horizon)
-    :upper_limits   : upper interval for given forecasts (shape: (1,forecast_horizon))
-    :lower_limits   : lower interval for given forecasts (shape: (1,forecast_horizon))
-
-    '''
+    ndarray
+        Expected forecast values for each test sample over the forecast horizon.
+        (Shape: (len(y_train),forecast_horizon))
+    ndarray
+        The upper interval for the given forecasts. (Shape: (1,forecast_horizon))
+    ndarray
+        The lower interval for the  forecasts. (Shape: (1,forecast_horizon))
     """
+
     print('Train an exponential smoothing timeseries model (ETS)...')
     num_cores = max(multiprocessing.cpu_count()-2,1)
 
