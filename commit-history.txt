@@ -35,3 +35,242 @@ d7b83868029fbf7baa05911917059e0689bcc26c add 1st related publication
 I, Markus Mirz hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: mmirz@eonerc.rwth-aachen.de
 
 e4d943eea37842828abc51c406d5cb2e2140840e Initial commit
+
+I, Rouben Rehman hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: rouben.rehman@gmail.com and rouben.rehman@rwth-aachen.de
+
+f845ad6519938e85d146552136df4c08024ebbc9 [skip ci] updated gitlab_ci.md
+7e58922ad08022ceb5a3f115ebf0d4696b560b5e Testing recurrent folder structure generation
+ddbdd898332eb65c728a4357b57e721780fca949 Added image to GITLAB_CI.md
+6ba894595fd604821baa9ab8dba379b9eece1b3b [skip ci] Updated GITLAB_CI.md
+70f26f1ccf2876d1d030e7dd5be6ec5b8ad67bee [skip ci] updated ci doc
+92e28e6cbb0635feefd05168a798afac2fca4b19 [skip ci] Updated README tensorboard section
+622ec04efc4eb758ec88e5c51c07eda71ed38869 [skip ci]
+26a560e9a7e181fc3f3bd98d3a22703dd1e3c739 Fixed typo in ci yml [skip ci]
+ad7c0786e41bcfa48cd2a12db7b4ca424f1e8bf6 Automatically creates structure for results now
+fc23f629d47cb4170d2776820a4609fc8632f1c9 [skip ci]
+234ac125b014e23e62820f5ecbfb5847afe18801 Reworked shell/create_hugo_header.py for more possibilities
+3a1183432764f8ca53bbae5bcc2f77d5dabb90f8 Combined api and web call jobs in ci
+30801e6f00c06494e43134ce3456b857538a31af Changed link artifact to html
+379b82c200ee1534f43cd25d32dc3b7365323bb8 Fixed artifacts format
+48dee4155aeeeb1026189b809b4be8d967af0cf6 [skip ci] switched results link from html to md
+bde621895e7b287a5a6b530b54b7e3593ab159fe [skip ci]
+284c92f3be39a9b38a9050702aa6ec42ad9b872e [skip ci]
+5bf0cfedd7dc2069f0009b4cf600c2aae062cd24 Testing pipeline trigger
+145c2f6667d4a6a8b9c7f8afb9764eabf71db519 for time being, removed pipeline trigger for plf-docs
+3ad682964ac35b4ca61846ea54d2e60dcd766cbe [skip ci]
+20fd0011f836dc38c670e45dced84ce9a86f104a Added trigger for plf-docs pipeline
+f0c380e368e7ba40362244b4f8ff095c39029609 Made link artifact clickable link
+8dbf64d916ab125b8161825ce93d8ba74066f03c [skip ci]
+3ca849530aa53e5b315c4bc78f0526504fb09b94 [skip ci]
+3d1fe27a6960ec50bbb9819c34e635ee9d991208 Added link to result page as artifact
+bc0b9b8f483b9e59dd0457682e3d6c55a3658d06 Added link to pipeline to index.md after training
+d8be5f70d4ad094683dd2d5c802ee90926f577dd Added log.json to all gefcom configs in targets/
+f22293e479d2cdf5ff924b528583f6f2ef65f446 Deactivated exploration for mass_data [skip ci]
+d10b39d1d71dd4060844df7bc98985c21e256f7c [skip ci] modified mass data config
+2e21006e01d8de6b395159516d8f8d257dc0c117 Using another folder structure
+3d6eaa736ff9cac2c1d4e7fbda1230fde8643128 Fixed create_hugo_header.py
+0be365c79b2b41cf6bfdf0147c40e2fa9cdee756 updated README
+ca748af1aea9adc43c3f22295c8a633ff1fd1869 Fixed command order in ci
+67a5cdd1eee3905079a6ce52922e2cf34bc1e4c9 Fixed typo [skip ci]
+b992207e209dcbd79a2f9712a4676fbbb5f6d7ad Added result page creation to ci
+1b87bd5a841baa2278beb0d568d74baf50a5cec2 [skip ci] added files to automatically create result page
+864fbb491d09e7a1bd64663e93f7c9c0d522f9a0 [skip ci] testing with gonca's access token
+ab7b39d62327063bb77067d60bd3bbeff73d3be7 Set user id to global
+74d727887e5e30df2848cea95e11ec3ebaa69f63 Added user data to git
+c459b9fa3cd37c3b6fb68e3b6cf30e089ff2dcd1 Added cd command
+1606779c3aa4ee445af0ad0ea11e9a4c09dee200 New test
+5eba93ff5cbe5f199a5f773ea2ad0866b55d57d1 Testing push to repo from ci
+3107895cb4bcf792dec9b11be3f1ecc4a2a87b73 Added push job to api call pipeline
+2ea43411bab0f82a330f47c6b358d4d6b46b3b73 [skip ci]
+2c6bc0d998f641f21d871f59e6de62dd7451648d Trying new artifacts method
+9ac1a0335c8f9c7ce97c759c20f8a6946af3b15c Fixed artifacts of push job
+46779d124abda6801e0b4cc9529eba71356f7936 Fixed timestamp script
+9b9b7780a434842d65217a8529343ebdd9e3bea8 [skip ci]
+54c3832af3e8475fc73edfc4586dd0be6fa6504c Added timestamp for foldering
+5dde8a86cc05de5eb38ff3f710ec6f210ba4b642 [skip ci]
+77de4680ca6c5d788d9efd41fa26219c7dadd1b5 Refined oracles folder structure
+01c3c29a057a3739c5e45d8f45386c84a8230ab3 Fixed config [skip ci]
+27b80dd1c69949e3d95d76299a4f87e36ab220fc Added upload job to ci
+be3e767559386b60e607c3dda6561cfc2bac1869 Moved logging to plfutil, updated reference to submod
+65972fd359426ed1eec1d69768899eeadcdcf03d Removed unnecessary printouts [skip ci]
+01d549a5a13d324048e64440017b808df08ed631 Changed ct_data config [skip ci]
+8a3328f69e71f46540971adc66c77e11368ac570 Fixed relative score, trial with best score now has relaitve score 0 in tb
+75afd039aff309aac300efe388ae15520928ce68 Updated flake8 config [skip ci]
+2193a239266b85ef109c3a5f0bc607fac75dfa9a Cleaned up fc_train and added Ignore E121 to flake8 config
+60192b52b90db40c2649ce7acae1a50c997013cf Bugfix optimizer_name
+583a5220e611a842390c0a34a4ee37954a8c4f26 Added logging for test training ci jobs
+249346c8b5efaf55c70093de4ef663b420536b7d Changed gitlab_ci.yml to lint fc_eval if train jobs fail
+574ccb98965f5248f5e36698360c3e15441a9fd0 Added handling for log_df==None
+f182f79f1df773765a2618465784af5d8285012f Updated reference to plfutil, now uses log-handler and new helper functions
+485420c941bb4d80de543f0e4c0de8f4a4c3eab8 Changed saving log, logs are now always saved even if model did not improve
+ba27205b281ff2aa9b7ca88555b76127992f95cf implemented logging to csv file
+34523166268b143dc445b13990a1326e818b2cac Updated reference to plf util [skip ci]
+8ec701ea1b2c71e42f889fa473e7d91b3506cc22 Revoked changes for flake8 testing [skip ci}
+7c65a01e3064247d528afaf3e2ac9ff647ebe96d testing flake8 config
+01378acea921755ff391c0e6eea12a384256c5d8 cleaned up fc_evaluate
+fe7e6ab5c4e37fe8a55ed749e13d2d6c4acef944 Cleaned up fc_train and setup flake8
+0c2a3e40df7850537be2f70f138d06c9356f0a68 Modified ct data config
+3b4f96f24c1cdb371e6a2af7511d88d3cebc88d2 Updated plf_util to use csv_logger and tb_cleanup
+7d799c7ba8e22ae7f5b4036fcfd2b14d18161988 Fixed trial ID for labeling hyperparameter tuning trials in Tb
+64bb8f8f131da61dfbd074776afa6166d4528bfd Configured tensorboard for hyperparameter tuning, each trial is now logged individually
+e0f99ce40879942ac9add6221d8c125e3bfd5506 Added mkdir() for oracles for ci use
+e93e248257c4cef6aab241ef63ba7ba08adeb6a4 Added dummy to oracles to make folder available for ci
+77a922ffe5fc10ab79757c03eded7f7c7c226972 Modified ci to safe logs
+4af76de36336033d741af1f61125663a14b6bab4 Testing tensorboard logging in ci
+dd2f0e550dda601793fc1c9b459542b09021a4bc Trying log fix again
+b3bf25771043bc40916879e11ef761b26ce28f85 Fixed train logging
+d0e2b50377cf5c63f60008855101a187570ddfc5 Subdirs in run/ are now cleaned automatically to fix tensorboard run display issue
+28943265aa9d4086d638079faef022a7a8124f21 Removed parameterhandler import
+d1bc25877cdce33f79579c375727c98b3f29e289 Updated reference to plf-util
+2f109998e2e76b09627066015244bf8002ea7572 small changes to fc_train.py
+0111287ef38660420cd0085333aff5422e501dd6 Added explanatory comments
+ae2ac984d7d9a448b5c328abccbd64211211699f Modified fc_train to take hyperparams for tb from tuning.json if available
+37a8745c563dbb0d14063ef683cc58e60ee4ecc6 Grouped shell scripts for CI/CD in shell/ folder
+5fdcda5569428234c6e37ec8e86189d1c1f051ca Changed check for ci_test in fc_evaluate.py
+2194dfbdf5b5ea512d6956cae2e8366f3eb77fff Trying lint again
+648c465ddac4d61383031c8e79621fa74a47589c Checking pip
+df2858ac108c93fb16408daadb7816dc9059c512 Checking pip
+75e1f8c6d5149572561fae0c5ab10e9074a4a91d Checking pip
+9b02e5c8fab640ae9d55db99accd7bf2faffe9d4 Fixed staging of new jobs
+6063dc4a02160492c96567eb292b335a1360be89 Testing CI linting
+b05a3733401e923b2040ed3aab36f08f7771a847 Added ci_test val to configs to use smaller testhour array in fc_evaluate
+35ea48c3e7b68463d51aa541c870d3aa360e341b Testing new ci again
+eddc9fd871a8a0c83c3d8300582e2790d2b77381 Reset best_loss and best_score in testing configs [skip ci]
+3b60fac7a55f15c866eb56cfe65daecdc34d9d1d Fixed fc_train for new ci testing
+a0bb6527e8a9c96d24f7c2438e769f0fb5f4ffa0 Fixed errors
+9656ecbefe4902cb1d4abfa615dc6f5b1eb66e39 Added small data frame for ci testing
+ddafad0d19fe1f1d91f86c009ed574c7220b4983 Trying needs keyword
+c25d4742c6e8fd4129887825e6b32f8ca509ffb3 Added dependencies in gitlab ci yml
+1e0649da0d1ff68a6f9b626b72b5858d1bfa64f6 Fixed gitlab ci yml [skip ci]
+0e4dd10ef0351b6450d509d9c4ab18f4628a5e45 Updated requirements.txt to include tensorboard
+4d907aef1d6dc647c4c77d9b7b0c669bbdf4553f Changed branch to tst-new-ci in yml file
+79202caa68521c9fe9513ecc870fd7b7da2fbcb4 Set up to run every commit
+c3bb045b4f0b4319daca2ffbf9904e7d6fc92336 Restructured GitLab ci
+a0e652539f5dccef9047bb0d4c2f254eef99bf75 Helpful comments
+6ef163bf31a3fd22dfc0041528453e903e61615c Updated plf-util, fixed fc-train overwrite config error without hparam tuning
+bb97b643942cbb2943c96c748a7fa5df66252903 Removed unnecessary import
+20a0aa872a7aaae1a79ae7bf163c3d906f639139 Added hparams support for tensorboard
+6985112f866959e7c16ef35948664ecc24269f77 [skip ci]
+4f7f79fe2bb9eac3ccf96797edc43013a136ea04 Fixed typo in ci yml [skip ci]
+4ded8abbbbf093e293bc50ce0fcca8fbdcba3d89 Automatically creates structure for results now
+eb035b0965355aff7360364603afc5a217c96679 [skip ci]
+43e968bd3b963536c3c32c473ee1ac9fdf10950a Reworked shell/create_hugo_header.py for more possibilities
+8f0b314423ee56242150a51ce693f4b5f0da2152 Combined api and web call jobs in ci
+2a303f3e061afed327a969bc8bf938a8a6d34428 Changed link artifact to html
+2374081632dcc4f6b3bc99fe10f78472e710487a Fixed artifacts format
+b71ffdda4f1cc21be32842035419a2002ab0b317 [skip ci] switched results link from html to md
+71756d58bf8455c7b2b37bbd47b2fec50e3fefa4 [skip ci]
+2203b19a3a06f4bf629689e0fb60e2cee9fae4b2 [skip ci]
+98aba48ae4debfc99bd23e5f89326d3072625e9e Testing pipeline trigger
+b0682ec1b83498ca8f69c6d154f5f9a08853db9f for time being, removed pipeline trigger for plf-docs
+d6cc55233f2f1fd2bb355b9a338e11a586a75068 [skip ci]
+a78dfaca17217a035f47220b3e36846d2595a13b Added trigger for plf-docs pipeline
+1d72aa825b3f9bb1c3b1a5c04a7bbe5288191dc7 Made link artifact clickable link
+fdc2583d078161538659829fe51012a47aca8bb3 [skip ci]
+7cb56f99ffbd7364d60df4b710cf2d0a2cc5f593 [skip ci]
+c0e48603289a021752a4b853392a51f04f2139f4 Added link to result page as artifact
+06115b9655756e0dcd96b1ee6514f2d441ba493a Added link to pipeline to index.md after training
+0f3c240f85b49cdc7b2d3d49ea35a89cc31905ee Added log.json to all gefcom configs in targets/
+8817e748001a3fb9bc1443deb6b9198327193412 Deactivated exploration for mass_data [skip ci]
+70e0ab0a2df45530694ed441deb47b44f67cc18a [skip ci] modified mass data config
+b7353b58cc164396124d16f72fe864608a8646b0 Using another folder structure
+b5e3de334773c92cd1a38f1df20e4f304ce6e08e Fixed create_hugo_header.py
+9ffd80c125b993246979e53bac92623d61481905 updated README
+9d72e9f2f2e3e9cd49da8b76c269bb300d550730 Fixed command order in ci
+76ba250e202db397d04d80013e46a29c48571ce6 Fixed typo [skip ci]
+8e6258fa5d7c9c886e9de4b033d3da72d5180bdc Added result page creation to ci
+99527a52ed1ccf0f58592cdff72c3ad614e6d879 [skip ci] added files to automatically create result page
+79efe1e52a665085062f247aac958fa6aa156a81 [skip ci] testing with gonca's access token
+cb79160c6b693612e7eb9893811414a6ce0c6ed1 Set user id to global
+d8bd2dc7c5dfea7c85c07e3954f7b6b1e4aebb88 Added user data to git
+705761b72505ff92f448c31a5e6a6e5c808cdf35 Added cd command
+36b5271a795968c9fe414bee29b9402caf30243f New test
+18f29b0e7eccdccd447236441e3997520ef095f7 Testing push to repo from ci
+56871152514d685eb39a16657455720cfb637c0a Added push job to api call pipeline
+db148079f3d0dfd98a2a243d6fbcee1cdca95282 [skip ci]
+f374bec938240db978662259e16b221842f21b74 Trying new artifacts method
+96d9e52d478d204e281bf9931b069205806f5d06 Fixed artifacts of push job
+5161c74d408a5072cd472a93b1360c26f227c251 Fixed timestamp script
+d7fe8a23f1ff6d33a69927ab69a63d0569e3ef99 [skip ci]
+9c1a94f40b29441c33b75d69044ffa739a0fd0d4 Added timestamp for foldering
+1fb285594bd3f353960bde509a160d2965d8fadf [skip ci]
+8b580cc8b00e22950312686bdb9936db542a08b3 Refined oracles folder structure
+8492d83c55561fb84498156777fa1ecd136ace3a Fixed config [skip ci]
+b5c2e8f742a23bc51caae3693253a37ac63904b7 Added upload job to ci
+1e93e3d041a9c8eb2097bba9c058f2d82cf15c81 Moved logging to plfutil, updated reference to submod
+5800deef03de477b33138c89f89eefddde29038c Removed unnecessary printouts [skip ci]
+1881172893b9a5243a94114590746d96060dc609 Changed ct_data config [skip ci]
+e65ed1462c5491c64146b943a8c20cf08c566020 Fixed relative score, trial with best score now has relaitve score 0 in tb
+14a20dd52ab1902105e7401206c208a07a1a0bd4 Updated flake8 config [skip ci]
+69cbf53958c597d215749408783ad1a6da42bc2b Cleaned up fc_train and added Ignore E121 to flake8 config
+d5a9827920f8ff542a9d77f54f0e54cf2ceb1639 Bugfix optimizer_name
+a12aaf27aa99769e2c90b26d0632fb5aa08ef995 Added logging for test training ci jobs
+13b4f2d13b8eb139d6e7957706583b2618796b2c Changed gitlab_ci.yml to lint fc_eval if train jobs fail
+76349a7637716e03e29baabb3289a0c7b91faaad Added handling for log_df==None
+d4aec2396bdcc8b813f53b691ac989f44dfaab3c Updated reference to plfutil, now uses log-handler and new helper functions
+6d455d728d5c712dd0384bf73632f5682e7496ba Changed saving log, logs are now always saved even if model did not improve
+d8ad9e6b140f2123d61cb87253f2c4e20265864f implemented logging to csv file
+678dcedaa27fa4f98af819e2c80cedbc4295cb34 Updated reference to plf util [skip ci]
+79801d12281d19ceef3782c5ca38ead64eed1f79 Revoked changes for flake8 testing [skip ci}
+87a4e238c10c3f3b62ab6baf2a826da2f3bc0979 testing flake8 config
+46b6bbb9c09774921ec585390139663b02fc71dc cleaned up fc_evaluate
+d2e08e446c98ad16da9a1dc2f8dd7af535e16b88 Cleaned up fc_train and setup flake8
+71c62752bfe0aa26601ac20f1ba289761940d1bb Modified ct data config
+0bbae305458a4518730cc5ca6a1576238948a2a2 Updated plf_util to use csv_logger and tb_cleanup
+1c54b59a4ec5d64f9db7dcf1b94da799b6fe5bdf Fixed trial ID for labeling hyperparameter tuning trials in Tb
+198204d3431d7337f14257e7517b0945b325bd99 Configured tensorboard for hyperparameter tuning, each trial is now logged individually
+5defb42d30f35624a6bba688ff46b928162870fd Added mkdir() for oracles for ci use
+72f189312094e8fa933a752ed1d6583746fbb664 Added dummy to oracles to make folder available for ci
+26c0eb0cbfef103cafcb44cc6e9cecec679e90f4 Modified ci to safe logs
+fdb8ad3d0cb220a4757ee959c03534245c419239 Testing tensorboard logging in ci
+1364b1150e18549521a6e62d74d95f58bfa55c99 Trying log fix again
+a4a145b135a4214351454ffd1d7c72b271ac35f7 Fixed train logging
+bbbc34d42ceac57ed82423155895592d104b32a8 Subdirs in run/ are now cleaned automatically to fix tensorboard run display issue
+aa60a1c887136059521650059ce8225194afd464 Removed parameterhandler import
+c924020a478cfeedeb36926130029e96b208ad4c Updated reference to plf-util
+37e1e1791a0857ad3da66e424a2b6a969c48a614 small changes to fc_train.py
+dd0fe4b4d5af5d2db7dcb19b86ebc3099eac805d Added explanatory comments
+83e9914cb19579e7e303070c21e5d47faf1550f4 Modified fc_train to take hyperparams for tb from tuning.json if available
+6664c042f50f1894b0ed975cfeb8c7bed900ae69 Grouped shell scripts for CI/CD in shell/ folder
+72ba68e05febc031c0892267b63ebe73b89fc276 Changed check for ci_test in fc_evaluate.py
+5b9d95a96569a0fc5ee35b192615de5687e6f82c Trying lint again
+878682908b97126ca4072920fcdf2f16ccf3b241 Checking pip
+130c81fc0ae6ef0cd4366de5ffd474bf7ede56f0 Checking pip
+ca1dca3f3fe2ca42c0207d58ca320e6dc43b137c Checking pip
+55428787da299cbced09f41bf06a718b6f7413d2 Fixed staging of new jobs
+f3bb722f63f951ed9297963428e8513db74459fa Testing CI linting
+9d510d4c19da5297ed3dfa926bf0c6e4e79b9294 Added ci_test val to configs to use smaller testhour array in fc_evaluate
+c3dfcf58a519f7770f2dd18431b7b571d9e21c7f Testing new ci again
+088fa6942a5db79afda3e9e29fbf3d70b1483445 Reset best_loss and best_score in testing configs [skip ci]
+1c2b6322aee534f609fe1bcf46f954b80770298e Fixed fc_train for new ci testing
+188a64190f67debde9a9e2070b8a833790c11554 Fixed errors
+b70b9716183d5993a3750f19a49780c97b15de25 Added small data frame for ci testing
+34fb3607157ce3b43f722c4b72ab61826b40acf5 Trying needs keyword
+11930587c1ead846a33bbaf607d1ec6c32ba968e Added dependencies in gitlab ci yml
+6bc22775a8306127dfac054cbd3207d92a6e79c9 Fixed gitlab ci yml [skip ci]
+c031a79fe6361b7d13d833a485adba0255b862f2 Updated requirements.txt to include tensorboard
+dd136d6982a00e7c9e252ba97f94bdfffe66b722 Changed branch to tst-new-ci in yml file
+8eee12bb61a998cbf47de9071fa636ed08688747 Set up to run every commit
+58f1ccf9f0fa3f61ebf3c93bcc5d14e34352c175 Restructured GitLab ci
+9af4ac91413718e0cf2b76a63276916c2de0d963 Helpful comments
+f4f97af3c5b223141275c0eea07fcc2f85a8d492 Updated plf-util, fixed fc-train overwrite config error without hparam tuning
+84c45685afc8a8e6e3aee9db85cc01bb8d4fd496 Removed unnecessary import
+1813f1dcfb8beae6263ffaf762f5496cc106038c Added hparams support for tensorboard
+daefb94ea6a33b6497c4082b58326279fb717436 Added way to name runs with --logname for tensorboard
+5800caf73c36fde5489f7ba5d8fa56bd54cea9d7 Enabled plot outputs in fc_train, requires orca
+d5cf56037f9659c1d1518966a650a6df0bfaedff Updated README again
+a5c6fb01108fdee4250cc64e225d36bc4003283f Updated README again
+fb69ed772b21d468ab271dca1c7b429e82acb27e Updated README
+24d7a58feae10758bfaf9a210dfaa3249ba19ad6 Updated README
+8761a0da03167818083b491de73af3e8d9136c9c added expire_in: never to gitlab-ci.yml and updated plf-util
+889334cbf93feba07d82fcd4c1c5f71d0db11d3f Fixed bash script outputs
+abc57fcfc1ec4140793eb8f632eb7dca43fd4ed6 Removed plf_util from requirements.txt
+58cc3a22d9ade0e883c181827e3f513d7c4d2ab2 Removed unnecessary eon-related files and update README.md
+26c3d56fd8fbaffe7fcf89b53afe7e3f9a7f8168 Updated reference to plf_util
+cf0782a6eae9ec8c55c19f83c3f82734a6b15bfe Removed environment.yaml, transfered README, renamed submodules, changed fc_util imports to plf_util
+d780db95d3c30864f5f9f8f0e0c01dec206a83b6 Updated reference to plf-util(fc_util)
+48f6b04b3180c72ad157655d2b4483a288f83932 Renamed plf-util to fc_util and updated configs
+eff60a56e955c490f989402fcf44e3402d1d6df7 Added config files and updated submodule references
+2af44c703b1980c98feefbc008e6fd7a5acab208 removed expire_in: never since it's not supported in this version of gitlab
+8ff3cb5499ef05105c410c03e2ae3949bef3a6d4 Developed GitLab-CI/CD Functionality
+39fb4fc1b3d9e38329382c7a833e451d8a74f1d3 Added Reference to data and fc-util submod and transfered files from fcload
