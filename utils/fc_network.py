@@ -17,8 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
-
-'''FC_Network.py holds the functions and classes of the general model architecture'''
+"""
+Holds the functions and classes of the general model architecture
+"""
 import importlib
 import sys
 import torch
@@ -27,7 +28,22 @@ import torch.nn.functional as F
 
 
 class Encoder(nn.Module):
-    """Encodes the history horizon part of the input data which is fed as initial state in decoder."""
+    """
+    Encodes the history horizon part of the input data which is fed as initial state in decoder
+
+    Parameters
+    ----------
+    input_size : int
+        Number of features at any point in the sequence
+    core_size : int
+        Size of the produced state vector that encodes the recurred data
+    core_layers : int, default = 1
+        Number of layers of the core_net
+    dropout_core : float, default = 0.0
+        Internal dropout ratio
+    core_net : string, default = 'torch.nn.GRU'
+        The name of the desired core net
+    """
     def __init__(self,
                  input_size: int,
                  core_size: int,
@@ -58,11 +74,47 @@ class Encoder(nn.Module):
             exit()
 
     def forward(self, inputs):
+        """
+        Calculate the hidden state for the given inputs
+
+        Parameters
+        ----------
+        inputs : torch.Tensor
+            Tensor containing the features of the input sequence
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor containing the hidden state for the given inputs
+        """
         _, state = self.core(inputs)
         return state
 
 class Decoder(nn.Module):
-    """Predicts the target variable for forecast length using the future meta data as the input."""
+    """
+    Predicts the target variable for forecast length using the future meta data as the input
+
+    Parameters
+    ----------
+    input_size : int
+        Number of features at any point in the sequence
+    hidden_size : int
+        The size of each output sample for fc1 and each input sample for fc2
+    core_size : int
+        Size of the produced state vector that encodes the recurred data
+    out_size : int, default = 1
+        Dimension of Decoder output (number of predictions)
+    core_layers : int, default = 1
+        Number of layers of the core_net
+    dropout_fc : float, default = 0.0
+        The dropout probability for the decoder
+    dropout_core : float, default = 0.0
+        The dropout probability for the core_net
+    core_net : string, default = 'torch.nn.GRU'
+        The name of the desired core net
+    relu_leak : float, default = 0.01
+        The value of the negative slope for the LeakyReLU
+    """
     def __init__(self,
                  input_size: int,
                  hidden_size: int,
@@ -103,6 +155,23 @@ class Decoder(nn.Module):
         self.relu_leak = relu_leak
 
     def forward(self, inputs, states):
+        """
+        Calculate the prediction for the given inputs
+
+        Parameters
+        ----------
+        inputs : torch.Tensor
+            Tensor containing the features of the input sequence
+        states : torch.Tensor
+            Tensor containing the initial hidden state for each element in the batch
+
+        Returns
+        -------
+        list
+            The prediction
+        torch.Tensor
+            Tensor containing the hidden state for the given inputs
+        """
         out, new_states = self.core(inputs, states)
         #for decoder seq_length = forecast horizon
         h = out[:, :, :]
@@ -115,6 +184,38 @@ class Decoder(nn.Module):
         return output, new_states
 
 class EncoderDecoder(nn.Module):
+    """
+    Implements Sequence-to-Sequence model
+
+    Provides a single interface that accepts inputs for both the Encoder and Decoder and returns the resulting prediction
+
+    Parameters
+    ----------
+    input_size1 : int
+        Encoder input size
+    input_size2 : int
+        Decoder input size
+    criterion : callable
+        The loss function
+    out_size : int, default = 1
+        Dimension of Decoder output (number of predictions)
+    rel_linear_hidden_size : float, default = 1
+        The relative linear hidden size, as a fraction of the total number of features in the training data
+    rel_core_hidden_size : c
+        The relative core hidden size, as a fraction of the total number of features in the training data
+    core_layers : int, default = 1
+        Number of layers of the core_net
+    dropout_fc : float, default = 0.0
+        The dropout probability for the decoder
+    dropout_core : float, default = 0.0
+        The dropout probability for the core_net
+    scalers : dict
+        A dict of sklearn.preprocessing scalers with scaler names (e.g. "minmax", "robust") as keywords
+    core_net : string, default = 'torch.nn.GRU'
+        The name of the desired core net
+    relu_leak : float, default = 0.01
+        The value of the negative slope for the LeakyReLU
+    """
     def __init__(self,
                 input_size1: int,
                 input_size2: int,
@@ -138,7 +239,27 @@ class EncoderDecoder(nn.Module):
         self.criterion = criterion
 
     def forward(self, inputs_encoder, inputs_decoder):
+        """
+        Calculate predictions given Encoder and Decoder inputs
+
+        Receives inputs and passes the relevant ones to the Encoder. The Encoder's output (hidden states)
+        is then passed to the Decoder along with the Decoder's inputs, and the Decoder's predictions
+        and hidden states are returned
+
+        Parameters
+        ----------
+        inputs_encoder : torch.Tensor
+            A tensor containing the encoder inputs
+        inputs_decoder : torch.Tensor
+            A tensor containing the decoder inputs
+
+        Returns
+        -------
+        list
+            The prediction
+        torch.Tensor
+            Tensor containing the hidden state for the given inputs
+        """
         states_encoder = self.encoder(inputs_encoder)
         outputs_decoder, states_decoder = self.decoder(inputs_decoder, states_encoder)
         return outputs_decoder, states_decoder
-
