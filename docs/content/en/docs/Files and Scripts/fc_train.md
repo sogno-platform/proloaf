@@ -1,20 +1,21 @@
 ---
 title: "fc_train.py"
-linkTitle: "fc_train"
+linkTitle: "fc_train.py"
 date: 2020-03-09
+weight: 2
 description: >
   Basic information on the training script.
 ---
 
 
 ## fc_train.py
-This script trains a neural net on prepared data loaded as pandas dataframe from a csv file. Also does some hyperparameter exploration if desired. The trained net is safed afterwards and can be loaded via torch.load() or run by using the fc_run.yp script. This script scales the data, loads a custom datastructur and then generates and trains a neural net.
+This script trains an RNN model on prepared data loaded as pandas dataframe from a csv file. Hyperparameter exploration using optuna is also possible if desired. The trained model is safed at the location specified under `"output_path": ` in the corresponding config.json and can be loaded via torch.load() or evaluated by using the fc_evaluate.py script. This script scales the data, loads a custom datastructure and then generates and trains a neural net.
 
 ### Hyper parameter exploration
-Any training parameter is considered a hyper parameter as long as it is specified in either *fc_station_parameterhandler_config.json* or *fc_station_tuned_hyper.json*. The latter is the standard file where the (so far) best found configuartion is saved. This file should usually not be manually adapted. If new tests are for some reason not compareable to older ones (e.g. after changing the loss function), it is sufficent to change *fc_station_parameterhandler_config.json* to use a different base_configuartion.
+Any training parameter is considered a hyper parameter as long as it is specified in either *config.json* or *tuning.json*. The latter is the standard file where the (so far) best found configuartion is saved and should usually not be manually adapted unless new tests are for some reason not compareable to older ones (e.g. after changing the loss function).
 
 ### config
-*fc_station_train_config.json*
+*config.json*
 
 The config should define an parameter that is not considered a hyperparameter. Anything considered a hyperparameter (see above) may be defined but will be overwritten in training. These are many parameters not listed here, the structure is evident from the config however. The not so obvious parameters are:
 1. "feature_groups" (list) of dicts each specifying:
@@ -24,7 +25,7 @@ The config should define an parameter that is not considered a hyperparameter. A
     A feature that is not listed in any feature group is not considered by the net.
 2. "encoder/decoder_features": (list) features that are visible to the encoder/decoder.
 
-*fc_station_parameterhandler_config.json*
+*tuning.json*
 
 Here all settings considering hyperparameter exploration can be adjusted. Any hyper parameter that is to be explored should be defined here in the "settings" dict (example below). In addition to settings dict there are two settings:
 1. "rel_base_path": (str or null) relative path to the base config w.r.t. the project folder. If the file does not exist it will be created in the end to safe the best performing setup. If the file exists the base setup will be trained first to be compared with the others (or to train the net with the most performant parameters).
@@ -34,7 +35,7 @@ Here all settings considering hyperparameter exploration can be adjusted. Any hy
     2. A list of values, the list is cycled over for each test.
     3. A dict defining:
         1. "function": (str) a string defining the import to a function e.g "random.gauss" will import the fucntion gauss from the random module. This function will be called multiple times if necessary to generate values. If the function generates a list each value will be used exactly once before generating new values, making random.choices() a candidate to prevent to much repitition. This should work with custom functions but this is not tested.
-        2. "kwargs": (dict) a dict conatining all necassary arguments to call the function. 
+        2. "kwargs": (dict) a dict conatining all necassary arguments to call the function.
 
 Example
 ```json
@@ -71,8 +72,9 @@ rel_linear_hidden_size, rel_core_hidden_size,
 optimizer_name, cuda_id
 
 ### inputs
-* ./eon-data/last_station.csv
+One of the following:
+* ./data/gefcom2017/<<station>>_data.csv
+* ./data/<<user_provided_data>>.csv
 
 ### outputs
-* ./output/model_station
-* ./output/load_forecast_station.csv
+* ./oracles/model_station

@@ -27,7 +27,7 @@ stages:
 #    - shell
 #  only:
 #    - develop
-  
+
 
 docker:
   stage: prepare
@@ -38,24 +38,32 @@ docker:
       --tag ${DOCKER_IMAGE}:latest .
   tags:
     - shell
-  only:
-    - master
-  
+  #only:
+  #  - master
 
-hugo:master:
+
+hugo:
   stage: build
   script:
     - npm install -D --save autoprefixer
     - npm install -D --save postcss-cli
-    - npm audit fix --force
+    #- npm audit fix --force
+    #- cd content/en/results/
+    #- echo $PWD
+    - mkdir -p content/en/results/
+    - cd content/en/results/
+    - git clone https://gonca.guerses.tran:$GGU_ACCESS_GRANT@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
+    - cd ../../..
     - hugo -v
     - ls -l
   image: ${DOCKER_IMAGE}:${DOCKER_TAG}
   artifacts:
+    when: on_success
     paths:
       - public
-  only:
-    - master
+      - content/en/results/*
+  #only:
+  #  - master
   tags:
     - docker
 
@@ -67,10 +75,8 @@ pages:
   artifacts:
     paths:
       - public
-  only:
-    - master
+  #only:
+  #  - master
   tags:
     - shell
     #- linux
-  environment:
-    name: production
