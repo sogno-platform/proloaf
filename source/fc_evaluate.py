@@ -26,7 +26,7 @@ Provide several graphs as outputs that show the performance of the trained model
 Notes
 -----
 - The output consists of the actual load prediction graph split up into multiple svg images and 
-a metrics plot containing information about the model’s performance.
+a metrics plot containing information about the model's performance.
 - The output path for the graphs can be changed under the "evaluation_path": option 
 in the corresponding config file.
 
@@ -52,6 +52,7 @@ import os
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
+warnings.filterwarnings('ignore')
 
 from plf_util.config_util import read_config, parse_basic
 
@@ -156,7 +157,7 @@ if __name__ == "__main__":
         mis = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05)
 
         # plot metrics
-        plot_metrics(
+        metrics.plot_metrics(
             rmse_horizon.detach().numpy(),
             sharpness_horizon.detach().numpy(),
             coverage_horizon.detach().numpy(),
@@ -171,7 +172,7 @@ if __name__ == "__main__":
         else:
             testhours = [0, 12, 24, 48, 100, 112]
 
-        actual_time = pd.to_datetime(df.loc[split_index:, "Time"])
+        actual_time = pd.to_datetime(df.loc[PAR['history_horizon']+split_index:, "Time"])
         for i in testhours:
             hours = actual_time.iloc[i : i + FORECAST_HORIZON]
             metrics.evaluate_hours(
@@ -186,10 +187,23 @@ if __name__ == "__main__":
             )
 
         #TODO: wrap up all following sample tests
-        target_stations = PAR['model_name']
-        print(metrics.results_table(target_stations, mse.cpu().numpy(), rmse.cpu().numpy(), mase.cpu().numpy(), rae.cpu().numpy(),
-                          mae.cpu().numpy(), sharpness.cpu().numpy(), coverage.cpu().numpy(), mis.cpu().numpy(),qs.cpu().numpy(), save_to_disc=OUTDIR))
-        # BOXPLOTS
+        target_stations = [PAR["model_name"]]
+        print(
+            metrics.results_table(
+                target_stations,
+                mse.detach().numpy(),
+                rmse.detach().numpy(),
+                mase.detach().numpy(),
+                rae.detach().numpy(),
+                mae.detach().numpy(),
+                sharpness.detach().numpy(),
+                coverage.detach().numpy(),
+                mis.detach().numpy(),
+                qs.cpu().numpy(), 
+                save_to_disc=OUTDIR,
+            )
+        )
+       # BOXPLOTS
         mse_per_sample = [metrics.mse(record_targets[i], [record_expected_values[i]]) for i, value in
                           enumerate(record_targets)]
         rmse_per_sample = [metrics.rmse(record_targets[i], [record_expected_values[i]]) for i, value in
@@ -207,18 +221,6 @@ if __name__ == "__main__":
         mase_per_sample = [metrics.mase(record_targets[i], [record_expected_values[i]], 0,
                                         insample_target=record_targets.roll(7*24,0)[i]) for i, value in
                           enumerate(record_targets)]
-
-        target_stations = [PAR["model_name"]]
-        print(
-            results_table(
-                target_stations,
-                mse.detach().numpy(),
-                rmse.detach().numpy(),
-                sharpness.detach().numpy(),
-                coverage.detach().numpy(),
-                mis.detach().numpy(),
-            )
-        )
 
         residuals_per_sample = [metrics.residuals(record_targets[i],
                                             [record_expected_values[i]]) for i, value in enumerate(record_targets)]
