@@ -17,6 +17,19 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
+"""
+Preprocesses your input data for use with ProLoaF
+
+Transforms the data to a common format (pandas.DataFrame as csv) for all stations.
+
+Notes
+-----
+- This script can load xlsx or csv files.
+- If your data does not match the criteria, you can use a custom script that saves your
+data as a pandas.DataFrame with datetimeindex to a csv file with a “;” as separator to
+accomplish the same thing.
+
+"""
 
 import pandas as pd
 import numpy as np
@@ -33,17 +46,33 @@ from plf_util.config_util import read_config, parse_basic
 import plf_util.datatuner as dt
 
 def load_raw_data_xlsx(files):
-    # files is an array of maps
-    # the maps contain the following data with the keyword (keyword)
-    # ('file_name') the name of the xlsx file
-    # ('date_column') the name of the date_column in the raw_data
-    # ('time_zone') specifier for the timezone the raw data is recorded in
-    # ('sheet_name') name or list of names of the sheets that are to be read
-    # ('combine') boolean, all datasheets with true are combined into one, all others are read individually
-    # ('start_column') Columns between this and ('end_column') are loaded
-    # ('end_column')
+    """
+    Load data from an xlsx file
 
-    '''Read load data. The source load_file is assumed to be a xlsx load_file and to have an hourly resolution'''
+    After loading, the date column in the raw data is converted to a UTC datetime
+
+    Parameters
+    ----------
+    files : list
+        A list of files to read. See the Notes section for more information
+
+    Returns
+    -------
+    list
+        A list containing a DataFrame for each file that was read
+
+    Notes
+    -----
+    - Files is an array of maps containing the following data with the keyword (keyword)
+        + ('file_name') the name of the xlsx file
+        + ('date_column') the name of the date_column in the raw_data
+        + ('time_zone') specifier for the timezone the raw data is recorded in
+        + ('sheet_name') name or list of names of the sheets that are to be read
+        + ('combine') boolean, all datasheets with true are combined into one, all others are read individually
+        + ('start_column') Columns between this and ('end_column') are loaded
+        + ('end_column')
+
+    """
     print('Importing XLSX Data...')
 
     combined_files = []
@@ -84,16 +113,33 @@ def load_raw_data_xlsx(files):
     return individual_files
 
 def load_raw_data_csv(files):
-    # files is an array of maps
-    # the maps contain the following data with the keyword (keyword)
-    # ('file_name') the name of the load_file
-    # ('date_column') the name of the date_column in the raw_data
-    # ('dayfirst') specifier for the formating of the read time
-    # ('sep') separator used in this file
-    # ('combine') boolean, all datasheets with true are combined into one, all others are read individually
-    # ('use_columns') list of columns that are loaded
+    """
+    Load data from a csv file
 
-    '''Read i.e. temperature data. The source files are assumed to be csv, in hourly resolution. Windspeed and temperature'''
+    After loading, the date column in the raw data is converted to a UTC datetime
+
+    Parameters
+    ----------
+    files : list
+        A list of files to read. See the Notes section for more information
+
+    Returns
+    -------
+    list
+        A list containing a DataFrame for each file that was read
+
+    Notes
+    -----
+    - Files is an array of maps containing the following data with the keyword (keyword)
+        + ('file_name') the name of the load_file
+        + ('date_column') the name of the date_column in the raw_data
+        + ('dayfirst') specifier for the formatting of the read time
+        + ('sep') separator used in this file
+        + ('combine') boolean, all datasheets with true are combined into one, all others are read individually
+        + ('use_columns') list of columns that are loaded
+
+    """
+
     print('Importing CSV Data...')
 
 
@@ -127,9 +173,22 @@ def load_raw_data_csv(files):
     #    frame.rename(columns={date_column: 'Time'}, inplace=True)
     return individual_files
 
-
 def set_to_hours(df):
-    '''setting the frequency as required'''
+    """
+    Sets the index of the DataFrame to 'Time' and the frequency to hours.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame whose index and frequency are to be changed
+
+    Returns
+    -------
+    df
+        The modified DataFrame
+
+    """
+
     df['Time'] = pd.to_datetime(df['Time'])
     df = df.set_index('Time')
     df = df.asfreq(freq='H')
@@ -168,9 +227,9 @@ if __name__ == '__main__':
             df_list.append(hourly_data)
 
     print(df_list)
-    # When concatenating the arrays are filled with NaNs if the index is not available.
-    # since the dataframes were already interpolated there are non "natural" NaNs left so
-    # droping all rows with NaNs finds the maximum overlapp in indices
+    # When concatenating, the arrays are filled with NaNs if the index is not available.
+    # Since the DataFrames were already interpolated there are non "natural" NaNs left so
+    # dropping all rows with NaNs finds the maximum overlap in indices
     # # Merge load and weather data to one df
     df = pd.concat(df_list, axis = 1)
 

@@ -20,4 +20,5 @@
 
 from datetime import datetime
 
-print(str(datetime.now()).replace(":", "-").split(".")[0].replace(" ", "_"))
+if __name__ == '__main__':
+    print(str(datetime.now()).replace(":", "-").split(".")[0].replace(" ", "_"))
