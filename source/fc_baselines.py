@@ -50,11 +50,11 @@ torch.set_grad_enabled(True)
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-import plf_util.datatuner as dt
-import plf_util.eval_metrics as metrics
-import plf_util.baseline_forecasts as baselines
+import utils.datatuner as dt
+import utils.eval_metrics as metrics
+import utils.baseline_forecasts as baselines
 
-from plf_util.config_util import read_config, parse_with_loss
+from utils.config_util import read_config, parse_with_loss
 
 class flag_and_store(argparse._StoreAction):
     def __init__(self, option_strings, dest, dest_const, const,

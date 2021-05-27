@@ -1,6 +1,3 @@
 [submodule "open_data"]
 	path = data
 	url = ../plf-data.git
-[submodule "plf-util"]
-	path = plf_util
-	url = ../plf-util.git

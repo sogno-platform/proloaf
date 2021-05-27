@@ -32,10 +32,10 @@ in the corresponding config file.
 
 """
 
-import plf_util.datatuner as dt
-import plf_util.tensorloader as dl
-import plf_util.eval_metrics as metrics
-import plf_util.modelhandler as mh
+import utils.datatuner as dt
+import utils.tensorloader as dl
+import utils.eval_metrics as metrics
+import utils.modelhandler as mh
 # from sklearn.preprocessing import RobustScaler
 # from sklearn.preprocessing import StandardScaler
 # from sklearn.preprocessing import MinMaxScaler
@@ -54,7 +54,7 @@ MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 warnings.filterwarnings('ignore')
 
-from plf_util.config_util import read_config, parse_basic
+from utils.config_util import read_config, parse_basic
 
 if __name__ == "__main__":
     ARGS = parse_basic()

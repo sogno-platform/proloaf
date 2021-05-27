@@ -1,9 +1,7 @@
 from setuptools import setup, find_packages
 if __name__ == '__main__':
-    setup(name="plf_util",
-          version="0.0.1",
-          packages = [ 'plf_util' ],
-          install_requires = [
+    setup(
+        install_requires = [
             'numpy',
             'pandas',
             'matplotlib',
@@ -11,5 +9,5 @@ if __name__ == '__main__':
             'sklearn',
             'xlsxwriter',
             'datetime'
-          ]
+        ]
     )

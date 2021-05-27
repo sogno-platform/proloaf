@@ -3,17 +3,11 @@ oracles/
 data/*
 targets/sege*
 dist/
-plf_util/*
 old-yml.yml
 .python-version
 runs/
 logs/
-opt_history_fig.png
-parallel_coordinate_fig.png
 old/
 .idea
 .run
-/targets/seq-res-load/
 .ipynb_checkpoints
-/run tensorboard in jupyter.ipynb
-/plf_util

@@ -43,8 +43,8 @@ Hyperparameter exploration
 from torch.utils.tensorboard import SummaryWriter
 #TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
 #if 'exploration' is used, this would violate our license policy as LGPL is not compatible with apache
-from plf_util.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
-from plf_util.csv_logger import create_log, log_data, write_log_to_csv
+from utils.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
+from utils.csv_logger import create_log, log_data, write_log_to_csv
 
 # import json
 import os
@@ -72,21 +72,21 @@ sys.path.append(MAIN_PATH)
 
 # Do relative imports below this
 
-from plf_util.config_util import (
+from utils.config_util import (
     read_config,
     write_config,
     parse_with_loss,
     query_true_false,
     clean_up_tensorboard_dir,
 )
-from plf_util.csv_logger import create_log, log_data, write_log_to_csv
-import plf_util.datatuner as dt
-import plf_util.tensorloader as dl
-import plf_util.fc_network as fc_net
-import plf_util.modelhandler as mh
+from utils.csv_logger import create_log, log_data, write_log_to_csv
+import utils.datatuner as dt
+import utils.tensorloader as dl
+import utils.fc_network as fc_net
+import utils.modelhandler as mh
 
-# import plf_util.parameterhandler as ph
-# import plf_util.eval_metrics as metrics
+# import utils.parameterhandler as ph
+# import utils.eval_metrics as metrics
 
 # ToDo:
 #      1. Decide whether exploration is to be overwritten.
@@ -149,7 +149,7 @@ def set_optimizer(name, model, learning_rate):
     name : string or None, default = 'adam'
         The name of the torch.optim optimizer to be used. The following
         strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
-    model : plf_util.fc_network.EncoderDecoder
+    model : utils.fc_network.EncoderDecoder
         The model which is to be optimized
     learning_rate : float or None
         The learning rate to be used by the optimizer. If set to None, the default value as defined in
@@ -249,13 +249,13 @@ def make_model(
 
     Returns
     -------
-    plf_util.fc_network.EncoderDecoder
+    utils.fc_network.EncoderDecoder
         The prepared model with desired encoder/decoder features
-    plf_util.tensorloader.CustomTensorDataLoader
+    utils.tensorloader.CustomTensorDataLoader
         The training data loader
-    plf_util.tensorloader.CustomTensorDataLoader
+    utils.tensorloader.CustomTensorDataLoader
         The validation data loader 
-    plf_util.tensorloader.CustomTensorDataLoader
+    utils.tensorloader.CustomTensorDataLoader
         The test data loader 
     """
 
@@ -356,13 +356,13 @@ def train(
 
     Parameters
     ----------
-    train_data_loader : plf_util.tensorloader.CustomTensorDataLoader
+    train_data_loader : utils.tensorloader.CustomTensorDataLoader
         The training data loader
-    validation_data_loader : plf_util.tensorloader.CustomTensorDataLoader
+    validation_data_loader : utils.tensorloader.CustomTensorDataLoader
         The validation data loader
-    test_data_loader : plf_util.tensorloader.CustomTensorDataLoader
+    test_data_loader : utils.tensorloader.CustomTensorDataLoader
         The test data loader    
-    net : plf_util.fc_network.EncoderDecoder
+    net : utils.fc_network.EncoderDecoder
         The model to be trained
     learning_rate : float, optional
         The specified optimizer's learning rate
@@ -398,7 +398,7 @@ def train(
     
     Returns
     -------
-    plf_util.fc_network.EncoderDecoder
+    utils.fc_network.EncoderDecoder
         The trained model
     pandas.DataFrame
         A DataFrame in which the results and parameters of the training have been logged
