@@ -85,7 +85,7 @@ This Repository contains the following submodules:
 
 First, clone this Repository and initialize the submodules:
 ```bash
-git clone --recurse-submodule https://git.rwth-aachen.de/acs/public/automation/plf/plf-training.git
+git clone --recurse-submodule https://git.rwth-aachen.de/acs/public/automation/plf/proloaf.git
 ```
 or if you have already cloned the project and you are missing e.g. the open data directory for execution run:
 ```bash
