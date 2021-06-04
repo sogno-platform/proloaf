@@ -75,8 +75,6 @@ To display runs in Tensorboard, use `tensorboard --logdir=runs`, then open a bro
 ## Submodules
 
 This Repository contains the following submodules:
-* [plf_util](https://git.rwth-aachen.de/acs/public/automation/plf/plf-util): A Utilities-Package for ProLoaF.
-
 * [plf_data](https://git.rwth-aachen.de/acs/public/automation/plf/plf-data): Example gefcom2017 data for testing purposes.
 
 

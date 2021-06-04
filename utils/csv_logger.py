@@ -21,7 +21,7 @@
 Provides functions for logging training results and reading and writing those logs to/from csv files.
 """
 
-from plf_util.config_util import *
+from utils.config_util import *
 
 import pandas as pd
 import os

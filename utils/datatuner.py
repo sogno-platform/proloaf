@@ -283,7 +283,7 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
 
     Parameters
     ----------
-    net : plf_util.fc_network.EncoderDecoder
+    net : utils.fc_network.EncoderDecoder
         The model that was used to generate the predictions.
     output : list
         A list containing predicted values. Each entry in the list is a set of predictions
