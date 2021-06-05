@@ -24,7 +24,7 @@ import numpy as np
 import torch
 import sklearn
 
-import plf_util.datatuner as dt
+import utils.datatuner as dt
 
 class CustomTensorData:
     """

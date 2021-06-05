@@ -25,7 +25,7 @@ and testing model performance.
 
 import numpy as np
 import torch
-import plf_util.eval_metrics as metrics
+import utils.eval_metrics as metrics
 import shutil
 import matplotlib
 # matplotlib.use('svg') #svg can be used for easy when working on VMs
@@ -84,8 +84,8 @@ class EarlyStopping:
         Parameters
         ----------
         val_loss : float
-            The validation loss, as calculated by one of the metrics in plf_util.eval_metrics
-        model : plf_util.fc_network.EncoderDecoder
+            The validation loss, as calculated by one of the metrics in utils.eval_metrics
+        model : utils.fc_network.EncoderDecoder
             The model being trained
         """
         if self.verbose:
@@ -101,9 +101,9 @@ def get_prediction(net, data_loader, horizon, number_of_targets):
 
     Parameters
     ----------
-    net : plf_util.fc_network.EncoderDecoder
+    net : utils.fc_network.EncoderDecoder
         The model with which to calculate the predictions
-    data_loader : plf_util.tensorloader.CustomTensorDataLoader
+    data_loader : utils.tensorloader.CustomTensorDataLoader
         Contains the input data and targets
     horizon : int
         The horizon for the prediction
@@ -139,7 +139,7 @@ def get_pred_interval(predictions, criterion, targets):
     predictions : torch.Tensor
         The predicted values
     criterion : callable
-        One of the metrics from plf_util.eval_metrics
+        One of the metrics from utils.eval_metrics
     targets : torch.Tensor
         The the actual (not predicted) values
 
@@ -228,19 +228,19 @@ def calculate_relative_metric(curr_score, best_score):
 
 def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_horizon=True, horizon=1, number_of_targets=1):
     """
-    Determine the score of the given model using the specified metrics in plf_util.eval_metrics
+    Determine the score of the given model using the specified metrics in utils.eval_metrics
 
     Return a single float value (total score) or a 1-D array (score over horizon) based on
     the value of avg_on_horizon
 
     Parameters
     ----------
-    net : plf_util.fc_network.EncoderDecoder
+    net : utils.fc_network.EncoderDecoder
         The model for which the score is to be determined
-    data_loader : plf_util.tensorloader.CustomTensorDataLoader
+    data_loader : utils.tensorloader.CustomTensorDataLoader
         Contains the input data and targets
     score_type : string, default = 'mis'
-        The name of the metric to use for scoring. See functions in plf_util.eval_metrics for
+        The name of the metric to use for scoring. See functions in utils.eval_metrics for
         possible values.
     option : float or list, default = 0.05
         An optional parameter in case the 'mis' or 'quantile_score' functions are used. In the

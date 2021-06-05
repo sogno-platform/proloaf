@@ -27,7 +27,7 @@ import json
 import sys
 import argparse
 import shutil
-import plf_util.eval_metrics as metrics
+import utils.eval_metrics as metrics
 
 def read_config(model_name = None, config_path = None, main_path=''):
     """
@@ -183,7 +183,7 @@ def parse_with_loss(args = sys.argv[1:]):
         - num_pred : An int with the number of predictions
         - quantiles : A list of floats, if '--quantiles' was used, otherwise None
         - alpha : A float, if '--mis' was used, otherwise None
-        - loss : The specified callable loss function from plf_util.eval_metrics.py
+        - loss : The specified callable loss function from utils.eval_metrics.py
     dict
         Contains extra options if the loss functions mis or quantile score are used.
 
