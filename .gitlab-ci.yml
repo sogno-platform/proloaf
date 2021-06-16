@@ -35,7 +35,7 @@ docker:
        --file Dockerfile
        --tag plf:${CI_COMMIT_REF_NAME} .
  tags:
-   - shell
+   - docker
 
 
 # Training Jobs:
