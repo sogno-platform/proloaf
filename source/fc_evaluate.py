@@ -187,7 +187,7 @@ if __name__ == "__main__":
             )
 
         #TODO: wrap up all following sample tests
-        target_stations = [PAR["model_name"]]
+        target_stations = PAR["model_name"]
         print(
             metrics.results_table(
                 target_stations,

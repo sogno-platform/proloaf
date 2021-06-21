@@ -4,10 +4,10 @@
 
 [![Python](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8-blue)](https://www.python.org)
 
-[**Website**](https://git.rwth-aachen.de/acs/public/automation/plf/plf-training)
-| [**Docs**](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/)
-| [**Install Guide**](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/)
-| [**Tutorial**](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/tutorials/)
+[**Website**](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf)
+| [**Docs**](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/)
+| [**Install Guide**](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/getting-started/)
+| [**Tutorial**](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/tutorials/)
 
 ProLoaF is a probabilistic load forecasting project.
 
@@ -17,11 +17,11 @@ ProLoaF is a probabilistic load forecasting project.
 
 ProLoaF comes with the following scripts
 
-- [fc_prep.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/fc_prep/): Preprocess your input data for use with ProLoaF.
+- [fc_prep.py](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/files-and-scripts/fc_prep/): Preprocess your input data for use with ProLoaF.
 
-- [fc_train.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/fc_train/): Train an RNN model for load forecasting based on provided data.
+- [fc_train.py](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/files-and-scripts/fc_train/): Train an RNN model for load forecasting based on provided data.
 
-- [fc_evaluate.py](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/files-and-scripts/fc_evaluate/): Evaluate a previously trained model.
+- [fc_evaluate.py](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/files-and-scripts/fc_evaluate/): Evaluate a previously trained model.
 
 
 
@@ -100,7 +100,7 @@ pip install -r requirements.txt --no-cache-dir
 ```
 might be necessary.
 
-ProLoaF supports Python 3.6 and higher. For further information see [Getting Started](https://acs.pages.rwth-aachen.de/public/automation/plf/plf-docs/docs/getting-started/)
+ProLoaF supports Python 3.6 and higher. For further information see [Getting Started](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/getting-started/)
 
 ## Related Publications
 G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation," The 16th International Conference on Probabilistic Methods Applied to Power Systems, PMAPS 2020, 2020-08-18 - 2020-08-21, Liège, Belgium, ISBN 978-1-7281-2822-1, [Access Online](http://aimontefiore.org/PMAPS2020/openconf/modules/request.php?module=oc_proceedings&action=view.php&id=92&type=3&a=Accept)

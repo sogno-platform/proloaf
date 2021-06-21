@@ -1,4 +1,4 @@
-baseURL = "/public/automation/plf/plf-docs/"
+baseURL = "/public/automation/plf/proloaf/"
 title = "Load Forecasting"
 
 enableRobotsTXT = true
@@ -153,7 +153,7 @@ no = 'Sorry to hear that. Please <a href="https://github.com/USERNAME/REPOSITORY
 # Developer relevant links. These will show up on right side of footer and in the community page if you have one.
 [[params.links.developer]]
 	name = "GitLab"
-	url = "https://git.rwth-aachen.de/acs/public/automation/plf/plf-training"
+	url = "https://git.rwth-aachen.de/acs/public/automation/plf/proloaf"
 	icon = "fab fa-gitlab"
         desc = "Development takes place here!"
 [[params.links.developer]]
