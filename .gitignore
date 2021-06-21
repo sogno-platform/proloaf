@@ -10,3 +10,4 @@ old/
 .idea
 .run
 .ipynb_checkpoints
+.docs/themes/docsy
