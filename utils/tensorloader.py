@@ -191,8 +191,9 @@ def make_dataloader(df, target_id, encoder_features, decoder_features, history_h
     x_enc = dt.extract(df[encoder_features].iloc[:-forecast_horizon, :], history_horizon)
     # shape input data that is known for the Future, here take perfect hourly temp-forecast
     x_dec = dt.extract(df[decoder_features].iloc[history_horizon:, :], forecast_horizon)
-    # shape y
-    y = dt.extract(df[[target_id]].iloc[history_horizon:, :], forecast_horizon)
+    # shape y, depending on number of targets given
+    if len(len(target_id)==1): y = dt.extract(df[[target_id]].iloc[history_horizon:, :], forecast_horizon)
+    else: y = dt.extract(df[target_id].iloc[history_horizon:, :], forecast_horizon)
 
     if len(x_enc) > len(y):
         x_enc = x_enc[:-1]

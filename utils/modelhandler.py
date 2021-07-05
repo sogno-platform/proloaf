@@ -278,13 +278,13 @@ def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_hor
         score = metrics.crps_gaussian(targets, output, total=avg_on_horizon)
     elif (score_type == 'mse'):
         output = expected_values
-        score = metrics.mse(targets, output, total=avg_on_horizon)
+        score = metrics.mse(targets, output.unsqueeze(0), total=avg_on_horizon)
     elif (score_type == 'rmse'):
         output = expected_values
         score = metrics.rmse(targets, output.unsqueeze(0), total=avg_on_horizon)
     elif ('mape' in str(score_type)):
         output = expected_values
-        score = metrics.mape(targets, output, total=avg_on_horizon)
+        score = metrics.mape(targets, output.unsqueeze(0), total=avg_on_horizon)
     else:
         #TODO: catch exception here if performance score is undefined
         score=None
