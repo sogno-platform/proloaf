@@ -202,7 +202,10 @@ if __name__ == '__main__':
     PAR = read_config(config_path=config_file)
 
     # DEFINES
-    INPATH = os.path.join(MAIN_PATH, PAR['raw_path'])
+    if PAR['local'] == True:
+        INPATH = os.path.join(MAIN_PATH, PAR['raw_path'])
+    else:
+        INPATH = PAR['raw_path']
     if ('xlsx_files' in PAR):
         XLSX_FILES = PAR['xlsx_files']
     if ('csv_files' in PAR):
