@@ -1,47 +1,42 @@
 {
-    "data_path": "./data/Gefcom2017/Stations/vt_data_clean.csv",
+    "data_path": "./data/opsd.csv",
     "output_path": "./oracles/",
-    "exploration_path": null,
-    "evaluation_path": "./oracles/eval_gc2017_vt/",
+    "exploration_path": "./targets/opsd/tuning.json",
+    "evaluation_path": "./oracles/eval_opsd/",
     "log_path": "./logs/",
-    "model_name": "gc17vt_GRU_gnll",
-    "target_id": ["demand"],
+    "model_name": "opsd_LSTM_gnll",
+    "target_id": ["AT_load_actual_entsoe_transparency"],
     "target_list": null,
     "start_date": null,
-    "history_horizon": 40,
-    "forecast_horizon": 40,
+    "history_horizon": 73,
+    "forecast_horizon": 168,
     "cap_limit": 1,
-    "train_split": 0.7,
-    "validation_split": 0.85,
-    "core_net": "torch.nn.GRU",
+    "train_split": 0.6,
+    "validation_split": 0.8,
+    "core_net": "torch.nn.LSTM",
     "optimizer_name": "adam",
-    "exploration": null,
+    "exploration": false,
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
-      {
-          "name": "main",
-          "scaler": [
-              "robust",
-              15,
-              85
-          ],
-          "features": [
-              "demand"
-          ]
-      },
-      {
-          "name": "add",
-          "scaler": [
-              "minmax",
-              -1.0,
-              1.0
-          ],
-          "features": [
-              "drybulb",
-              "dewpnt"
-          ]
-      },
+        {
+            "name": "main",
+            "scaler": [
+                "minmax",
+                -1.0,
+                1.0
+            ],
+            "features": [
+                "AT_load_actual_entsoe_transparency",
+                "DE_load_actual_entsoe_transparency",
+                "AT_temperature",
+                "AT_radiation_direct_horizontal",
+                "AT_radiation_diffuse_horizontal",
+                "DE_temperature",
+                "DE_radiation_direct_horizontal",
+                "DE_radiation_diffuse_horizontal"
+            ]
+        },
         {
             "name": "aux",
             "scaler": null,
@@ -93,11 +88,10 @@
         }
     ],
     "encoder_features": [
-        "demand"
+        "AT_load_actual_entsoe_transparency",
+        "DE_load_actual_entsoe_transparency"
     ],
     "decoder_features": [
-        "drybulb",
-        "dewpnt",
         "hour_0",
         "hour_1",
         "hour_2",
@@ -142,14 +136,14 @@
         "weekday_5",
         "weekday_6"
     ],
-    "max_epochs": 3,
-    "batch_size": 103,
-    "learning_rate": 0.0003720068247101349,
-    "core_layers": 3,
+    "max_epochs": 100,
+    "batch_size": 32,
+    "learning_rate": 9.058952600601419e-05,
+    "core_layers": 1,
     "rel_linear_hidden_size": 1.0,
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
     "dropout_core": 0.3,
-    "best_loss": -1.0173205137252808,
+    "best_loss": null,
     "best_score": null
 }

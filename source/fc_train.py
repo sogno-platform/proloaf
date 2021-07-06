@@ -650,6 +650,7 @@ def main(infile, outmodel, target_id, log_path=None):
 
     dt.fill_if_missing(df)
 
+    #only use target list if you want to predict the summed value. Actually the use is not recommended.
     if "target_list" in PAR:
         if PAR["target_list"] is not None:
             df[target_id] = df[PAR["target_list"]].sum(axis=1)

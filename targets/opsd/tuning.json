@@ -9,6 +9,14 @@
               "high": 0.0001
           }
       },
+      "history_horizon": {
+          "function": "suggest_int",
+          "kwargs": {
+              "name": "history_horizon",
+              "low": 1,
+              "high": 168
+          }
+      },
       "batch_size": {
           "function": "suggest_int",
           "kwargs": {

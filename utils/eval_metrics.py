@@ -270,15 +270,16 @@ def mse(target, predictions:list, total = True):
     ValueError
         When the dimensions of the predictions and targets are not compatible
     """
+    num_targets = [int(x) for x in target.shape][-1]
+    for i in range(num_targets):
+        if predictions[i].shape != target[:,:,i].unsqueeze_(-1).shape:
+            raise ValueError('dimensions of predictions and targets need to be compatible')
 
-    if predictions[0].shape != target.shape:
-        raise ValueError('dimensions of predictions and targets need to be compatible')
-
-    squared_errors = (target - predictions[0]) ** 2
-    if total:
-        return torch.mean(squared_errors)
-    else:
-        return torch.mean(squared_errors, dim=0)
+        squared_errors = (target.unsqueeze_(-1) - predictions) ** 2
+        if total:
+            return torch.mean(squared_errors)
+        else:
+            return torch.mean(squared_errors, dim=0)
 
 def rmse(target, predictions:list, total = True):
     """
