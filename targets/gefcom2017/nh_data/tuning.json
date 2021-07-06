@@ -1,5 +1,5 @@
 {
-  "number_of_tests": 20,
+  "number_of_tests": 100,
   "settings": {
       "learning_rate": {
           "function": "suggest_loguniform",
