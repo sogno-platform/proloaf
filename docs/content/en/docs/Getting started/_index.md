@@ -11,24 +11,33 @@ These instructions will get you a copy of the project up and running on your loc
 ## Prerequisites
 
 To run this project you need to have python 3.6 or higher installed on your machine.
-You will need to install all packages listed in the *requirements.txt* file.
-To install all required packages using pip run:
+
+First, clone this Repository and initialize the submodules:
+```bash
+git clone --recurse-submodule https://git.rwth-aachen.de/acs/public/automation/plf/proloaf.git
 ```
+or if you have already cloned the project and you are missing e.g. the open data directory for execution run:
+```bash
+git submodule update --init --recursive
+```
+
+Now you will need to install all packages listed in the *requirements.txt* file.
+To install all required packages using pip, run:
+```bash
 pip install -r requirements.txt
 ```
 
 On low RAM machines the option
-```
+```bash
 pip install -r requirements.txt --no-cache-dir
 ```
-might be necessary. Depending on your machine it might be necessary to use pip3 instead of pip.
-
+might be necessary. Depending on your machine you might need to use pip3 instead of pip.
 
 ## Running the code
-This project contains 3 scripts that can be used in conjunction with one another or separatly. Configuration for these scripts is given in a config.json file in the targets/ folder.
+This project contains 3 scripts that can be used in conjunction with one another or separately. Configuration for these scripts is given in a config.json file in the targets/ folder.
 
 * All scripts are located in the source folder.
-* To start one of the scripts use 'Python3 fc_script.py argument', where the argument is either the name of a station (-s) (e.g. 'gefcom2017/ct_data') or the path (-c) of the correspondig config file located in the model_ folders.
+* To start one of the scripts use 'Python3 fc_script.py argument', where the argument is either the name of a station (-s) (e.g. 'gefcom2017/ct_data') or the path (-c) of the corresponding config file located in the model_ folders.
 * To prepare load and weather data from selected stations run ./source/fc_prep.py
 * To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./source/fc_train.py
 * To analyze the performance of the forecast: ./source/fc_evaluate.py
@@ -38,7 +47,7 @@ This project contains 3 scripts that can be used in conjunction with one another
 * In addition, a tuning.json file is used to define settings regarding hyperparameter tuning. This file is only required when using hyperparameter tuning.
 
 
-* To adapt the behavior of the scipts for a certain station change options in the correspondig config file.
+* To adapt the behavior of the scripts for a certain station change options in the corresponding config file.
 * Parameters can be added to the config file by adding or removing them by hand (standard json format) or using the config_maker.py.
 
 Add a line
