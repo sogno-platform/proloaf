@@ -17,9 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
+"""
+Config-maker can be used to modify or generate config files
 
-# Config-maker can be used to modify or generate config files run either with the path to the config file or the station name
-# to erase the old config file before writing a new one do "python3 config_maker.py --new <stationname> "
+Run either with the path to the config file or the station name.
+To erase the old config file before writing a new one do "python3 config_maker.py --new <stationname>".
+To modify the existing config file use --mod instead.
+When modifying a config file, only select the parameters that are changed or create new ones. The others will
+stay the same
+"""
 
 import json
 import sys
@@ -30,22 +36,24 @@ sys.path.append(main_path)
 
 par = {}
 if __name__ == '__main__':
-    #read configs
+    # Read configs
 
     CONFIG_PATH = sys.argv[2]
     STATION_PATH = sys.argv[2].split('config')[0]
     STATION_NAME = STATION_PATH.split('targets/')[1]
 
-    if(sys.argv[1] == '--mod'):
-        with open(sys.argv[2],'r') as input:
+    if sys.argv[1] == '--mod':
+        with open(sys.argv[2], 'r') as input:
             par = json.load(input)
 
-    #when modifying a config file only select the parameters that are changed or creat new ones, the other will stay the same
-    elif(sys.argv[1] == '--new'):
+    # When modifying a config file, only select the parameters that are changed or create new ones. The others will
+    # stay the same.
+
+    elif sys.argv[1] == '--new':
         print(CONFIG_PATH + ' has been reset before writing')
         par = {}
     else:
-        print('No option selected either use either --mod or --new (WARNING: This  erases the old config file)')
+        print('No option selected. Use either --mod or --new (WARNING: --new erases the old config file)')
 
     # INSERT MODIFICATIONS FOR THE CONFIG HERE
     # ============================================
@@ -118,5 +126,5 @@ if __name__ == '__main__':
     par["best_loss"] = None
     par["best_score"] = None
 
-    with open(CONFIG_PATH,'w') as output:
-        json.dump(par, output, indent = 4)
+    with open(CONFIG_PATH, 'w') as output:
+        json.dump(par, output, indent=4)

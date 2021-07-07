@@ -6,9 +6,14 @@ weight: 1
 description: >
   Basic information on the script for data preparation.
 ---
+### Overview
+Preprocess your input data for use with ProLoaF
 
-fc_prep.py transforms the data to a common format(pandas dataframe as csv) for all stations.
-This script for now only allows weather data in csv format and has not timezone support for it while it only allows xlsx files for load. If your data does not match the criteria using a custom script that saves your data as pandas dataframe with datetimeindex to a csv file with ";" as separator will accomplish the same.
+This script transforms the data to a common format (pandas.DataFrame as csv) for all stations.
+
+> **_Note:_** <br>
+> This script can load xlsx or csv files. <br>
+> If your data does not match the criteria, you can use a custom script that saves your data as a pandas.DataFrame with datetimeindex to a csv file with a “;” as separator to accomplish the same thing.
 
 
 ### config
@@ -18,7 +23,7 @@ The prep config defines 4 parameters:
 3. "weather_files": (list) of dicts for each weather file. Each dict should define:
     1. "file_name": (str) full name of the file.
     2. "date_column": (str) name of the column which contains the date.
-    3. "dayfirst": (boolean) wether the date format writes day first or not.
+    3. "dayfirst": (boolean) whether the date format writes day first or not.
     4. "sep": (str) separator used in the raw_data csv.
     5. "combine": (boolean) all files that have true are appended to each other, w.r.t. time.
     6. "use_columns": (list or null) list of columns to use from the file, uses all columns if null.
@@ -32,8 +37,12 @@ The prep config defines 4 parameters:
     7. "end_column": (str) first column not affected by data_abs anymore
     8. "data_abs": (boolean) column between start_column and end_column.
 
-### inputs
+### Inputs
 * historical data provided by the user
 
-### outputs
+### Outputs
 * data path as defined in the used config.json
+
+### Reference Documentation
+If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/fc_prep.html" >}}) for 
+this script.

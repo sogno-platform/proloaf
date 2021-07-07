@@ -17,10 +17,10 @@ ProLoaF is a load prediction project in the context of the H2020 EU CoordiNet Pr
 It utilizes machine learning and an Encoder-Decoder architecture to predict the target variable based
 on other forecast data and an arbitrarily long set of historical data.
 
-
-Here you can find instructions on how to build and install ProLoaF as well as descriptions of the scripts and tutorials to get you started.
 {{% /blocks/lead %}}
 
-{{< blocks/section color="dark" >}}
-
-{{< /blocks/section >}}
+{{< blocks/lead color="dark" >}}
+Here you can find instructions on [how to build and install ProLoaF]({{< resource url="docs/getting-started/" >}}) as
+well as [descriptions of the scripts]({{< resource url="docs/files-and-scripts/" >}}) and
+[tutorials]({{< resource url="docs/tutorials/" >}})  to get you started.
+{{< /blocks/lead >}}
