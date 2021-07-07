@@ -11,3 +11,6 @@ old/
 .run
 .ipynb_checkpoints
 .docs/themes/docsy
+__pycache__/
+source/__pycache__/
+

@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-Holds the functions and classes of the general model architecture
+Standard module setup.py script - Holds the functions and classes of the general model architecture
 """
 try:
     from setuptools import setup

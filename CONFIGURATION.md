@@ -1,11 +1,11 @@
 # Configuration
 
 ## Main Config
-ProLoaF's configuration file is written using JSON. With that, whitespace is allowed and ignored in your syntax.
+ProLoaF's configuration file is written using JSON. As such, whitespace is allowed and ignored in your syntax.
 We mostly use strings, boolean, and ``null``, to specify the paths, and parameters of our targeted forecasting project. 
 Numbers and booleans should be  unquoted.
 
-For better readability, we assume in our examples below, 
+For better readability, we assume in the examples below, 
 that your working directory is set to the main project path of the cloned 
 [repository](https://git.rwth-aachen.de/acs/public/automation/plf/plf-training).
 
@@ -32,9 +32,9 @@ As the project originated from electrical load forecasting on substation-level,
 the term *station* or *target-station* is used to refer to the city or substation identifier
 from which the measurement data is originating.   
 Most of the example scripts in ProLoaF use the config file for training and evaluation, 
-as it serves as central place for parametrization.
+as it serves as a central place for parametrization.
 
-So at this stage you should have the main config file for your forecasting project: `./targets/<STATION>/config.json`.
+At this stage you should have the main config file for your forecasting project: `./targets/<STATION>/config.json`.
 [plf-util](https://git.rwth-aachen.de/acs/public/automation/plf/plf-util) comes with basic functions to parse, 
 edit and store the config file. We make use of this when calling e.g. our example training script: 
 
@@ -42,8 +42,8 @@ edit and store the config file. We make use of this when calling e.g. our exampl
 $ python source\fc_train.py -s gefcom2017/nh_data
 ```
 
-The flag ``-s`` allows to specify the station name (=target directory) through the following string, 
-i.e. *gefcom2017/nh_data*. The train-script will expect and parse the config.json given in the target directory.
+The flag ``-s`` allows us to specify the station name (=target directory) through the string that follows, 
+i.e. *gefcom2017/nh_data*. The 'train' script will expect and parse the config.json given in the target directory.
 <!---
 ```sh
 from utils.config_util import read_config, parse_with_loss
@@ -54,20 +54,20 @@ ARGS, LOSS_OPTIONS = parse_with_loss()
     PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
 ```
 --->
-You can also select a different path, that holds the config file by adding ``-c <CONFIG_PATH>`` to the above mentioned
+You can also manually specify the path to the config file by adding ``-c <CONFIG_PATH>`` to the above mentioned
 statement.
 
-> **_Note:_** If not specified differently, during training, per default the neural network maximizes the 
+> **_Note:_** If not otherwise specified, during training, per default the neural network maximizes the 
 [Maximum Likelihood Estimation of Gaussian Parameters](http://jrmeyer.github.io/machinelearning/2017/08/18/mle.html), 
 for a 95% prediction interval. 
-This so called loss criterion can be changed to any metric that quantifies the (probabilistic) performance 
+This so-called loss criterion can be changed to any metric that quantifies the (probabilistic) performance 
 of the forecast. A common non-parametric option is the quantile loss.
 You can apply quantile loss criterion as follows:
 
 ```sh
     $ python source\fc_train.py -s gefcom2017/nh_data --quantiles 0.025 0.975
 ```
-> Also here, we have chosen the 95% prediction interval, by setting ``q1=0.025`` and ``q2=0.975``.
+> Here we have specified the 95% prediction interval, by setting ``q1=0.025`` and ``q2=0.975``.
 
 See more detailed descriptions and further loss options in the full [list of parameters](#parameter-list).
 
@@ -90,7 +90,7 @@ The output-, exploration- and log- paths may stay unchanged, but the data path a
 
 > **_Note:_** The data path should contain a csv file that includes all input data column-wise in any time-resolution.
 In our example train-& evaluation scripts, the first column is treated as datetime information and declared as 
-pandas datetime index. *oracles* is the default naming of the out put directory, 
+pandas datetime index. *oracles* is the default naming of the output directory, 
 >in which the prediction model and predictive performance are stored.  
 
 ### Timeseries Settings
@@ -106,8 +106,7 @@ on a similar sequence-to-sequence architecture authored by Ben Trevett.
 The time step size is equal to the underlying timeseries data resolution. 
 The example files apply day-ahead forecasting in hourly resolution. 
 > **_Note:_** A forecast that produces a predicted sequence starting from the forecasting execution time and including the next day, 
-is >=24h, depending on the forecast execution time t. 
->E.g. a day-ahead forecast executed at 9 am, shall produce a 40 hour horizon.
+is >=24h, depending on the forecast execution time t, e.g. a day-ahead forecast executed at 9 am, shall produce a 40 hour horizon.
 
 Following parameters configure the input- and output- sequence length:
 ```json
@@ -120,7 +119,7 @@ Following parameters configure the input- and output- sequence length:
 
 In machine learning, we typically split available data to train the model and test its performance. 
 With the training set, the model is parameterized. By checking against validation data, we track the fitting process.
-In a final step, the test set serves to asses and confirm the predictive power of the trained model. 
+In a final step, the test set serves to assess and confirm the predictive power of the trained model. 
 To configure the size of each mentioned set, specify:
 
 - **train_split**:
@@ -231,7 +230,7 @@ For validation during training, we use all data between train and validation lim
 Configure which hyperparameters are optimized and specify each parameters search space through a separate 
 [tuning config](#tuning-config).
 > **_Note:_** Best practice is to save the tuning.config in the same directory in which the main config is given. 
->However, through by setting a [specific exploration_path](#path-settings), the user can direct to a 
+>However, by setting a [specific exploration_path](#path-settings), the user can direct to a 
 >different location on the machine.
 
 ### GPU Specs
