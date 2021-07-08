@@ -95,7 +95,6 @@ if __name__ == "__main__":
 
         df_new, _ = dt.scale_all(df, scalers=net.scalers, **PAR)
         df_new.index = df['Time']
-        target_index = df_new.columns.get_loc(target_id)
 
         split_index = int(len(df_new.index) * SPLIT_RATIO)
         train_df = df_new.iloc[0:split_index]
