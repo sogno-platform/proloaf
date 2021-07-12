@@ -123,7 +123,7 @@ if __name__ == "__main__":
         criterion = net.criterion
         # get metrics parameters
         y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(
-            record_output, criterion, df[target_id]
+            record_output, criterion, record_targets
         )
 
         # rescale(test_output, test_targets)
@@ -238,6 +238,7 @@ if __name__ == "__main__":
         metrics_per_sample['Quantile Score'] = pd.DataFrame(quantile_score_per_sample).astype('float')
         metrics_per_sample['Residuals'] = pd.DataFrame(residuals_per_sample).astype('float')
 
+        fig = plt.figure(figsize=(16, 12))
         ax1 = metrics_per_sample.iloc[::24].boxplot(column=['RMSE', 'MASE', 'Quantile Score'],
                                                     color=dict(boxes='k', whiskers='k', medians='k', caps='k'),
                                                     figsize=(8.5, 10), fontsize=24)
