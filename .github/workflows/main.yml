@@ -40,12 +40,14 @@ jobs:
       run: npm ci
     
     - name: hugo build
-      run: hugo --minify
+      run: |
+        cd docs
+        hugo --minify
     
     - name: Deploy page
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}     
-        publish_dir: ./public
+        publish_dir: ./docs/public
         #   keep_files: true
         publish_branch: gh-pages
