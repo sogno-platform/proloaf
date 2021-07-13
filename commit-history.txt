@@ -39,6 +39,7 @@ c656a88c9c9a1d2b963ac19df16cd13461d2caa1 updated ci/cd configuration: paths & ta
 4722ef4d3ea3a291b5ee4c60438c0fa59ea7ea9b rebase develop to master
 e3d939a6a7a8bce7b83caac80c077908645b6f18 added module comment
 06b999167152a034bb8de58eda04b1685728faac Merge branch 'develop'
+488c8756e0efbf396b6ace87a8c1d6fd2fbdd158 test without sign-off
 
 I, Markus Mirz hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: mmirz@eonerc.rwth-aachen.de
 
