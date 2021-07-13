@@ -11,6 +11,7 @@ workflow:
 
 stages:
     - prepare
+    - check
     - training
     - test-train
     - test-eval
@@ -61,6 +62,19 @@ docker-docs:
        --tag ${DOCKER_IMAGE_DEV}_docs:${CI_COMMIT_REF_NAME} .
  tags:
    - docker
+
+### DCO Checker
+dco:
+    stage: check
+    script:
+        - pip3 install -U dco-check
+        - dco-check
+    image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
+    tags:
+        - docker
+    only:
+      variables:
+        - $CI_PIPELINE_SOURCE == 'push'
 
 ## Training Jobs:
 train_on_call:

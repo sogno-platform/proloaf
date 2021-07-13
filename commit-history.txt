@@ -31,6 +31,14 @@ fae01c78970dce7d32b2d8c60074b6f2199fcffa Removed environment.yaml, transfered RE
 d7b83868029fbf7baa05911917059e0689bcc26c add 1st related publication
 0032e54755ac30a69ec05963659f74ca64cbaf5b Require commit branch "develop" to trigger pipeline
 475d3e249b7c9a53ec9281211fb2c56312cde9cd Merge branch 'gitlab-ci-test' into 'develop'
+ac963ab03071c4934dcb4ea18e625bff07002490 Merge remote-tracking branch 'utils/master'
+b693b3211aed7b7482fc2851a7f8f6d59719dbf1 Merge remote-tracking branch 'docs/master'
+045d445bcfa39a90a1ca0c81e289b5739e43c08a Update README.md with new repo url
+5fa3254f65e085eea5db268b20dd19be4c1e9d53 change shell tag to docker tag
+c656a88c9c9a1d2b963ac19df16cd13461d2caa1 updated ci/cd configuration: paths & tags
+4722ef4d3ea3a291b5ee4c60438c0fa59ea7ea9b rebase develop to master
+e3d939a6a7a8bce7b83caac80c077908645b6f18 added module comment
+06b999167152a034bb8de58eda04b1685728faac Merge branch 'develop'
 
 I, Markus Mirz hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: mmirz@eonerc.rwth-aachen.de
 
