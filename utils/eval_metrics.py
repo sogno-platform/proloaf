@@ -682,10 +682,18 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, q
     return results_df
 
 
-def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limit, actual_hours=None):
+def plot_timestep(target,
+                  pred,
+                  y_pred_upper,
+                  y_pred_lower,
+                  timestep,
+                  OUTPATH,
+                  limit,
+                  actual_time=None,
+                  draw_limit = False):
     """
     Create a matplotlib.pyplot.subplot to compare true and predicted values.
-    Save the resulting plot at (OUTPATH + 'eval_hour{}'.format(hour))
+    Save the resulting plot at (OUTPATH + 'eval_hour{}'.format(timestep))
 
     Parameters
     ----------
@@ -697,13 +705,13 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
         Numpy array containing upper limit of prediction confidence interval
     y_pred_lower : ndarray
         Numpy array containing lower limit of prediction confidence interval
-    hour : int
-        The hour of the prediction
+    timestep : int
+        The timestep of the prediction, relative to the beginning of the dataset
     OUTPATH : string
         Path to where the plot should be saved
     limit : float
         The cap limit. Used to draw a horizontal line with height = limit.
-    actual_hours : pandas.Series, default = None
+    actual_time : pandas.Series, default = None
         The actual time from the data set
 
     Returns
@@ -713,9 +721,9 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(target, '.-k', label="Truth")  # true values
     ax.plot(pred, 'b', label='Predicted')
-    # insert actual time
-    if(actual_hours.dt.hour.any()):
-        ax.set_title(actual_hours.iloc[0].strftime("%a, %Y-%m-%d"), fontsize=20)
+    # insert actual time, assuming the underlying data to be in hourly resolution
+    if(actual_time.dt.hour.any()):
+        ax.set_title(actual_time.iloc[0].strftime("%a, %Y-%m-%d"), fontsize=20)
     else:
         ax.set_title('Forecast along horizon', fontsize=22)
     ax.fill_between(np.arange(pred.shape[0]), pred.squeeze(), y_pred_upper.squeeze(), alpha=0.1, color='g')
@@ -725,16 +733,16 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     ax.set_ylabel("Scaled Residual Load (-1,1)", fontsize=20)
     ax.legend(fontsize=20)
     ax.grid(b=True, linestyle='-')
-    if(limit):
+    if(limit and draw_limit):
         plt.axhline(linewidth=2, color='r', y=limit)
     ax.grid()
     positions = range(0, len(pred), 2)
-    labels = actual_hours.dt.hour.to_numpy()
+    labels = actual_time.dt.hour.to_numpy() # assuming hourly resolution in most of the evaluations
     new_labels = labels[positions]
     plt.xticks(positions, new_labels)
-    ax.set_xlabel("Hour of Day", fontsize=20)
+    ax.set_xlabel("Time of Day", fontsize=20)# assuming hourly resolution in most of the evaluations
     plt.autoscale(enable=True, axis='x', tight=True)
-    plt.savefig(OUTPATH + 'eval_hour{}'.format(hour))
+    plt.savefig(OUTPATH + 'eval_hour{}'.format(timestep))
     plt.close(fig)
 
 

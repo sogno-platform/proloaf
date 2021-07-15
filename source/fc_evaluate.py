@@ -167,14 +167,14 @@ if __name__ == "__main__":
 
         # plot forecast for sample days
         if "ci_tests" in PAR["data_path"]:
-            testhours = [0, 12]
+            testhours = [0, 12] #the first and 12th timestep relative to the start of the Test-Dataset
         else:
             testhours = [0, 12, 24, 48, 100, 112]
 
         actual_time = pd.to_datetime(df.loc[PAR['history_horizon']+split_index:, "Time"])
         for i in testhours:
-            hours = actual_time.iloc[i : i + FORECAST_HORIZON]
-            metrics.evaluate_hours(
+            actuals = actual_time.iloc[i : i + FORECAST_HORIZON]
+            metrics.plot_timestep(
                 record_targets[i].detach().numpy(),
                 record_expected_values[i].detach().numpy(),
                 y_pred_upper[i].detach().numpy(),
@@ -182,7 +182,7 @@ if __name__ == "__main__":
                 i,
                 OUTDIR,
                 PAR["cap_limit"],
-                hours,
+                actuals
             )
 
         #TODO: wrap up all following sample tests
