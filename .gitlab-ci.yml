@@ -11,11 +11,11 @@ workflow:
 
 stages:
     - prepare
-    - training
-    - test-train
-    - test-eval
-    - evaluation
-    - oracles:deploy
+#    - training
+#    - test-train
+#    - test-eval
+#    - evaluation
+#    - oracles:deploy
     - build
     - deploy
 
