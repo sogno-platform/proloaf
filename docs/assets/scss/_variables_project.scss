@@ -4,3 +4,22 @@ Add styles or override variables from the theme here.
 
 */
 
+html.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+// Theme colors
+
+$primary: #239fcc;
+$secondary: #fff;
+$dark: #1b5a75;
+$info: #adb5bd;
+$light: #dee2e6;
+$blue: #2ed9ff;
+
+// Nav bar colors
+
+$white: #fff;
+$navbar-dark-color: rgba($white, 1);
+$navbar-dark-hover-color: rgba($white, 0.75);
+$navbar-dark-active-color: $navbar-dark-color;
