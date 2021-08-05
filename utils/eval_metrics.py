@@ -742,7 +742,8 @@ def plot_timestep(target,
     plt.xticks(positions, new_labels)
     ax.set_xlabel("Time of Day", fontsize=20)# assuming hourly resolution in most of the evaluations
     plt.autoscale(enable=True, axis='x', tight=True)
-    plt.savefig(OUTPATH + 'eval_hour{}'.format(timestep))
+    plt.savefig(OUTPATH + 'eval_hour{}'.format(hour))
+    plt.show(fig)
     plt.close(fig)
 
 
