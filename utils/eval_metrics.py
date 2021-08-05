@@ -735,7 +735,7 @@ def evaluate_hours(target, pred, y_pred_upper, y_pred_lower, hour, OUTPATH, limi
     ax.set_xlabel("Hour of Day", fontsize=20)
     plt.autoscale(enable=True, axis='x', tight=True)
     plt.savefig(OUTPATH + 'eval_hour{}'.format(hour))
-    plt.close(fig)
+    plt.show(fig)
 
 
 def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):

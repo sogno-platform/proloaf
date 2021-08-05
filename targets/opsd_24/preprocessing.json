@@ -1,0 +1,37 @@
+{
+    "data_path": "data/opsd.csv",
+    "raw_path": "https://data.open-power-system-data.org/",
+    "local": false,
+    "csv_files": [
+        {
+            "file_name": "time_series/2020-10-06/time_series_60min_singleindex.csv",
+            "date_column": "utc_timestamp",
+            "time_zone": "UTC",
+            "dayfirst": false,
+            "sep": ",",
+            "combine": false,
+            "use_columns": [
+                "utc_timestamp",
+                "AT_load_actual_entsoe_transparency",
+                "DE_load_actual_entsoe_transparency"
+            ]
+        },
+        {
+            "file_name": "weather_data/2020-09-16/weather_data.csv",
+            "date_column": "utc_timestamp",
+            "time_zone": "UTC",
+            "dayfirst": false,
+            "sep": ",",
+            "combine": false,
+            "use_columns": [
+                "utc_timestamp",
+                "AT_temperature",
+                "AT_radiation_direct_horizontal",
+                "AT_radiation_diffuse_horizontal",
+                "DE_temperature",
+                "DE_radiation_direct_horizontal",
+                "DE_radiation_diffuse_horizontal"
+            ]
+        }
+    ]
+}
