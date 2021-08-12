@@ -43,8 +43,9 @@ Hyperparameter exploration
 from torch.utils.tensorboard import SummaryWriter
 #TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
 #if 'exploration' is used, this would violate our license policy as LGPL is not compatible with apache
-from utils.config_util import read_config, write_config, parse_with_loss, query_true_false, clean_up_tensorboard_dir
-from utils.csv_logger import create_log, log_data, write_log_to_csv
+from utils.confighandler import read_config, write_config
+from utils.cli import parse_with_loss, query_true_false
+from utils.loghandler import create_log, log_data, write_log_to_csv, clean_up_tensorboard_dir
 
 # import json
 import os
@@ -71,259 +72,19 @@ print(MAIN_PATH)
 sys.path.append(MAIN_PATH)
 
 # Do relative imports below this
-
-from utils.config_util import (
-    read_config,
-    write_config,
-    parse_with_loss,
-    query_true_false,
-    clean_up_tensorboard_dir,
-)
-from utils.csv_logger import create_log, log_data, write_log_to_csv
-import utils.datatuner as dt
-import utils.tensorloader as dl
-import utils.fc_network as fc_net
+from utils.loghandler import create_log, log_data, write_log_to_csv
+import utils.datahandler as dh
 import utils.modelhandler as mh
-
-# import utils.parameterhandler as ph
-# import utils.eval_metrics as metrics
 
 # ToDo:
 #      1. Decide whether exploration is to be overwritten.
 #      2. Also, look for visualization possibilities.
 
-
-# import shutil
-
-# import tempfile
-
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
-
-
 torch.manual_seed(1)
 
-
-class flag_and_store(argparse._StoreAction):
-
-    def __init__(self, option_strings, dest, dest_const, const, nargs=0, **kwargs):
-        self.dest_const = dest_const
-        if isinstance(const, list):
-            self.val = const[1:]
-            self.flag = const[0]
-        else:
-            self.val = []
-            self.flag = const
-        if isinstance(nargs, int):
-            nargs_store = nargs + len(self.val)
-        else:
-            nargs_store = nargs
-        super(flag_and_store, self).__init__(
-            option_strings, dest, const=None, nargs=nargs_store, **kwargs
-        )
-        self.nargs = nargs
-
-    def __call__(self, parser, namespace, values, option_strings=None):
-        setattr(namespace, self.dest_const, self.flag)
-        if isinstance(values, list):
-            self.val.extend(values)
-        elif values is not None:
-            self.val.append(values)
-
-        if len(self.val) == 1:
-            self.val = self.val[0]
-        super().__call__(parser, namespace, self.val, option_strings)
-
-
 warnings.filterwarnings("ignore")
-
-
-def set_optimizer(name, model, learning_rate):
-    """
-    Specify which optimizer to use during training.
-
-    Initialize a torch.optim optimizer for the given model based on the specified name and learning rate.
-
-    Parameters
-    ----------
-    name : string or None, default = 'adam'
-        The name of the torch.optim optimizer to be used. The following
-        strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
-    model : utils.fc_network.EncoderDecoder
-        The model which is to be optimized
-    learning_rate : float or None
-        The learning rate to be used by the optimizer. If set to None, the default value as defined in
-        torch.optim is used
-
-    Returns
-    -------
-    torch.optim optimizer class
-        A torch.optim optimizer that implements one of the following algorithms:
-        Adagrad, Adam, Adamax, AdamW, RMSprop, or SGD (stochastic gradient descent)
-        SGD is set to use a momentum of 0.5.
-
-    """
-
-
-    if name == "adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    if name == "sgd":
-        optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.5)
-    if name == "adamw":
-        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    if name == "adagrad":
-        optimizer = torch.optim.Adagrad(model.parameters(), lr=learning_rate)
-    if name == "adamax":
-        optimizer = torch.optim.Adamax(model.parameters(), lr=learning_rate)
-    if name == "rmsprop":
-        optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
-    return optimizer
-
-
-def make_model(
-    df: pd.DataFrame,
-    scalers,
-    encoder_features,
-    decoder_features,
-    batch_size,
-    history_horizon,
-    forecast_horizon,
-    train_split,
-    validation_split,
-    core_net,
-    relu_leak,
-    dropout_fc,
-    dropout_core,
-    rel_linear_hidden_size,
-    rel_core_hidden_size,
-    core_layers,
-    target_id,
-    cuda_id,
-    **_,
-):
-    """
-    Provide a model that has been prepared for training.
-
-    Split the given data frame into training, validation and testing sets and specify 
-    encoder and decoder features. Use specified device for CUDA tensors if available.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        The data frame containing the model features, to be split into sets for training
-    scalers : dict
-        A dict of sklearn.preprocessing scalers with their corresponding feature group
-        names (e.g."main", "add") as keywords
-    encoder_features : string list
-        A list containing desired encoder feature names as strings 
-    decoder_features : string list
-        A list containing desired decoder feature names as strings
-    batch_size : int scalar
-        The size of a batch for the tensor data loader
-    history_horizon : int scalar
-        The length of the history horizon in hours
-    forecast_horizon : int scalar
-        The length of the forecast horizon in hours
-    train_split : float scalar
-        Where to split the data frame for the training set, given as a fraction of data frame length
-    validation_split : float scalar
-        Where to split the data frame for the validation set, given as a fraction of data frame length
-    core_net : string
-        The name of the core_net, for example 'torch.nn.GRU'
-    relu_leak : float scalar
-        The value of the negative slope for the LeakyReLU
-    dropout_fc : float scalar
-        The dropout probability for the decoder
-    dropout_core : float scalar
-        The dropout probability for the core_net
-    rel_linear_hidden_size : float scalar
-        The relative linear hidden size, as a fraction of the total number of features in the training data
-    rel_core_hidden_size : float scalar
-        The relative core hidden size, as a fraction of the total number of features in the training data
-    core_layers : int scalar
-        The number of layers of the core_net
-    target_id : string
-        The name of feature to forecast, e.g. "demand"
-    cuda_id : Union[torch.device, str, int]
-        The device index to use for CUDA tensors
-
-    Returns
-    -------
-    utils.fc_network.EncoderDecoder
-        The prepared model with desired encoder/decoder features
-    utils.tensorloader.CustomTensorDataLoader
-        The training data loader
-    utils.tensorloader.CustomTensorDataLoader
-        The validation data loader 
-    utils.tensorloader.CustomTensorDataLoader
-        The test data loader 
-    """
-
-    if torch.cuda.is_available():
-        DEVICE = "cuda"
-        if cuda_id is not None:
-            torch.cuda.set_device(cuda_id)
-    else:
-        DEVICE = "cpu"
-
-    split_index = int(len(df.index) * train_split)
-    subsplit_index = int(len(df.index) * validation_split)
-
-    df_train = df.iloc[0:split_index]
-    df_val = df.iloc[split_index:subsplit_index]
-    df_test = df.iloc[subsplit_index:]
-
-    print("Size training set: \t{}".format(df_train.shape[0]))
-    print("Size validation set: \t{}".format(df_val.shape[0]))
-
-    # shape input data that is measured in the Past and can be fetched from UDW/LDW
-    train_data_loader = dl.make_dataloader(
-        df_train,
-        target_id,
-        encoder_features,
-        decoder_features,
-        history_horizon=history_horizon,
-        forecast_horizon=forecast_horizon,
-        batch_size=batch_size,
-    ).to(DEVICE)
-    validation_data_loader = dl.make_dataloader(
-        df_val,
-        target_id,
-        encoder_features,
-        decoder_features,
-        history_horizon=history_horizon,
-        forecast_horizon=forecast_horizon,
-        batch_size=batch_size,
-    ).to(DEVICE)
-    test_data_loader = dl.make_dataloader(
-        df_test,
-        target_id,
-        encoder_features,
-        decoder_features,
-        history_horizon=history_horizon,
-        forecast_horizon=forecast_horizon,
-        batch_size=1,
-    ).to(DEVICE)
-
-    in_size1 = train_data_loader.number_features1()
-    in_size2 = train_data_loader.number_features2()
-    net = fc_net.EncoderDecoder(
-        input_size1=in_size1,
-        input_size2=in_size2,
-        out_size=ARGS.num_pred,
-        dropout_fc=dropout_fc,
-        dropout_core=dropout_core,
-        rel_linear_hidden_size=rel_linear_hidden_size,
-        rel_core_hidden_size=rel_core_hidden_size,
-        scalers=scalers,
-        core_net=core_net,
-        relu_leak=relu_leak,
-        core_layers=core_layers,
-        criterion=ARGS.loss,
-    )
-
-    return net, train_data_loader, validation_data_loader, test_data_loader
-
 
 def train(
     train_data_loader,
@@ -332,15 +93,8 @@ def train(
     net,
     learning_rate=None,
     batch_size=None,
-    history_horizon=None,
     forecast_horizon=None,
-    core_net=None,
-    relu_leak=None,
     dropout_fc=None,
-    dropout_core=None,
-    rel_linear_hidden_size=None,
-    rel_core_hidden_size=None,
-    cuda_id=None,
     log_df=None,
     optimizer_name=None,
     max_epochs=None,
@@ -362,30 +116,18 @@ def train(
         The validation data loader
     test_data_loader : utils.tensorloader.CustomTensorDataLoader
         The test data loader    
-    net : utils.fc_network.EncoderDecoder
+    net : utils.models.EncoderDecoder
         The model to be trained
     learning_rate : float, optional
         The specified optimizer's learning rate
     batch_size :  int scalar, optional   
         The size of a batch for the tensor data loader
-    history_horizon : int scalar, optional
-        The length of the history horizon in hours
     forecast_horizon : int scalar, optional
         The length of the forecast horizon in hours
-    core_net : string, optional
-        The name of the core_net, for example 'torch.nn.GRU'
-    relu_leak : float scalar, optional
-        The value of the negative slope for the LeakyReLU
     dropout_fc : float scalar, optional
         The dropout probability for the decoder
     dropout_core : float scalar, optional
         The dropout probability for the core_net
-    rel_linear_hidden_size : float scalar, optional
-        The relative linear hidden size, as a fraction of the total number of features in the training data
-    rel_core_hidden_size : float scalar, optional
-        The relative core hidden size, as a fraction of the total number of features in the training data
-    cuda_id : Union[torch.device, str, int], optional
-        The device index to use for CUDA tensors
     log_df : pandas.DataFrame, optional
         A DataFrame in which the results and parameters of the training are logged
     optimizer_name : string, optional
@@ -398,7 +140,7 @@ def train(
     
     Returns
     -------
-    utils.fc_network.EncoderDecoder
+    utils.models.EncoderDecoder
         The trained model
     pandas.DataFrame
         A DataFrame in which the results and parameters of the training have been logged
@@ -409,20 +151,13 @@ def train(
         The current implementation calculates the Mean Interval Score and returns either a float, or 1d-Array with the MIS along the horizon.
         A lower score is generally better
     """
-    if torch.cuda.is_available():
-        DEVICE = "cuda"
-        if cuda_id is not None:
-            torch.cuda.set_device(cuda_id)
-    else:
-        DEVICE = "cpu"
-
     net.to(DEVICE)
     criterion = ARGS.loss
     # to track the validation loss as the model trains
     valid_losses = []
 
     early_stopping = mh.EarlyStopping()
-    optimizer = set_optimizer(optimizer_name, net, learning_rate)
+    optimizer = mh.set_optimizer(optimizer_name, net, learning_rate)
 
     inputs1, inputs2, targets = next(iter(train_data_loader))
 
@@ -623,9 +358,14 @@ def objective(selected_features, scalers, hyper_param, log_df, **_):
         PAR.update(param)
         PAR["hyper_params"] = param
         PAR["trial_id"] = PAR["trial_id"] + 1
+        train_dl, validation_dl, test_dl = dh.transform(selected_features, device=DEVICE, **PAR)
 
-        model, train_dl, validation_dl, test_dl = make_model(
-            selected_features, scalers, **PAR
+        model = mh.make_model(
+            scalers=scalers,
+            enc_size=train_dl.number_features1(),
+            dec_size=train_dl.number_features2(),
+            loss=ARGS.loss,
+            **PAR,
         )
         _, _, val_loss, _ = train(
             train_data_loader=train_dl,
@@ -648,14 +388,14 @@ def main(infile, outmodel, target_id, log_path=None):
     # Read load data
     df = pd.read_csv(infile, sep=";", index_col=0)
 
-    dt.fill_if_missing(df)
+    dh.fill_if_missing(df)
 
     #only use target list if you want to predict the summed value. Actually the use is not recommended.
     if "target_list" in PAR:
         if PAR["target_list"] is not None:
             df[target_id] = df[PAR["target_list"]].sum(axis=1)
 
-    selected_features, scalers = dt.scale_all(df, **PAR)
+    selected_features, scalers = dh.scale_all(df, **PAR)
 
     path = os.path.join(
         MAIN_PATH,
@@ -768,9 +508,16 @@ def main(infile, outmodel, target_id, log_path=None):
                     print("Training with hyper parameters fetched from config.json")
 
         PAR["trial_id"] = "main_run"
-        model, train_dl, validation_dl, test_dl = make_model(
-            selected_features, scalers, **PAR
+        train_dl, validation_dl, test_dl = dh.transform(selected_features, device=DEVICE, **PAR)
+
+        model = mh.make_model(
+            scalers=scalers,
+            enc_size=train_dl.number_features1(),
+            dec_size=train_dl.number_features2(),
+            loss=ARGS.loss,
+            **PAR,
         )
+
         net, log_df, loss, new_score = train(
             train_data_loader=train_dl,
             validation_data_loader=validation_dl,
@@ -850,6 +597,14 @@ if __name__ == "__main__":
     PAR = read_config(
         model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH
     )
+
+    if torch.cuda.is_available():
+        DEVICE = "cuda"
+        if PAR["cuda_id"] is not None:
+            torch.cuda.set_device(PAR["cuda_id"])
+    else:
+        DEVICE = 'cpu'
+
     if PAR["exploration"]:
         PAR["trial_id"] = 0  # set global trial ID for logging trials in subfolders
     main(

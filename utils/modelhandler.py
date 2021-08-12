@@ -24,12 +24,13 @@ and testing model performance.
 """
 
 import numpy as np
+import pandas as pd
 import torch
-import utils.eval_metrics as metrics
 import shutil
-import matplotlib
-# matplotlib.use('svg') #svg can be used for easy when working on VMs
 import tempfile
+
+from utils import models
+from utils import metrics
 
 class EarlyStopping:
     """
@@ -85,7 +86,7 @@ class EarlyStopping:
         ----------
         val_loss : float
             The validation loss, as calculated by one of the metrics in utils.eval_metrics
-        model : utils.fc_network.EncoderDecoder
+        model : utils.models.EncoderDecoder
             The model being trained
         """
         if self.verbose:
@@ -101,7 +102,7 @@ def get_prediction(net, data_loader, horizon, number_of_targets):
 
     Parameters
     ----------
-    net : utils.fc_network.EncoderDecoder
+    net : utils.models.EncoderDecoder
         The model with which to calculate the predictions
     data_loader : utils.tensorloader.CustomTensorDataLoader
         Contains the input data and targets
@@ -226,6 +227,25 @@ def calculate_relative_metric(curr_score, best_score):
     """
     return (100 / best_score) * (best_score - curr_score)
 
+class loss:
+    """
+    Stores loss functions and how many parameters they have.
+
+    Parameters
+    ----------
+    func : callable
+        A callable loss function
+    num_params : int
+        Number of parameters
+    """
+
+    def __init__(self, func, num_params):
+        self._func = func
+        self.num_params = num_params
+
+    def __call__(self, *args,**kwargs):
+        return self._func(*args,**kwargs)
+
 def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_horizon=True, horizon=1, number_of_targets=1):
     """
     Determine the score of the given model using the specified metrics in utils.eval_metrics
@@ -235,7 +255,7 @@ def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_hor
 
     Parameters
     ----------
-    net : utils.fc_network.EncoderDecoder
+    net : utils.models.EncoderDecoder
         The model for which the score is to be determined
     data_loader : utils.tensorloader.CustomTensorDataLoader
         Contains the input data and targets
@@ -289,3 +309,116 @@ def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_hor
         #TODO: catch exception here if performance score is undefined
         score=None
     return score
+
+def set_optimizer(name, model, learning_rate):
+    """
+    Specify which optimizer to use during training.
+
+    Initialize a torch.optim optimizer for the given model based on the specified name and learning rate.
+
+    Parameters
+    ----------
+    name : string or None, default = 'adam'
+        The name of the torch.optim optimizer to be used. The following
+        strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
+    model : utils.models.EncoderDecoder
+        The model which is to be optimized
+    learning_rate : float or None
+        The learning rate to be used by the optimizer. If set to None, the default value as defined in
+        torch.optim is used
+
+    Returns
+    -------
+    torch.optim optimizer class
+        A torch.optim optimizer that implements one of the following algorithms:
+        Adagrad, Adam, Adamax, AdamW, RMSprop, or SGD (stochastic gradient descent)
+        SGD is set to use a momentum of 0.5.
+
+    """
+
+    if name == "adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    if name == "sgd":
+        optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.5)
+    if name == "adamw":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    if name == "adagrad":
+        optimizer = torch.optim.Adagrad(model.parameters(), lr=learning_rate)
+    if name == "adamax":
+        optimizer = torch.optim.Adamax(model.parameters(), lr=learning_rate)
+    if name == "rmsprop":
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
+    return optimizer
+
+def make_model(
+    scalers,
+    enc_size,
+    dec_size,
+    num_pred,
+    loss,
+    core_net,
+    relu_leak,
+    dropout_fc,
+    dropout_core,
+    rel_linear_hidden_size,
+    rel_core_hidden_size,
+    core_layers,
+    **_,
+):
+    """
+    Provide a model that has been prepared for training.
+
+    Split the given data frame into training, validation and testing sets and specify
+    encoder and decoder features. Use specified device for CUDA tensors if available.
+
+    Parameters
+    ----------
+    scalers : dict
+        A dict of sklearn.preprocessing scalers with their corresponding feature group
+        names (e.g."main", "add") as keywords
+    enc_size : int
+        TODO
+    dec_size : int
+        TODO
+    num_pred : int
+        The number of prediction outputs, depending on loss function
+    loss : string
+        The string to specify the loss function
+    core_net : string
+        The name of the core_net, for example 'torch.nn.GRU'
+    relu_leak : float scalar
+        The value of the negative slope for the LeakyReLU
+    dropout_fc : float scalar
+        The dropout probability for the decoder
+    dropout_core : float scalar
+        The dropout probability for the core_net
+    rel_linear_hidden_size : float scalar
+        The relative linear hidden size, as a fraction of the total number of features in the training data
+    rel_core_hidden_size : float scalar
+        The relative core hidden size, as a fraction of the total number of features in the training data
+    core_layers : int scalar
+        The number of layers of the core_net
+    target_id : string
+        The name of feature to forecast, e.g. "demand"
+
+    Returns
+    -------
+    utils.models.EncoderDecoder
+        The prepared model with desired encoder/decoder features
+    """
+    net = models.EncoderDecoder(
+        input_size1=enc_size,
+        input_size2=dec_size,
+        out_size=num_pred,
+        dropout_fc=dropout_fc,
+        dropout_core=dropout_core,
+        rel_linear_hidden_size=rel_linear_hidden_size,
+        rel_core_hidden_size=rel_core_hidden_size,
+        scalers=scalers,
+        core_net=core_net,
+        relu_leak=relu_leak,
+        core_layers=core_layers,
+        criterion=loss,
+    )
+
+    return net

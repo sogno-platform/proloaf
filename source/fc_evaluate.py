@@ -32,14 +32,10 @@ in the corresponding config file.
 
 """
 
-import utils.datatuner as dt
+import utils.datahandler as dt
 import utils.tensorloader as dl
-import utils.eval_metrics as metrics
+import utils.metrics as metrics
 import utils.modelhandler as mh
-# from sklearn.preprocessing import RobustScaler
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.preprocessing import MinMaxScaler
-
 
 # TODO: find workaround for PICP numpy issue
 import numpy as np
@@ -54,7 +50,8 @@ MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 warnings.filterwarnings('ignore')
 
-from utils.config_util import read_config, parse_basic
+from utils.confighandler import read_config
+from utils.cli import parse_basic
 
 if __name__ == "__main__":
     ARGS = parse_basic()

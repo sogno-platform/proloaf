@@ -40,10 +40,10 @@ import os
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-from utils.config_util import read_config, parse_basic
+from utils.confighandler import read_config, parse_basic
 #Import customized functions below this point
 
-import utils.datatuner as dt
+import utils.datahandler as dt
 
 def load_raw_data_xlsx(files):
     """

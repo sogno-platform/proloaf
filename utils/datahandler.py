@@ -28,18 +28,10 @@ useful for testing or future applications.
 
 import numpy as np
 import pandas as pd
+import utils.tensorloader as tl
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
-
-# import torch
-# import shutil
-# import matplotlib.pyplot as plt
-# import sklearn as sk
-# from sklearn import preprocessing
-# import torch
-# import sklearn
-
 
 def load_dataframe(data_path):
     """
@@ -283,7 +275,7 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
 
     Parameters
     ----------
-    net : utils.fc_network.EncoderDecoder
+    net : utils.models.EncoderDecoder
         The model that was used to generate the predictions.
     output : list
         A list containing predicted values. Each entry in the list is a set of predictions
@@ -502,3 +494,92 @@ def constructDf(
             )
         )
     return train, test
+
+def transform(
+        df: pd.DataFrame,
+        encoder_features,
+        decoder_features,
+        batch_size,
+        history_horizon,
+        forecast_horizon,
+        target_id,
+        train_split=0.7,
+        validation_split=0.85,
+        device='cpu',
+        **_,
+):
+    """
+    Construct tensor-data-loader transformed for encoderdecoder model input
+
+    Parameters
+    ----------
+    TODO: check if consistent with new structure
+    df : pandas.DataFrame
+        The data frame containing the model features, to be split into sets for training
+    encoder_features : string list
+        A list containing desired encoder feature names as strings
+    decoder_features : string list
+        A list containing desired decoder feature names as strings
+    batch_size : int scalar
+        The size of a batch for the tensor data loader
+    history_horizon : int scalar
+        The length of the history horizon in hours
+    forecast_horizon : int scalar
+        The length of the forecast horizon in hours
+    train_split : float scalar
+        Where to split the data frame for the training set, given as a fraction of data frame length
+    validation_split : float scalar
+        Where to split the data frame for the validation set, given as a fraction of data frame length
+    device : string
+        defines whether to handle data with cpu or cuda
+
+    Returns
+    -------
+    utils.tensorloader.CustomTensorDataLoader
+        The training data loader
+    utils.tensorloader.CustomTensorDataLoader
+        The validation data loader
+    utils.tensorloader.CustomTensorDataLoader
+        The test data loader
+    """
+
+    split_index = int(len(df.index) * train_split)
+    subsplit_index = int(len(df.index) * validation_split)
+
+    df_train = df.iloc[0:split_index]
+    df_val = df.iloc[split_index:subsplit_index]
+    df_test = df.iloc[subsplit_index:]
+
+    print("Size training set: \t{}".format(df_train.shape[0]))
+    print("Size validation set: \t{}".format(df_val.shape[0]))
+
+    # shape input data that is measured in the Past and can be fetched from UDW/LDW
+    train_data_loader = tl.make_dataloader(
+        df_train,
+        target_id,
+        encoder_features,
+        decoder_features,
+        history_horizon=history_horizon,
+        forecast_horizon=forecast_horizon,
+        batch_size=batch_size,
+    ).to(device)
+    validation_data_loader = tl.make_dataloader(
+        df_val,
+        target_id,
+        encoder_features,
+        decoder_features,
+        history_horizon=history_horizon,
+        forecast_horizon=forecast_horizon,
+        batch_size=batch_size,
+    ).to(device)
+    test_data_loader = tl.make_dataloader(
+        df_test,
+        target_id,
+        encoder_features,
+        decoder_features,
+        history_horizon=history_horizon,
+        forecast_horizon=forecast_horizon,
+        batch_size=1,
+    ).to(device)
+
+    return train_data_loader, validation_data_loader, test_data_loader

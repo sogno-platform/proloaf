@@ -195,8 +195,8 @@ class EncoderDecoder(nn.Module):
         Encoder input size
     input_size2 : int
         Decoder input size
-    criterion : callable
-        The loss function
+    criterion : string
+        The loss function that is used to train the model
     out_size : int, default = 1
         Dimension of Decoder output (number of predictions)
     rel_linear_hidden_size : float, default = 1
@@ -219,7 +219,7 @@ class EncoderDecoder(nn.Module):
     def __init__(self,
                 input_size1: int,
                 input_size2: int,
-                criterion: 'gnll',
+                criterion = 'nll_gaus',
                 out_size: int = 1,
                 rel_linear_hidden_size : float = 1.,
                 rel_core_hidden_size : float = 1.,

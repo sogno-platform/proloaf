@@ -18,10 +18,10 @@
 # under the License.
 # ==============================================================================
 """
-Provides functions for logging training results and reading and writing those logs to/from csv files.
+Provides functions for logging training results and reading and writing those logs to/from csv or tensorboard files.
 """
 
-from utils.config_util import *
+from utils.confighandler import *
 
 import pandas as pd
 import os
@@ -180,3 +180,30 @@ def write_log_to_csv(log_df, path = None, model_name = None):
             if not os.path.exists(path):
                 os.makedirs(path)
             log_df.to_csv(os.path.join(path, model_name), sep=';')
+
+def clean_up_tensorboard_dir(run_dir):
+    """
+    Move hyperparameter logs out of subfolders
+
+    Iterate over all subdirectories of run_dir, moving any files they contain into run_dir.
+    Neither sub-subdirectories nor their contents are moved. Delete them along with the subdirectories.
+
+    Parameters
+    ----------
+    run_dir : string
+        The path to the run directory
+
+    Returns
+    -------
+    No return value
+    """
+    # move hparam logs out of subfolders
+    subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
+
+    for dir in subdir_list:
+        subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
+        files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
+        for f in files:
+            shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
+        shutil.rmtree(subdir)  # removes the now empty subdir
+        # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
