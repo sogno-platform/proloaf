@@ -70,6 +70,7 @@ if __name__ == '__main__':
     par["forecast_horizon"] = 24
     par["train_split"] = 0.7
     par["validation_split"] = 0.85
+    par["periodicity"] = 24
     par["core_net"] = 'torch.nn.GRU'
     par["optimizer_name"] = 'adam'
     par["exploration"] = True
