@@ -33,6 +33,283 @@ from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
+def load_raw_data_xlsx(files, path):
+    """
+    Load data from an xlsx file
+
+    After loading, the date column in the raw data is converted to a UTC datetime
+
+    Parameters
+    ----------
+    files : list
+        A list of files to read. See the Notes section for more information
+    path : string
+        The path specification which holds the input files in .XLSX format
+
+    Returns
+    -------
+    list
+        A list containing a DataFrame for each file that was read
+
+    Notes
+    -----
+    - Files is an array of maps containing the following data with the keyword (keyword)
+        + ('file_name') the name of the xlsx file
+        + ('date_column') the name of the date_column in the raw_data
+        + ('time_zone') specifier for the timezone the raw data is recorded in
+        + ('sheet_name') name or list of names of the sheets that are to be read
+        + ('combine') boolean, all datasheets with true are combined into one, all others are read individually
+        + ('start_column') Columns between this and ('end_column') are loaded
+        + ('end_column')
+
+    """
+    print("Importing XLSX Data...")
+
+    combined_files = []
+    individual_files = []
+
+    for xlsx_file in files:
+        print("importing " + xlsx_file["file_name"])
+        # if isinstance(file_name, str):
+        #     file_name = [file_name,'UTC']
+        date_column = xlsx_file["date_column"]
+        raw_data = pd.read_excel(
+            path + xlsx_file["file_name"],
+            xlsx_file["sheet_name"],
+            parse_dates=[date_column],
+        )
+
+        # convert load data to UTC
+        if xlsx_file["time_zone"] != "UTC":
+            raw_data[date_column] = (
+                pd.to_datetime(raw_data[date_column])
+                .dt.tz_localize(xlsx_file["time_zone"], ambiguous="infer")
+                .dt.tz_convert("UTC")
+                .dt.strftime("%Y-%m-%d %H:%M:%S")
+            )
+        else:
+            if xlsx_file["dayfirst"]:
+                raw_data[date_column] = pd.to_datetime(
+                    raw_data[date_column], format="%d-%m-%Y %H:%M:%S"
+                ).dt.tz_localize(None)
+            else:
+                raw_data[date_column] = pd.to_datetime(
+                    raw_data[date_column], format="%Y-%m-%d %H:%M:%S"
+                ).dt.tz_localize(None)
+
+        if xlsx_file["data_abs"]:
+            raw_data.loc[
+                :, xlsx_file["start_column"] : xlsx_file["end_column"]
+            ] = raw_data.loc[
+                :, xlsx_file["start_column"] : xlsx_file["end_column"]
+            ].abs()
+        # rename column IDs, specifically Time, this will be used later as the df index
+        raw_data.rename(columns={date_column: "Time"}, inplace=True)
+        raw_data.head()  # now the data is positive and set to UTC
+        raw_data.info()
+        # interpolating for missing entries created by asfreq and original missing values if any
+        raw_data.interpolate(method="time", inplace=True)
+
+        if xlsx_file["combine"]:
+            combined_files.append(raw_data)
+        else:
+            individual_files.append(raw_data)
+    if len(combined_files) > 0:
+        individual_files.append(pd.concat(combined_files))
+    return individual_files
+
+
+def load_raw_data_csv(files, path):
+    """
+    Load data from a csv file
+
+    After loading, the date column in the raw data is converted to a UTC datetime
+
+    Parameters
+    ----------
+    files : list
+        A list of files to read. See the Notes section for more information
+    path : string
+        The path specification which holds the input files in .CSV format
+
+    Returns
+    -------
+    list
+        A list containing a DataFrame for each file that was read
+
+    Notes
+    -----
+    - Files is an array of maps containing the following data with the keyword (keyword)
+        + ('file_name') the name of the load_file
+        + ('date_column') the name of the date_column in the raw_data
+        + ('dayfirst') specifier for the formatting of the read time
+        + ('sep') separator used in this file
+        + ('combine') boolean, all datasheets with true are combined into one, all others are read individually
+        + ('use_columns') list of columns that are loaded
+
+    """
+
+    print("Importing CSV Data...")
+
+    combined_files = []
+    individual_files = []
+
+    for csv_file in files:
+        print("Importing " + csv_file["file_name"] + " ...")
+        date_column = csv_file["date_column"]
+        raw_data = pd.read_csv(
+            path + csv_file["file_name"],
+            sep=csv_file["sep"],
+            usecols=csv_file["use_columns"],
+            parse_dates=[date_column],
+            dayfirst=csv_file["dayfirst"],
+        )
+        # pd.read_csv(INPATH + name, sep=sep, usecols=cols, parse_dates=[date_column] , dayfirst=dayfirst)
+        if csv_file["time_zone"] != "UTC":
+            raw_data[date_column] = (
+                pd.to_datetime(raw_data[date_column])
+                .dt.tz_localize(csv_file["time_zone"], ambiguous="infer")
+                .dt.tz_convert("UTC")
+                .dt.strftime("%Y-%m-%d %H:%M:%S")
+            )
+        else:
+            if csv_file["dayfirst"]:
+                raw_data[date_column] = pd.to_datetime(
+                    raw_data[date_column], format="%d-%m-%Y %H:%M:%S"
+                ).dt.tz_localize(None)
+            else:
+                raw_data[date_column] = pd.to_datetime(
+                    raw_data[date_column], format="%Y-%m-%d %H:%M:%S"
+                ).dt.tz_localize(None)
+
+        print("...Importing finished. ")
+        raw_data.rename(columns={date_column: "Time"}, inplace=True)
+
+        if csv_file["combine"]:
+            combined_files.append(raw_data)
+        else:
+            individual_files.append(raw_data)
+
+    if len(combined_files) > 0:
+        individual_files.append(pd.concat(combined_files, sort=False))
+    # for frame in individual_files:
+    #    frame.rename(columns={date_column: 'Time'}, inplace=True)
+    return individual_files
+
+def add_cyclical_features(df):
+    """
+    Generates and adds trionemetric values to the DataFrame in respect to the index 'Time'.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame that is complemented with cyclical time features
+
+    Returns
+    -------
+    df
+        The modified DataFrame
+
+    """
+    ## source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
+    df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
+    df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
+    df["mnth_sin"] = np.sin((df.index.month - 1) * (2.0 * np.pi / 12))
+    df["mnth_cos"] = np.cos((df.index.month - 1) * (2.0 * np.pi / 12))
+    return df
+
+def add_onehot_features(df):
+    """
+    Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame that is complemented with one-hot coded time features
+
+    Returns
+    -------
+    df
+        The modified DataFrame
+
+    """
+    # add one-hot encoding for Hour, Month & Weekdays
+    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(
+        df.index
+    )  # one-hot encoding of hours
+    month = pd.get_dummies(df.index.month, prefix="month").set_index(
+        df.index
+    )  # one-hot encoding of month
+    weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(
+        df.index
+    )  # one-hot encoding of weekdays
+    df = pd.concat([df, hours, month, weekday], axis=1)
+    return df
+
+def check_continuity(df):
+    """
+    Raises value error upon violation of continuity constraint of the timeseries data.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame whose index shall be checked against time continuity
+
+    Returns
+    -------
+    ValueError
+        The error message
+
+    """
+    if not df.index.equals(
+        pd.date_range(min(df.index), max(df.index), freq=df.index.freq)
+    ):
+        raise ValueError("DateTime index is not continuous")
+    return
+
+def check_nans(df):
+    """
+    Print information upon missing values in the timeseries data.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame whose values shall be checked against missing values
+
+    Returns
+    -------
+    Print
+        Print message whether or not data is missing in the given DataFrame
+
+    """
+    if not df.isnull().values.any():
+        print("No missing data \n")
+    else:
+        print("Missing data detected \n")
+
+    return
+
+def set_to_hours(df):
+    """
+    Sets the index of the DataFrame to 'Time' and the frequency to hours.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame whose index and frequency are to be changed
+
+    Returns
+    -------
+    df
+        The modified DataFrame
+
+    """
+
+    df["Time"] = pd.to_datetime(df["Time"])
+    df = df.set_index("Time")
+    df = df.asfreq(freq="H")
+    return df
+
 def load_dataframe(data_path):
     """
     Load the excel file at the given path into a pandas.DataFrame
