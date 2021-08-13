@@ -514,6 +514,7 @@ def main(infile, outmodel, target_id, log_path=None):
             scalers=scalers,
             enc_size=train_dl.number_features1(),
             dec_size=train_dl.number_features2(),
+            num_pred=ARGS.num_pred,
             loss=ARGS.loss,
             **PAR,
         )
