@@ -40,7 +40,8 @@ import os
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-from utils.confighandler import read_config, parse_basic
+from utils.confighandler import read_config
+from utils.cli import parse_basic
 
 # Import customized functions below this point
 
