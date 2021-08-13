@@ -23,7 +23,7 @@ Train an RNN model for load forecasting based on provided data.
 Train an RNN model on prepared data loaded as pandas dataframe from a csv file. 
 Hyperparameter exploration using optuna is also possible if desired. 
 The trained model is saved at the location specified under "output_path": in the corresponding 
-config.json and can be loaded via torch.load() or evaluated by using the fc_evaluate.py script. 
+config.json and can be loaded via torch.load() or evaluated by using the evaluate.py script.
 This script scales the data, loads a custom datastructure and then generates and trains a neural net.
 
 Notes
