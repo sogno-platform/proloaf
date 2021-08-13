@@ -47,7 +47,7 @@ torch.set_grad_enabled(True)
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-import utils.datahandler as dt
+import utils.datahandler as dh
 import utils.metrics as metrics
 import utils.baselinehandler as baselines
 
@@ -148,7 +148,7 @@ def main(infile, target_id):
     sarimax_model = None
     # Read load data
     df = pd.read_csv(infile, sep=';',index_col=0)
-    dt.fill_if_missing(df)
+    dh.fill_if_missing(df)
     df['Time'] = pd.to_datetime(df['Time'])
     df = df.set_index('Time')
     df = df.asfreq(freq='H')
@@ -170,15 +170,15 @@ def main(infile, target_id):
         if target in dec_features: dec_features.remove(target)
 
         if SCALE_DATA:
-            df, _ = dt.scale_all(df, **PAR)
+            df, _ = dh.scale_all(df, **PAR)
 
         df_train = df.iloc[:int(PAR['validation_split'] * len(df))]
         df_val = df.iloc[int(PAR['validation_split'] * len(df)):]
 
-        x_train = dt.extract(df_train.iloc[:-PAR['forecast_horizon']], PAR['forecast_horizon'])
-        x_val = dt.extract(df_val.iloc[:-PAR['forecast_horizon']], PAR['forecast_horizon'])
-        y_train = dt.extract(df_train.iloc[PAR['forecast_horizon']:], PAR['forecast_horizon'])
-        y_val = dt.extract(df_val.iloc[PAR['forecast_horizon']:], PAR['forecast_horizon'])
+        x_train = dh.extract(df_train.iloc[:-PAR['forecast_horizon']], PAR['forecast_horizon'])
+        x_val = dh.extract(df_val.iloc[:-PAR['forecast_horizon']], PAR['forecast_horizon'])
+        y_train = dh.extract(df_train.iloc[PAR['forecast_horizon']:], PAR['forecast_horizon'])
+        y_val = dh.extract(df_val.iloc[PAR['forecast_horizon']:], PAR['forecast_horizon'])
 
         target_column = df.columns.get_loc(target)
 

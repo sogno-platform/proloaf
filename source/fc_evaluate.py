@@ -32,7 +32,7 @@ in the corresponding config file.
 
 """
 
-import utils.datahandler as dt
+import utils.datahandler as dh
 import utils.tensorloader as dl
 import utils.metrics as metrics
 import utils.modelhandler as mh
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     # Read load data
     df = pd.read_csv(INFILE, sep=";")
-    df = dt.fill_if_missing(df)
+    df = dh.fill_if_missing(df)
 
     if "target_list" in PAR:
         if PAR["target_list"] is not None:
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     with torch.no_grad():
         net = torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
 
-        df_new, _ = dt.scale_all(df, scalers=net.scalers, **PAR)
+        df_new, _ = dh.scale_all(df, scalers=net.scalers, **PAR)
         df_new.index = df['Time']
 
         split_index = int(len(df_new.index) * SPLIT_RATIO)
