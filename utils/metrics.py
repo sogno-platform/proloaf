@@ -386,8 +386,6 @@ def sharpness(predictions:list, total = True):
 
     Parameters
     ----------
-    target : torch.Tensor
-        The true values of the target variable
     predictions : list
         - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
         - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.Tensor)
@@ -613,6 +611,7 @@ def results_table(models, results, save_to_disc=False):
 
     Parameters
     ----------
+    TODO: update only for the case that results includes the metrics
     models : string list or None
         The names of the models to use as index e.g. "gc17ct_GRU_gnll_test_hp"
     mse : ndarray
