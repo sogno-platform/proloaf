@@ -33,7 +33,7 @@ in the corresponding config file.
 """
 
 import utils.datahandler as dh
-import utils.tensorloader as dl
+import utils.tensorloader as tl
 import utils.metrics as metrics
 import utils.plot as plot
 import utils.modelhandler as mh
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         train_df = df_new.iloc[0:split_index]
         test_df = df_new.iloc[split_index:]
 
-        test_data_loader = dl.make_dataloader(
+        test_data_loader = tl.make_dataloader(
             test_df,
             target_id,
             PAR["encoder_features"],
