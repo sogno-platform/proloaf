@@ -566,9 +566,9 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     Returns
     -------
     torch.Tensor
-        The expected values of the prediction, after rescaling
-    torch.Tensor
-        The targets (untransformed)
+        The targets (rescaled)
+    list
+        The expected values (for prob.: prediction intervals of the forecast, after rescaling, in form of output list)
     """
     #TODO: isn't this also in a function of datatuner
     #TODO: finish documentation
@@ -607,18 +607,21 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     # rescale
     loss_type = net.criterion  # check the name here
     targets_rescaled = (targets * scale) + center
+    output_rescaled = output
     if loss_type == "pinball":
-        expected_values = (output[1] * scale) + center
-        quantiles = (output[0] * scale) + center
+        output_rescaled[1] = (output[1] * scale) + center # expected value
+        output_rescaled[0] = (output[0] * scale) + center #quantile
     elif loss_type == "nll_gauss" or loss_type == "crps":
-        expected_values = (output[0] * scale) + center
-        variances = output[1] * (scale ** 2)
+        output_rescaled[1] = (output[0] * scale) + center # expected value
+        output_rescaled[0] = output[1] * (scale ** 2) #variance
+    else: # case: rmse, case, mse, case rae etc.
+        output_rescaled = (output * scale) + center
     # TODO: else options
 
-    return expected_values, targets
+    return targets_rescaled, output_rescaled
 
 
-def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers={}, **_):
+def scale_all(df: pd.DataFrame, feature_groups, start_date=None, **_):
     """
     Scale and return the specified feature groups of the given DataFrame, each with their own
     scaler, beginning at the index 'start_date'
@@ -657,7 +660,7 @@ def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers={}, **_
     # TODO should these be named for potential double scaling (name can be used as suffix in join)
     # TODO check if it is critical that we do not use fitted scalers in evaluate script
     scaled_features = pd.DataFrame(index=df.index)[start_date:]
-    # scalers = {}
+    scalers = {}
     for group in feature_groups:
         df_to_scale = df.filter(group["features"])[start_date:]
 

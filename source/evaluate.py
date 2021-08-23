@@ -39,11 +39,9 @@ import utils.plot as plot
 import utils.modelhandler as mh
 
 # TODO: find workaround for PICP numpy issue
-import numpy as np
 import pandas as pd
 import torch
 import warnings
-import matplotlib.pyplot as plt
 import sys
 import os
 
@@ -75,6 +73,8 @@ if __name__ == "__main__":
     HISTORY_HORIZON = PAR["history_horizon"]
     FORECAST_HORIZON = PAR["forecast_horizon"]
     feature_groups = PAR["feature_groups"]
+
+    target_stations = PAR["model_name"]
 
     if not os.path.exists(OUTDIR):
         os.makedirs(OUTDIR)
@@ -113,7 +113,10 @@ if __name__ == "__main__":
         number_of_targets = test_data_loader.dataset.targets.shape[2]
 
         record_targets, record_output = mh.get_prediction(
-            net, test_data_loader, horizon, number_of_targets
+            net,
+            test_data_loader,
+            horizon,
+            number_of_targets
         )
 
         net.eval()
@@ -121,58 +124,55 @@ if __name__ == "__main__":
         criterion = net.criterion
         # get metrics parameters
         y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(
-            record_output, criterion, record_targets
+            record_output,
+            criterion,
+            record_targets
         )
 
-        # rescale(test_output, test_targets)
-        # dt.rescale_manually(..)
-
-        # calculate the metrics
-        mse_horizon = metrics.mse(record_targets, [record_expected_values], total=False)
-        rmse_horizon = metrics.rmse(
-            record_targets, [record_expected_values], total=False
+        # targets_rescaled, output_rescaled = dh.rescale_manually(..)
+        analyzed_metrics=[
+            "mse",
+            "rmse",
+            "sharpness",
+            "picp",
+            "rae",
+            "mae",
+            "mis",
+            "mase",
+            "pinball_loss",
+            "residuals"
+        ]
+        results = metrics.fetch_metrics(
+            targets=record_targets,
+            expected_values=record_expected_values,
+            y_pred_upper=y_pred_upper,
+            y_pred_lower=y_pred_lower,
+            analyzed_metrics=analyzed_metrics #all above listes metrics are fetched
         )
-        sharpness_horizon = metrics.sharpness(
-            None, [y_pred_upper, y_pred_lower], total=False
+        results_per_timestep = metrics.fetch_metrics(
+            targets=record_targets,
+            expected_values=record_expected_values,
+            y_pred_upper=y_pred_upper,
+            y_pred_lower=y_pred_lower,
+            analyzed_metrics=["rmse",
+                              "sharpness",
+                              "picp",
+                              "mis"],
+            total=False,
         )
-        coverage_horizon = metrics.picp(
-            record_targets, [y_pred_upper, y_pred_lower], total=False
-        )
-        mis_horizon = metrics.mis(
-            record_targets, [y_pred_upper, y_pred_lower], alpha=0.05, total=False
-        )
-        # collect metrics by disregarding the development over the horizon
-        mse = metrics.mse(record_targets, [record_expected_values])
-        rmse = metrics.rmse(record_targets, [record_expected_values])
-        mase = metrics.mase(record_targets, [record_expected_values], 7 * 24)
-        rae = metrics.rae(record_targets, [record_expected_values])
-        mae = metrics.mae(record_targets, [record_expected_values])
-        qs = metrics.pinball_loss(
-            record_targets, [y_pred_upper, y_pred_lower], [0.025, 0.975]
-        )
-
-        sharpness = metrics.sharpness(None, [y_pred_upper, y_pred_lower])
-        coverage = metrics.picp(record_targets, [y_pred_upper, y_pred_lower])
-        mis = metrics.mis(record_targets, [y_pred_upper, y_pred_lower], alpha=0.05)
-
         # plot metrics
         plot.plot_metrics(
-            rmse_horizon.detach().numpy(),
-            sharpness_horizon.detach().numpy(),
-            coverage_horizon.detach().numpy(),
-            mis_horizon.detach().numpy(),
+            results_per_timestep["rmse"],
+            results_per_timestep["sharpness"],
+            results_per_timestep["picp"],
+            results_per_timestep["mis"],
             OUTDIR,
             "metrics-evaluation",
         )
 
-        # plot forecast for sample days
-        if "ci_tests" in PAR["data_path"]:
-            testhours = [
-                0,
-                12,
-            ]  # the first and 12th timestep relative to the start of the Test-Dataset
-        else:
-            testhours = [0, 12, 24, 48, 100, 112]
+        # plot forecast for sample time steps
+        # the first and 24th timestep relative to the start of the Test-Dataset
+        testhours = [0,24]
 
         actual_time = pd.to_datetime(
             df.loc[PAR["history_horizon"] + split_index :, "Time"]
@@ -190,103 +190,22 @@ if __name__ == "__main__":
                 actuals,
             )
 
-        # TODO: wrap up all following sample tests
-        target_stations = PAR["model_name"]
         print(
             metrics.results_table(
                 target_stations,
-                mse.detach().numpy(),
-                rmse.detach().numpy(),
-                mase.detach().numpy(),
-                rae.detach().numpy(),
-                mae.detach().numpy(),
-                sharpness.detach().numpy(),
-                coverage.detach().numpy(),
-                mis.detach().numpy(),
-                qs.cpu().numpy(),
+                results,
                 save_to_disc=OUTDIR,
             )
         )
+
         # BOXPLOTS
-        mse_per_sample = [
-            metrics.mse(record_targets[i], [record_expected_values[i]])
-            for i, value in enumerate(record_targets)
-        ]
-        rmse_per_sample = [
-            metrics.rmse(record_targets[i], [record_expected_values[i]])
-            for i, value in enumerate(record_targets)
-        ]
-        sharpness_per_sample = [
-            metrics.sharpness(None, [y_pred_upper[i], y_pred_lower[i]])
-            for i, value in enumerate(record_targets)
-        ]
-        coverage_per_sample = [
-            metrics.picp(record_targets[i], [y_pred_upper[i], y_pred_lower[i]])
-            for i, value in enumerate(record_targets)
-        ]
-        rae_per_sample = [
-            metrics.rae(record_targets[i], [record_expected_values[i]])
-            for i, value in enumerate(record_targets)
-        ]
-        mae_per_sample = [
-            metrics.mae(record_targets[i], [record_expected_values[i]])
-            for i, value in enumerate(record_targets)
-        ]
-        mis_per_sample = [
-            metrics.mis(
-                record_targets[i], [y_pred_upper[i], y_pred_lower[i]], alpha=0.05
-            )
-            for i, value in enumerate(record_targets)
-        ]
-        mase_per_sample = [
-            metrics.mase(
-                record_targets[i],
-                [record_expected_values[i]],
-                0,
-                insample_target=record_targets.roll(7 * 24, 0)[i],
-            )
-            for i, value in enumerate(record_targets)
-        ]
-
-        residuals_per_sample = [
-            metrics.residuals(record_targets[i], [record_expected_values[i]])
-            for i, value in enumerate(record_targets)
-        ]
-        quantile_score_per_sample = [
-            metrics.pinball_loss(
-                record_targets[i], [y_pred_upper[i], y_pred_lower[i]], [0.025, 0.975]
-            )
-            for i, value in enumerate(record_targets)
-        ]
-
-        metrics_per_sample = pd.DataFrame(mse_per_sample).astype("float")
-        metrics_per_sample["MSE"] = pd.DataFrame(mse_per_sample).astype("float")
-        metrics_per_sample["RMSE"] = pd.DataFrame(rmse_per_sample).astype("float")
-        metrics_per_sample["Sharpness"] = pd.DataFrame(sharpness_per_sample).astype(
-            "float"
+        plot.plot_boxplot(
+            targets=record_targets,
+            expected_values=record_expected_values,
+            y_pred_upper=y_pred_upper,
+            y_pred_lower=y_pred_lower,
+            analyzed_metrics=['mse', 'rmse'],
+            sample_frequency=24,
+            save_to_disc=OUTDIR,
         )
-        metrics_per_sample["PICP"] = pd.DataFrame(coverage_per_sample).astype("float")
-        metrics_per_sample["RAE"] = pd.DataFrame(rae_per_sample).astype("float")
-        metrics_per_sample["MAE"] = pd.DataFrame(mae_per_sample).astype("float")
-        metrics_per_sample["MASE"] = pd.DataFrame(mase_per_sample).astype("float")
-        metrics_per_sample["MIS"] = pd.DataFrame(mis_per_sample).astype("float")
-        metrics_per_sample["Quantile Score"] = pd.DataFrame(
-            quantile_score_per_sample
-        ).astype("float")
-        metrics_per_sample["Residuals"] = pd.DataFrame(residuals_per_sample).astype(
-            "float"
-        )
-
-        fig = plt.figure(figsize=(16, 12))
-        ax1 = metrics_per_sample.iloc[::24].boxplot(
-            column=["RMSE", "MASE", "Quantile Score"],
-            color=dict(boxes="k", whiskers="k", medians="k", caps="k"),
-            figsize=(8.5, 10),
-            fontsize=24,
-        )
-        ax1.set_xlabel("Mean error per sample on 40h prediction horizon", fontsize=24)
-        ax1.set_ylabel("Error measure on scaled data", fontsize=24)
-        ymin, ymax = -0.01, 1.5
-        ax1.set_ylim([ymin, ymax])
-        plt.show()
     print("Done!!")

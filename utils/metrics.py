@@ -380,14 +380,12 @@ def mase(target, predictions:list, freq=1, total = True, insample_target=None):
     # denominator is the mean absolute error of the "seasonal naive forecast method"
     return torch.mean(torch.abs(target[freq:] - y_hat_test[freq:])) / masep
 
-def sharpness(target, predictions:list, total = True):
+def sharpness(predictions:list, total = True):
     """
     Calculate the mean size of the intervals, called the sharpness (lower the better)
 
     Parameters
     ----------
-    target : torch.Tensor
-        The true values of the target variable
     predictions : list
         - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
         - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.Tensor)
@@ -607,12 +605,13 @@ def mae(target, predictions: list, total=True):
     return torch.mean(torch.abs(target - y_hat_test))
 
 
-def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, quantile_score=0, save_to_disc=False):
+def results_table(models, results, save_to_disc=False):
     """
     Put the models' scores for the given metrics in a DataFrame.
 
     Parameters
     ----------
+    TODO: update only for the case that results includes the metrics
     models : string list or None
         The names of the models to use as index e.g. "gc17ct_GRU_gnll_test_hp"
     mse : ndarray
@@ -642,21 +641,98 @@ def results_table(models, mse, rmse, mase, rae, mae, sharpness, coverage, mis, q
     pandas.DataFrame
         A DataFrame containing the models' scores for the given metrics
     """
-
-    data = {
-        'MSE': mse,
-        'RMSE': rmse,
-        'MASE': mase,
-        'RAE': rae,
-        'MAE': mae,
-        'Mean sharpness': sharpness,
-        'Mean PICP': coverage,
-        'Mean IS': mis,
-        'Quantile Score': quantile_score}
-
-    results_df = pd.DataFrame(data, index=[models])
+    results.index = [models]
     if save_to_disc:
         save_path = save_to_disc+models.replace("/", "_")
-        results_df.to_csv(save_path+'.csv', sep=';', index=True)
+        results.to_csv(save_path+'.csv', sep=';', index=True)
 
-    return results_df
+    return results
+
+
+def fetch_metrics(
+        targets,
+        expected_values,
+        y_pred_upper,
+        y_pred_lower,
+        analyzed_metrics=["mse"],
+        total=True,
+):
+    # Note:
+    # if total = False, the metric is returned averaged over the test period per prediction time step
+    # else (if total = True), the metric is returned averaged over the test period and every prediction step
+    # (=forecast horizon)
+    # calculate the metrics
+    mse_result = mse(
+        targets,
+        [expected_values],
+        total=total
+    ).detach().numpy()
+    try:
+        results = pd.DataFrame(mse_result, columns = ['mse'])
+    except:
+        results = pd.DataFrame([mse_result], columns=['mse'])
+    if "rmse" in analyzed_metrics:
+        rmse_result = rmse(
+            targets,
+            [expected_values],
+            total=total
+        ).detach().numpy()
+        results['rmse'] = rmse_result
+    if "sharpness" in analyzed_metrics:
+        sharpness_result = sharpness(
+            [y_pred_upper,
+             y_pred_lower],
+            total=total
+        ).detach().numpy()
+        results["sharpness"] = sharpness_result
+    if "picp" in analyzed_metrics:
+        coverage_result = picp(
+            targets,
+            [y_pred_upper,
+             y_pred_lower],
+            total=total
+        ).detach().numpy()
+        results["picp"] = coverage_result
+    if "mis" in analyzed_metrics:
+        mis_result= mis(
+            targets,
+            [y_pred_upper,
+             y_pred_lower],
+            total=total
+        ).detach().numpy()
+        results["mis"] = mis_result
+
+    if total:
+        # only add these metrics if total is true as the performance per time_step is not implemented yet
+        if "mase" in analyzed_metrics:
+            mase_result = mase(
+                targets,
+                [expected_values],
+                freq=7 * 24,
+                total=total
+            ).detach().numpy()
+            results["mase"] = mase_result
+        if "rae" in analyzed_metrics:
+            rae_result = rae(
+                targets,
+                [expected_values],
+                total=total
+            ).detach().numpy()
+            results["rae"] = rae_result
+        if "mae" in analyzed_metrics:
+            mae_result = mae(
+                targets,
+                [expected_values],
+                total=total
+            ).detach().numpy()
+            results["mae"] = mae_result
+        if "qs" in analyzed_metrics:
+            qs_result = pinball_loss(
+                targets,
+                [y_pred_upper, y_pred_lower],
+                [0.025, 0.975],  # equals a 95% prediction interval
+                total=total
+            ).detach().numpy()
+            results["qs"] = qs_result
+        # TODO: implement this case in each of the metric functions
+    return results
