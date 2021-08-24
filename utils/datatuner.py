@@ -192,9 +192,9 @@ def fill_if_missing(df, periodicity = 1):
         A pandas.DataFrame with no NaN values
     """
     if df.isnull().values.any():
-        #print("Some values are NaN. They are being filled...")
+        print("Some values are NaN. They are being filled...")
         df=custom_interpolate(df, periodicity)
-        #print("...interpolation finished! No missing data left.")
+        print("...interpolation finished! No missing data left.")
     else:
         print("No missing data \n")
     return df
