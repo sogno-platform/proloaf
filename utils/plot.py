@@ -65,9 +65,13 @@ def plot_timestep(target,
     ax.plot(target, '.-k', label="Truth")  # true values
     ax.plot(pred, 'b', label='Predicted')
     # insert actual time, assuming the underlying data to be in hourly resolution
-    if(actual_time.dt.hour.any()):
+    try:
         ax.set_title(actual_time.iloc[0].strftime("%a, %Y-%m-%d"), fontsize=20)
-    else:
+        positions = range(0, len(pred), 2)
+        labels = actual_time.dt.hour.to_numpy()  # assuming hourly resolution in most of the evaluations
+        new_labels = labels[positions]
+        plt.xticks(positions, new_labels)
+    except:
         ax.set_title('Forecast along horizon', fontsize=22)
     ax.fill_between(np.arange(pred.shape[0]), pred.squeeze(), y_pred_upper.squeeze(), alpha=0.1, color='g')
     ax.fill_between(np.arange(pred.shape[0]), y_pred_lower.squeeze(), pred.squeeze(), alpha=0.1, color='g')
@@ -79,15 +83,12 @@ def plot_timestep(target,
     if(limit and draw_limit):
         plt.axhline(linewidth=2, color='r', y=limit)
     ax.grid()
-    positions = range(0, len(pred), 2)
-    labels = actual_time.dt.hour.to_numpy() # assuming hourly resolution in most of the evaluations
-    new_labels = labels[positions]
-    plt.xticks(positions, new_labels)
     ax.set_xlabel("Time of Day", fontsize=20)# assuming hourly resolution in most of the evaluations
     plt.autoscale(enable=True, axis='x', tight=True)
     plt.savefig(OUTPATH + 'eval_hour{}'.format(timestep))
-    plt.show(fig)
+    #plt.show(fig)
     plt.close(fig)
+
 
 def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title):
     """
@@ -158,7 +159,7 @@ def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,
         fig.subplots_adjust(top=0.95)
         plt.tight_layout()
         plt.savefig(OUTPATH + title+'_metrics_plot')
-        plt.show()
+        # plt.show()
 
 def plot_boxplot(
         targets,
