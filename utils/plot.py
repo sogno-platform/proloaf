@@ -158,7 +158,7 @@ def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,
         fig.subplots_adjust(top=0.95)
         plt.tight_layout()
         plt.savefig(OUTPATH + title+'_metrics_plot')
-        # plt.show()
+        plt.show()
 
 def plot_boxplot(
         targets,
