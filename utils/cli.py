@@ -18,72 +18,12 @@
 # under the License.
 # ==============================================================================
 """
-Provides various functions for reading, writing and working with config files.
-
-Enables design and modification of the RNN via config files only.
+Provides various functions to run command line interface.
 """
-import os
-import json
+
 import sys
 import argparse
-import shutil
-import utils.eval_metrics as metrics
-
-def read_config(model_name = None, config_path = None, main_path=''):
-    """
-    Read the config file for the given model
-
-    If no config_path is given, uses main_path to locate the 'targets' folder, which
-    contains separate directories for different model names, in which the config files to be read are stored.
-
-    Parameters
-    ----------
-    model_name : string, default = None
-        The name of the model for which the config file should be read
-    config_path : string, default = None
-        The path to the config file relative to the project root, or else None
-    main_path : string, default = ''
-        The path to the project root
-
-    Returns
-    -------
-    dict
-        A Dictionary containing the parameters read from the config file
-
-    """
-    if config_path is None:
-        config_path = os.path.join('targets',  model_name, 'config.json')
-    with open(os.path.join(main_path,config_path),'r') as input:
-        return json.load(input)
-
-def write_config(config, model_name = None, config_path = None, main_path=''):
-    """
-    Write the given data to the specified config file.
-
-    If no config_path is given, uses main_path to locate the 'targets' folder, which
-    contains separate directories for different model names, in which the config files to be
-    written are stored.
-
-    Parameters
-    ----------
-    config : dict
-        A dictionary containing the data to be written
-    model_name : string, default = None
-        The name of the model for which the config file should be written
-    config_path : string, default = None
-        The path to the config file relative to the project root, or else None
-    main_path : string, default = ''
-        The path to the folder containing the 'targets' folder
-
-    Returns
-    -------
-    None
-        json.dump() has no return value.
-    """
-    if config_path is None:
-        config_path = os.path.join(main_path, 'targets',  model_name, 'config.json')
-    with open(os.path.join(main_path,config_path),'w') as output:
-        return json.dump(config, output, indent=4)
+import utils.metrics as metrics
 
 class flag_and_store(argparse._StoreAction):
     def __init__(self, option_strings, dest, dest_const, const, nargs = 0, **kwargs):
@@ -273,30 +213,3 @@ def query_true_false(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
-
-def clean_up_tensorboard_dir(run_dir):
-    """
-    Move hyperparameter logs out of subfolders
-
-    Iterate over all subdirectories of run_dir, moving any files they contain into run_dir.
-    Neither sub-subdirectories nor their contents are moved. Delete them along with the subdirectories.
-
-    Parameters
-    ----------
-    run_dir : string
-        The path to the run directory
-
-    Returns
-    -------
-    No return value
-    """
-    # move hparam logs out of subfolders
-    subdir_list = [x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir,x))]  # gets a list of all subdirectories in the run directory
-
-    for dir in subdir_list:
-        subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
-        files =  [x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))]     # gets all files in the current subdir
-        for f in files:
-            shutil.move(os.path.join(subdir, f), run_dir)   # moves the file out of the subdir
-        shutil.rmtree(subdir)  # removes the now empty subdir
-        # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!

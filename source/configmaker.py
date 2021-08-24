@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-Config-maker can be used to modify or generate config files
+Configmaker can be used to modify or generate config files
 
 Run either with the path to the config file or the station name.
 To erase the old config file before writing a new one do "python3 config_maker.py --new <stationname>".
@@ -70,6 +70,7 @@ if __name__ == '__main__':
     par["forecast_horizon"] = 24
     par["train_split"] = 0.7
     par["validation_split"] = 0.85
+    par["periodicity"] = 24
     par["core_net"] = 'torch.nn.GRU'
     par["optimizer_name"] = 'adam'
     par["exploration"] = True

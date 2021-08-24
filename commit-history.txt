@@ -40,10 +40,18 @@ c656a88c9c9a1d2b963ac19df16cd13461d2caa1 updated ci/cd configuration: paths & ta
 e3d939a6a7a8bce7b83caac80c077908645b6f18 added module comment
 06b999167152a034bb8de58eda04b1685728faac Merge branch 'develop'
 488c8756e0efbf396b6ace87a8c1d6fd2fbdd158 test without sign-off
+a042b336626aa82913253d314723796b9831160e Merge branch 'develop' into 'master'
+59942cbcaba32c0b06c54bfcb0ce145d40c150cc Update master with recent developments: defaults, flags, logging, license
+5d5d0a442fe11b104f8c9b7e8f47e77c4e2bfec5 Update README.md
+9cf84133786e7e7525cddb1f15202718b4a7b49c Merge branch 'develop' into 'master'
+2c60ee74bc1423e6f39920ae8753394730481cae Develop
+309f73d2443adff2af58a4082f5a02a15a231c80 Add license terms
+7c890c6c1b84ed9262b65fa25d6a590013ea212b Add initial infos
 
 I, Markus Mirz hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: mmirz@eonerc.rwth-aachen.de
 
 e4d943eea37842828abc51c406d5cb2e2140840e Initial commit
+a3029225174373bc833a88af2876b81ddeaa67b9 Initial commit
 
 I, Rouben Rehman hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: rouben.rehman@gmail.com and rouben.rehman@rwth-aachen.de
 
@@ -283,3 +291,11 @@ eff60a56e955c490f989402fcf44e3402d1d6df7 Added config files and updated submodul
 2af44c703b1980c98feefbc008e6fd7a5acab208 removed expire_in: never since it's not supported in this version of gitlab
 8ff3cb5499ef05105c410c03e2ae3949bef3a6d4 Developed GitLab-CI/CD Functionality
 39fb4fc1b3d9e38329382c7a833e451d8a74f1d3 Added Reference to data and fc-util submod and transfered files from fcload
+b36af06fc9db25be0acad58540b1b45e1f2f514b Merge branch 'develop' into 'master'
+a9b17a5089aa68dec40888eb45a4022338c221b7 Merge branch 'develop' into 'master'
+74ce6de3dd054e28d07c382974c8e524b3ea7fa5 Removed unnecessary files
+2fccc8bcff1ca0eac7994011ba09e54f18c01fb9 Removed unnecessary files
+301b116e8817ea54dc881310a5b22e780dad1cac Version 0.0.1
+47d78a2e2a6b67cd98ce80a24b07de03747422cf Ported updates from ce domain
+ddbc21cdb4f1b0c16879c401446281cce7ecf7f4 Renamed fc_util to plf_util in imports
+a2e3158155ef3aa5a3a4cac59b49affb5e21c887 Added gitignore for pycache

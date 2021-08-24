@@ -30,7 +30,7 @@ from setuptools import find_packages
 if __name__ == '__main__':
     setup(
         name='utils',
-        version='0.1.0',
+        version='0.2.0',
         packages=['utils'],
         license='Apache License 2.0',
         url='https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/tree/develop/utils',
