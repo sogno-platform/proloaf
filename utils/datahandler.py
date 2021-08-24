@@ -575,7 +575,7 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     target_position : int, default = 0
         Which column of the data to rescale
     **PAR : dict
-        A dictionary containing config parameters, see fc_train.py for more.
+        A dictionary containing config parameters, see train.py for more.
 
     Returns
     -------

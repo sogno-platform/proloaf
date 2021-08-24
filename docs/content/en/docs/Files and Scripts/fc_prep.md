@@ -1,6 +1,6 @@
 ---
-title: "fc_prep.py"
-linkTitle: "fc_prep.py"
+title: "preprocess.py"
+linkTitle: "preprocess.py"
 date: 2020-03-09
 weight: 1
 description: >
@@ -44,5 +44,5 @@ The prep config defines 4 parameters:
 * data path as defined in the used config.json
 
 ### Reference Documentation
-If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/fc_prep.html" >}}) for 
+If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/preprocess.html" >}}) for 
 this script.

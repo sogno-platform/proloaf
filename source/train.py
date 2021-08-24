@@ -31,11 +31,6 @@ Notes
 
 """
 
-#TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
-#if 'exploration' is used, this would violate our license policy as LGPL is not compatible with apache
-from utils.confighandler import read_config, get_existing_score
-from utils.cli import parse_with_loss
-
 import os
 import sys
 import warnings
@@ -51,6 +46,9 @@ sys.path.append(MAIN_PATH)
 import utils.loghandler as log
 import utils.datahandler as dh
 import utils.modelhandler as mh
+#TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
+from utils.confighandler import read_config, get_existing_score
+from utils.cli import parse_with_loss
 
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
