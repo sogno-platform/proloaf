@@ -635,7 +635,7 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     return targets_rescaled, output_rescaled
 
 
-def scale_all(df: pd.DataFrame, feature_groups, start_date=None, **_):
+def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers=None, **_):
     """
     Scale and return the specified feature groups of the given DataFrame, each with their own
     scaler, beginning at the index 'start_date'
@@ -674,7 +674,8 @@ def scale_all(df: pd.DataFrame, feature_groups, start_date=None, **_):
     # TODO should these be named for potential double scaling (name can be used as suffix in join)
     # TODO check if it is critical that we do not use fitted scalers in evaluate script
     scaled_features = pd.DataFrame(index=df.index)[start_date:]
-    scalers = {}
+    if scalers is None:
+        scalers = {}
     for group in feature_groups:
         df_to_scale = df.filter(group["features"])[start_date:]
 
