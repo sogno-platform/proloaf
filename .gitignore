@@ -3,7 +3,7 @@ data/*
 targets/sege*
 dist/
 old-yml.yml
-.python-version
+.python-versi
 runs/
 logs/
 old/
@@ -14,3 +14,4 @@ old/
 __pycache__/
 source/__pycache__/
 
+/data/
