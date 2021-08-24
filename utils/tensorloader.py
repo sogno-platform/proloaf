@@ -24,7 +24,8 @@ import numpy as np
 import torch
 import sklearn
 
-import utils.datatuner as dt
+import utils.datahandler as dh
+
 
 class CustomTensorData:
     """
@@ -47,7 +48,11 @@ class CustomTensorData:
         self.targets = torch.Tensor(targets).float()
 
     def __getitem__(self, index):
-        return self.inputs1[index, :, :], self.inputs2[index, :, :], self.targets[index, :, :]
+        return (
+            self.inputs1[index, :, :],
+            self.inputs2[index, :, :],
+            self.targets[index, :, :],
+        )
 
     def __len__(self):
         return self.targets.shape[0]
@@ -89,7 +94,9 @@ class CustomTensorDataLoader:
         Raised when the end of the iterator is reached.
     """
 
-    def __init__(self, dataset: CustomTensorData, batch_size=1, shuffle=False, drop_last=True):
+    def __init__(
+        self, dataset: CustomTensorData, batch_size=1, shuffle=False, drop_last=True
+    ):
         if not drop_last:
             raise NotImplementedError
 
@@ -152,8 +159,19 @@ class CustomTensorDataLoader:
         return self.dataset.inputs2.shape[2]
 
 
-def make_dataloader(df, target_id, encoder_features, decoder_features, history_horizon,
-                    forecast_horizon, batch_size = 1, shuffle = True, drop_last = True, anchor_key=0, **_):
+def make_dataloader(
+    df,
+    target_id,
+    encoder_features,
+    decoder_features,
+    history_horizon,
+    forecast_horizon,
+    batch_size=1,
+    shuffle=True,
+    drop_last=True,
+    anchor_key=0,
+    **_
+):
     """
     Store the given data in a CustomTensorDataLoader
 
@@ -186,13 +204,15 @@ def make_dataloader(df, target_id, encoder_features, decoder_features, history_h
         An iterable data structure containing the provided input and target data
     """
 
-    #anchor_key='09:00:00'
-    #rel_anchor_key='09:00:00'
-    x_enc = dt.extract(df[encoder_features].iloc[:-forecast_horizon, :], history_horizon)
+    # anchor_key='09:00:00'
+    # rel_anchor_key='09:00:00'
+    x_enc = dh.extract(
+        df[encoder_features].iloc[:-forecast_horizon, :], history_horizon
+    )
     # shape input data that is known for the Future, here take perfect hourly temp-forecast
-    x_dec = dt.extract(df[decoder_features].iloc[history_horizon:, :], forecast_horizon)
+    x_dec = dh.extract(df[decoder_features].iloc[history_horizon:, :], forecast_horizon)
     # shape y, depending on number of targets given
-    y = dt.extract(df[target_id].iloc[history_horizon:, :], forecast_horizon)
+    y = dh.extract(df[target_id].iloc[history_horizon:, :], forecast_horizon)
 
     if len(x_enc) > len(y):
         x_enc = x_enc[:-1]
@@ -200,4 +220,6 @@ def make_dataloader(df, target_id, encoder_features, decoder_features, history_h
         x_dec = x_dec[1:]
         y = y[1:]
     custom_tensor_data = CustomTensorData(x_enc, x_dec, y)
-    return CustomTensorDataLoader(custom_tensor_data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+    return CustomTensorDataLoader(
+        custom_tensor_data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last
+    )

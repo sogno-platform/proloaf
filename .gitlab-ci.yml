@@ -5,7 +5,7 @@ variables:
 
 workflow:
     rules:
-        - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_MESSAGE
+        - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE
         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "api"
         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "web"
 
@@ -104,7 +104,7 @@ train_on_call:
 test_train_no_hp:
     stage: test-train
     script:
-        - python3 source/fc_train.py -s ci_tests/ci_test_no_hp --ci
+        - python3 source/train.py -s ci_tests/ci_test_no_hp --ci
     artifacts:
         when: on_success
         name: proloaf
@@ -124,7 +124,7 @@ test_train_no_hp:
 test_train_hp:
     stage: test-train
     script:
-        - python3 source/fc_train.py -s ci_tests/ci_test_hp --ci
+        - python3 source/train.py -s ci_tests/ci_test_hp --ci
     artifacts:
         when: on_success
         expire_in: 1 hour
@@ -140,21 +140,21 @@ test_train_hp:
             - $CI_PIPELINE_SOURCE == 'push'
 
 
-lint_fc_train:
+lint_train:
     stage: test-train
     image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
     script:
         - chmod +x ./shell/lint_script.sh
-        - ./shell/lint_script.sh fc_train
+        - ./shell/lint_script.sh train
     artifacts:
         when: on_success
         name: proloaf
         expire_in: 1 hour
         reports:
-            junit: ./fc_train_lint.xml
+            junit: ./train_lint.xml
         paths:
             - ./oracles/*
-            - ./fc_train_lint.xml
+            - ./train_lint.xml
     tags:
         - docker
     only:
@@ -185,7 +185,7 @@ eval_on_call:
 test_eval_hp:
     stage: test-eval
     script:
-        - python3 source/fc_evaluate.py -s ci_tests/ci_test_hp
+        - python3 source/evaluate.py -s ci_tests/ci_test_hp
     artifacts:
       name: proloaf
       when: on_success
@@ -205,7 +205,7 @@ test_eval_hp:
 test_eval_no_hp:
     stage: test-eval
     script:
-        - python3 source/fc_evaluate.py -s ci_tests/ci_test_no_hp
+        - python3 source/evaluate.py -s ci_tests/ci_test_no_hp
     artifacts:
       name: proloaf
       when: on_success
@@ -222,25 +222,25 @@ test_eval_no_hp:
             - $CI_PIPELINE_SOURCE == 'push'
 
 
-lint_fc_evaluate:
+lint_evaluate:
     stage: test-eval
     script:
         - chmod +x ./shell/lint_script.sh
-        - ./shell/lint_script.sh fc_evaluate
+        - ./shell/lint_script.sh evaluate
     artifacts:
       name: proloaf
       when: on_success
       expire_in: 1 hour
       reports:
-        junit: ./fc_evaluate_lint.xml
+        junit: ./evaluate_lint.xml
       paths:
         - ./oracles/*
-        - ./fc_evaluate_lint.xml
+        - ./evaluate_lint.xml
     image: plf:${CI_COMMIT_REF_NAME}
     tags:
         - docker
     needs:
-        - job: lint_fc_train
+        - job: lint_train
     only:
         variables:
             - $CI_PIPELINE_SOURCE == 'push'
@@ -253,7 +253,7 @@ push_to_oracles:
          - TIMESTAMP=$(python shell/return_timestamp.py)
          - git clone https://gonca.guerses.tran:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git ./repo/
          - git config --global user.email "test@test.test"
-         - git config --global user.name "GitLab CI fc_train"
+         - git config --global user.name "GitLab CI train"
          - mkdir -p ./repo/$STATION/$TIMESTAMP
          - mkdir ./repo/$STATION/$TIMESTAMP/logs
          - mkdir ./repo/$STATION/$TIMESTAMP/runs

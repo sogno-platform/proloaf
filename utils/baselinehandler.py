@@ -23,7 +23,7 @@ and generate various baseline forecasts.
 """
 
 import os
-import utils.eval_metrics as metrics
+import utils.metrics as metrics
 import torch
 import copy
 import numpy as np
@@ -309,7 +309,7 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
     if total:
         mse = metrics.mse(true_values, [forecasts])
         rmse = metrics.rmse(true_values, [forecasts])
-        mase = metrics.mase(true_values, [forecasts], 7*24) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
+        mase = metrics.mase(true_values, [forecasts], freq=7*24) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
         rae = metrics.rae(true_values, [forecasts])
         mae = metrics.mae(true_values, [forecasts])
         sharpness = metrics.sharpness(None, [upper_limits, lower_limits])

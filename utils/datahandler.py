@@ -28,18 +28,287 @@ useful for testing or future applications.
 
 import numpy as np
 import pandas as pd
+import utils.tensorloader as tl
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
-# import torch
-# import shutil
-# import matplotlib.pyplot as plt
-# import sklearn as sk
-# from sklearn import preprocessing
-# import torch
-# import sklearn
+def load_raw_data_xlsx(files, path):
+    """
+    Load data from an xlsx file
 
+    After loading, the date column in the raw data is converted to a UTC datetime
+
+    Parameters
+    ----------
+    files : list
+        A list of files to read. See the Notes section for more information
+    path : string
+        The path specification which holds the input files in .XLSX format
+
+    Returns
+    -------
+    list
+        A list containing a DataFrame for each file that was read
+
+    Notes
+    -----
+    - Files is an array of maps containing the following data with the keyword (keyword)
+        + ('file_name') the name of the xlsx file
+        + ('date_column') the name of the date_column in the raw_data
+        + ('time_zone') specifier for the timezone the raw data is recorded in
+        + ('sheet_name') name or list of names of the sheets that are to be read
+        + ('combine') boolean, all datasheets with true are combined into one, all others are read individually
+        + ('start_column') Columns between this and ('end_column') are loaded
+        + ('end_column')
+
+    """
+    print("Importing XLSX Data...")
+
+    combined_files = []
+    individual_files = []
+
+    for xlsx_file in files:
+        print("importing " + xlsx_file["file_name"])
+        # if isinstance(file_name, str):
+        #     file_name = [file_name,'UTC']
+        date_column = xlsx_file["date_column"]
+        raw_data = pd.read_excel(
+            path + xlsx_file["file_name"],
+            xlsx_file["sheet_name"],
+            parse_dates=[date_column],
+        )
+
+        # convert load data to UTC
+        if xlsx_file["time_zone"] != "UTC":
+            raw_data[date_column] = (
+                pd.to_datetime(raw_data[date_column])
+                .dt.tz_localize(xlsx_file["time_zone"], ambiguous="infer")
+                .dt.tz_convert("UTC")
+                .dt.strftime("%Y-%m-%d %H:%M:%S")
+            )
+        else:
+            if xlsx_file["dayfirst"]:
+                raw_data[date_column] = pd.to_datetime(
+                    raw_data[date_column], format="%d-%m-%Y %H:%M:%S"
+                ).dt.tz_localize(None)
+            else:
+                raw_data[date_column] = pd.to_datetime(
+                    raw_data[date_column], format="%Y-%m-%d %H:%M:%S"
+                ).dt.tz_localize(None)
+
+        if xlsx_file["data_abs"]:
+            raw_data.loc[
+                :, xlsx_file["start_column"] : xlsx_file["end_column"]
+            ] = raw_data.loc[
+                :, xlsx_file["start_column"] : xlsx_file["end_column"]
+            ].abs()
+        # rename column IDs, specifically Time, this will be used later as the df index
+        raw_data.rename(columns={date_column: "Time"}, inplace=True)
+        raw_data.head()  # now the data is positive and set to UTC
+        raw_data.info()
+        # interpolating for missing entries created by asfreq and original missing values if any
+        raw_data.interpolate(method="time", inplace=True)
+
+        if xlsx_file["combine"]:
+            combined_files.append(raw_data)
+        else:
+            individual_files.append(raw_data)
+    if len(combined_files) > 0:
+        individual_files.append(pd.concat(combined_files))
+    return individual_files
+
+
+def load_raw_data_csv(files, path):
+    """
+    Load data from a csv file
+
+    After loading, the date column in the raw data is converted to a UTC datetime
+
+    Parameters
+    ----------
+    files : list
+        A list of files to read. See the Notes section for more information
+    path : string
+        The path specification which holds the input files in .CSV format
+
+    Returns
+    -------
+    list
+        A list containing a DataFrame for each file that was read
+
+    Notes
+    -----
+    - Files is an array of maps containing the following data with the keyword (keyword)
+        + ('file_name') the name of the load_file
+        + ('date_column') the name of the date_column in the raw_data
+        + ('dayfirst') specifier for the formatting of the read time
+        + ('sep') separator used in this file
+        + ('combine') boolean, all datasheets with true are combined into one, all others are read individually
+        + ('use_columns') list of columns that are loaded
+
+    """
+
+    print("Importing CSV Data...")
+
+    combined_files = []
+    individual_files = []
+
+    for csv_file in files:
+        print("Importing " + csv_file["file_name"] + " ...")
+        date_column = csv_file["date_column"]
+        raw_data = pd.read_csv(
+            path + csv_file["file_name"],
+            sep=csv_file["sep"],
+            usecols=csv_file["use_columns"],
+            parse_dates=[date_column],
+            dayfirst=csv_file["dayfirst"],
+        )
+        # pd.read_csv(INPATH + name, sep=sep, usecols=cols, parse_dates=[date_column] , dayfirst=dayfirst)
+        if csv_file["time_zone"] != "UTC":
+            raw_data[date_column] = (
+                pd.to_datetime(raw_data[date_column])
+                .dt.tz_localize(csv_file["time_zone"], ambiguous="infer")
+                .dt.tz_convert("UTC")
+                .dt.strftime("%Y-%m-%d %H:%M:%S")
+            )
+        else:
+            if csv_file["dayfirst"]:
+                raw_data[date_column] = pd.to_datetime(
+                    raw_data[date_column], format="%d-%m-%Y %H:%M:%S"
+                ).dt.tz_localize(None)
+            else:
+                raw_data[date_column] = pd.to_datetime(
+                    raw_data[date_column], format="%Y-%m-%d %H:%M:%S"
+                ).dt.tz_localize(None)
+
+        print("...Importing finished. ")
+        raw_data.rename(columns={date_column: "Time"}, inplace=True)
+
+        if csv_file["combine"]:
+            combined_files.append(raw_data)
+        else:
+            individual_files.append(raw_data)
+
+    if len(combined_files) > 0:
+        individual_files.append(pd.concat(combined_files, sort=False))
+    # for frame in individual_files:
+    #    frame.rename(columns={date_column: 'Time'}, inplace=True)
+    return individual_files
+
+def add_cyclical_features(df):
+    """
+    Generates and adds trionemetric values to the DataFrame in respect to the index 'Time'.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame that is complemented with cyclical time features
+
+    Returns
+    -------
+    df
+        The modified DataFrame
+
+    """
+    ## source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
+    df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
+    df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
+    df["mnth_sin"] = np.sin((df.index.month - 1) * (2.0 * np.pi / 12))
+    df["mnth_cos"] = np.cos((df.index.month - 1) * (2.0 * np.pi / 12))
+    return df
+
+def add_onehot_features(df):
+    """
+    Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame that is complemented with one-hot coded time features
+
+    Returns
+    -------
+    df
+        The modified DataFrame
+
+    """
+    # add one-hot encoding for Hour, Month & Weekdays
+    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(
+        df.index
+    )  # one-hot encoding of hours
+    month = pd.get_dummies(df.index.month, prefix="month").set_index(
+        df.index
+    )  # one-hot encoding of month
+    weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(
+        df.index
+    )  # one-hot encoding of weekdays
+    df = pd.concat([df, hours, month, weekday], axis=1)
+    return df
+
+def check_continuity(df):
+    """
+    Raises value error upon violation of continuity constraint of the timeseries data.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame whose index shall be checked against time continuity
+
+    Returns
+    -------
+    ValueError
+        The error message
+
+    """
+    if not df.index.equals(
+        pd.date_range(min(df.index), max(df.index), freq=df.index.freq)
+    ):
+        raise ValueError("DateTime index is not continuous")
+    return
+
+def check_nans(df):
+    """
+    Print information upon missing values in the timeseries data.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame whose values shall be checked against missing values
+
+    Returns
+    -------
+    Print
+        Print message whether or not data is missing in the given DataFrame
+
+    """
+    if not df.isnull().values.any():
+        print("No missing data \n")
+    else:
+        print("Missing data detected \n")
+
+    return
+
+def set_to_hours(df):
+    """
+    Sets the index of the DataFrame to 'Time' and the frequency to hours.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame whose index and frequency are to be changed
+
+    Returns
+    -------
+    df
+        The modified DataFrame
+
+    """
+
+    df["Time"] = pd.to_datetime(df["Time"])
+    df = df.set_index("Time")
+    df = df.asfreq(freq="H")
+    return df
 
 def load_dataframe(data_path):
     """
@@ -297,7 +566,7 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
 
     Parameters
     ----------
-    net : utils.fc_network.EncoderDecoder
+    net : utils.models.EncoderDecoder
         The model that was used to generate the predictions.
     output : list
         A list containing predicted values. Each entry in the list is a set of predictions
@@ -311,9 +580,9 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     Returns
     -------
     torch.Tensor
-        The expected values of the prediction, after rescaling
-    torch.Tensor
-        The targets (untransformed)
+        The targets (rescaled)
+    list
+        The expected values (for prob.: prediction intervals of the forecast, after rescaling, in form of output list)
     """
     #TODO: isn't this also in a function of datatuner
     #TODO: finish documentation
@@ -352,18 +621,21 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     # rescale
     loss_type = net.criterion  # check the name here
     targets_rescaled = (targets * scale) + center
+    output_rescaled = output
     if loss_type == "pinball":
-        expected_values = (output[1] * scale) + center
-        quantiles = (output[0] * scale) + center
+        output_rescaled[1] = (output[1] * scale) + center # expected value
+        output_rescaled[0] = (output[0] * scale) + center #quantile
     elif loss_type == "nll_gauss" or loss_type == "crps":
-        expected_values = (output[0] * scale) + center
-        variances = output[1] * (scale ** 2)
+        output_rescaled[1] = (output[0] * scale) + center # expected value
+        output_rescaled[0] = output[1] * (scale ** 2) #variance
+    else: # case: rmse, case, mse, case rae etc.
+        output_rescaled = (output * scale) + center
     # TODO: else options
 
-    return expected_values, targets
+    return targets_rescaled, output_rescaled
 
 
-def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers={}, **_):
+def scale_all(df: pd.DataFrame, feature_groups, start_date=None, **_):
     """
     Scale and return the specified feature groups of the given DataFrame, each with their own
     scaler, beginning at the index 'start_date'
@@ -402,7 +674,7 @@ def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers={}, **_
     # TODO should these be named for potential double scaling (name can be used as suffix in join)
     # TODO check if it is critical that we do not use fitted scalers in evaluate script
     scaled_features = pd.DataFrame(index=df.index)[start_date:]
-    # scalers = {}
+    scalers = {}
     for group in feature_groups:
         df_to_scale = df.filter(group["features"])[start_date:]
 
@@ -516,3 +788,92 @@ def constructDf(
             )
         )
     return train, test
+
+def transform(
+        df: pd.DataFrame,
+        encoder_features,
+        decoder_features,
+        batch_size,
+        history_horizon,
+        forecast_horizon,
+        target_id,
+        train_split=0.7,
+        validation_split=0.85,
+        device='cpu',
+        **_,
+):
+    """
+    Construct tensor-data-loader transformed for encoderdecoder model input
+
+    Parameters
+    ----------
+    TODO: check if consistent with new structure
+    df : pandas.DataFrame
+        The data frame containing the model features, to be split into sets for training
+    encoder_features : string list
+        A list containing desired encoder feature names as strings
+    decoder_features : string list
+        A list containing desired decoder feature names as strings
+    batch_size : int scalar
+        The size of a batch for the tensor data loader
+    history_horizon : int scalar
+        The length of the history horizon in hours
+    forecast_horizon : int scalar
+        The length of the forecast horizon in hours
+    train_split : float scalar
+        Where to split the data frame for the training set, given as a fraction of data frame length
+    validation_split : float scalar
+        Where to split the data frame for the validation set, given as a fraction of data frame length
+    device : string
+        defines whether to handle data with cpu or cuda
+
+    Returns
+    -------
+    utils.tensorloader.CustomTensorDataLoader
+        The training data loader
+    utils.tensorloader.CustomTensorDataLoader
+        The validation data loader
+    utils.tensorloader.CustomTensorDataLoader
+        The test data loader
+    """
+
+    split_index = int(len(df.index) * train_split)
+    subsplit_index = int(len(df.index) * validation_split)
+
+    df_train = df.iloc[0:split_index]
+    df_val = df.iloc[split_index:subsplit_index]
+    df_test = df.iloc[subsplit_index:]
+
+    print("Size training set: \t{}".format(df_train.shape[0]))
+    print("Size validation set: \t{}".format(df_val.shape[0]))
+
+    # shape input data that is measured in the Past and can be fetched from UDW/LDW
+    train_data_loader = tl.make_dataloader(
+        df_train,
+        target_id,
+        encoder_features,
+        decoder_features,
+        history_horizon=history_horizon,
+        forecast_horizon=forecast_horizon,
+        batch_size=batch_size,
+    ).to(device)
+    validation_data_loader = tl.make_dataloader(
+        df_val,
+        target_id,
+        encoder_features,
+        decoder_features,
+        history_horizon=history_horizon,
+        forecast_horizon=forecast_horizon,
+        batch_size=batch_size,
+    ).to(device)
+    test_data_loader = tl.make_dataloader(
+        df_test,
+        target_id,
+        encoder_features,
+        decoder_features,
+        history_horizon=history_horizon,
+        forecast_horizon=forecast_horizon,
+        batch_size=1,
+    ).to(device)
+
+    return train_data_loader, validation_data_loader, test_data_loader

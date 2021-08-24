@@ -18,7 +18,7 @@
 # under the License.
 # ==============================================================================
 """
-Config-maker can be used to modify or generate config files
+Configmaker can be used to modify or generate config files
 
 Run either with the path to the config file or the station name.
 To erase the old config file before writing a new one do "python3 config_maker.py --new <stationname>".
