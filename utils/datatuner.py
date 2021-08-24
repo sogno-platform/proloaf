@@ -95,7 +95,7 @@ def ranges(nums):
     return list(zip(edges, edges))
 
 
-def custom_interpolate(df, periodicity = 24):
+def custom_interpolate(df, periodicity = 1):
     """
     Interpolate the features with missing values in a time series data frame
 
@@ -113,7 +113,7 @@ def custom_interpolate(df, periodicity = 24):
     df : pandas.DataFrame
         DataFrame with missing values
 
-    periodicity : int, default = 24
+    periodicity : int, default = 1
         An int value that allows the customized intepolation method, which makes use of the timeseries periodicity
 
     Returns
@@ -137,7 +137,16 @@ def custom_interpolate(df, periodicity = 24):
             ):  # if single point, take average of the nearby ones
                 t = start
                 df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
+            elif (
+                start == end and (end + 1 > df.shape[0] or start - 1 <= 0)
+            ):  # if single point, but the single point is at the beginning or end of the series, take the nearby one
+                t = start
+                if (start - 1 <= 0):
+                    df.iloc[t, col] = df.iloc[t + 1, col]
+                if (end + 1 > df.shape[0]):
+                    df.iloc[t, col] = df.iloc[t - 1, col]
             else:
+                # now we are dealing with a range
                 if (start - p) <= 0 or (end + p) > (df.shape[0]):
                     df = df.interpolate(method="pchip")  # check this if ok
                 else:
@@ -160,13 +169,12 @@ def custom_interpolate(df, periodicity = 24):
                             1,
                         )
                     )
-
                     for t in range(start, end + 1):
                         df.iloc[t, col] = seas[t] - trend1(t) + trend2(t)
     return df
 
 
-def fill_if_missing(df, periodicity = 24):
+def fill_if_missing(df, periodicity = 1):
     """
     If the given pandas.DataFrame has any NaN values, they are replaced with interpolated values
 
@@ -175,7 +183,7 @@ def fill_if_missing(df, periodicity = 24):
     df : pandas.DataFrame
         A pandas.DataFrame for which NaN values need to be replaced by interpolated values
 
-    periodicity : int, default = 24
+    periodicity : int, default = 1
         An int value that allows the customized intepolation method, which makes use of the timeseries periodicity
 
     Returns
@@ -184,9 +192,9 @@ def fill_if_missing(df, periodicity = 24):
         A pandas.DataFrame with no NaN values
     """
     if df.isnull().values.any():
-        print("Some values are NaN. They are being filled...")
-        custom_interpolate(df, periodicity)
-        print("...interpolation finished! No missing data left.")
+        #print("Some values are NaN. They are being filled...")
+        df=custom_interpolate(df, periodicity)
+        #print("...interpolation finished! No missing data left.")
     else:
         print("No missing data \n")
     return df

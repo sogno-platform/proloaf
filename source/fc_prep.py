@@ -218,14 +218,14 @@ if __name__ == '__main__':
         xlsx_data = load_raw_data_xlsx(XLSX_FILES)
         for data in xlsx_data:
             hourly_data = set_to_hours(df=data)
-            dt.fill_if_missing(hourly_data)
+            dt.fill_if_missing(hourly_data,periodicity=24)
             df_list.append(hourly_data)
 
     if ('csv_files' in PAR):
         csv_data = load_raw_data_csv(CSV_FILES)
         for data in csv_data:
             hourly_data = set_to_hours(df=data)
-            dt.fill_if_missing(hourly_data)
+            dt.fill_if_missing(hourly_data,periodicity=24)
             print(hourly_data)
             df_list.append(hourly_data)
 

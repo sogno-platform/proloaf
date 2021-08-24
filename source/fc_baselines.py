@@ -150,7 +150,7 @@ def main(infile, target_id):
     sarimax_model = None
     # Read load data
     df = pd.read_csv(infile, sep=';',index_col=0)
-    dt.fill_if_missing(df)
+    dt.fill_if_missing(df, periodicity=24)
     df['Time'] = pd.to_datetime(df['Time'])
     df = df.set_index('Time')
     df = df.asfreq(freq='H')

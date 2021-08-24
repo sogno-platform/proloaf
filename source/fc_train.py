@@ -650,7 +650,7 @@ def main(infile, outmodel, target_id, log_path=None):
 
     #  One can define a parameter periodicty that is different from th24h default peridocity assumed
     #dt.fill_if_missing(df, PAR["periodicity"])
-    dt.fill_if_missing(df)
+    dt.fill_if_missing(df,periodicity=24)
 
     #only use target list if you want to predict the summed value. Actually the use is not recommended.
     if "target_list" in PAR:
