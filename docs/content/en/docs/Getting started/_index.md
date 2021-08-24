@@ -38,9 +38,9 @@ This project contains 3 scripts that can be used in conjunction with one another
 
 * All scripts are located in the source folder.
 * To start one of the scripts use 'Python3 fc_script.py argument', where the argument is either the name of a station (-s) (e.g. 'gefcom2017/ct_data') or the path (-c) of the corresponding config file located in the model_ folders.
-* To prepare load and weather data from selected stations run ./source/fc_prep.py
-* To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./source/fc_train.py
-* To analyze the performance of the forecast: ./source/fc_evaluate.py
+* To prepare load and weather data from selected stations run ./source/preprocess.py
+* To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./source/train.py
+* To analyze the performance of the forecast: ./source/evaluate.py
 
 ## Config
 * The scripts use a config.json file located in the targets/ folder. This file is used to give further information and settings needed to train a model.
@@ -54,15 +54,15 @@ Add a line
 ```
 par['parameter_name'] = value
 ```
-in the config_maker.py file and it will be added under that name.
+in the configmaker.py file and it will be added under that name.
 Then use
 ```
-python3 config_maker.py --mod path_to_config
+python3 configmaker.py --mod path_to_config
 ```
 to apply the changes. The argument again is a station name or the already existing config file.
 
 Using
 ```
-python3 config_maker.py --new path_to_config
+python3 configmaker.py --new path_to_config
 ```
 Will clear the config file before applying changes so be careful with that.

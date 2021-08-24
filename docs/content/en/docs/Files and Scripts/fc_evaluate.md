@@ -1,6 +1,6 @@
 ---
-title: "fc_evaluate.py"
-linkTitle: "fc_evaluate.py"
+title: "evaluate.py"
+linkTitle: "evaluate.py"
 date: 2020-03-09
 weight: 3
 description: >
@@ -25,5 +25,5 @@ The output consists of the actual load prediction graph split up into multiple .
 
 
 ### Reference Documentation
-If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/fc_evaluate.html" >}}) for 
+If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/evaluate.html" >}}) for 
 this script.

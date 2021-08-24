@@ -1,6 +1,6 @@
 ---
-title: "fc_train.py"
-linkTitle: "fc_train.py"
+title: "train.py"
+linkTitle: "train.py"
 date: 2020-03-09
 weight: 2
 description: >
@@ -10,7 +10,7 @@ description: >
 This script trains an RNN model on previously prepared data, which is loaded into a pandas Dataframe from a csv file. 
 Hyperparameter exploration using optuna is also possible if desired. The trained model is saved at the location 
 specified under ` "output_path": ` in the corresponding config.json and can be loaded via torch.load() or evaluated by 
-using the fc_evaluate.py script. This script scales the data, loads a custom data structure and then generates and 
+using the evaluate.py script. This script scales the data, loads a custom data structure and then generates and 
 trains a neural net.
 
 ### Hyperparameter Exploration
@@ -85,5 +85,5 @@ One of the following:
 * ./oracles/model_station
 
 ### Reference Documentation
-If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/fc_train.html" >}}) for 
+If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/train.html" >}}) for 
 this script.
