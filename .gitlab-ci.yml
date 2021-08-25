@@ -42,7 +42,6 @@ prep-docs:
     - cd docs/static/reference/proloaf
     - ls -l
     - cd ../../../..
-  allow_failure: true
   artifacts:
     expire_in: 1 day
     when: on_success
@@ -70,6 +69,7 @@ dco:
     script:
         - pip3 install -U dco-check
         - dco-check
+    allow_failure: true
     image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
     tags:
         - docker
