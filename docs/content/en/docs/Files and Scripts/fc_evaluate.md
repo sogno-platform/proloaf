@@ -23,6 +23,8 @@ The output consists of the actual load prediction graph split up into multiple .
 
 ![Metrics plot with performance information]({{< resource url="img/metrics_plot.png" >}} "Metrics plot with performance information")*Metrics plot with results of evaluation*
 
+### Summarized Description of Performance Metrics
+If you need more details on which deterministic and probabilistic metrics we take to quantify if the produced forecast is considered "good" or "bad", please take a look at the [Tutorial Notebook]({{< resource url="https://github.com/sogno-platform/proloaf/blob/master/notebooks/A%20User%20Guide%20on%20the%20ProLoaF%20Forecast%20Performance%20Metrics.ipynb" >}}).
 
 ### Reference Documentation
 If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/evaluate.html" >}}) for 

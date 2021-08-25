@@ -268,8 +268,33 @@ The following table summarizes the default parameters of the main config file:
 
 ### Tuning Config
 
-Some text on suggest-functions and common hyperparams.
-also on the duration.
+> Tensorboard utilization
+
+This project uses Tensorboard to display in-depth information about each train run. Information about the run itself like training time and validation
+loss are visible in the `Scalars` tab. The `HParams` tab allows sorting of runs by hyper parameters as well as parallel and scatter plots. To define which
+data should be logged, a `log.json` of following structure is used in the targets/ folder of each station:
+
+```
+{
+  "features": [
+    {
+      "name": "time_stamp"
+    },
+    {
+      "name": "train_loss"
+    },
+    {
+      "name": "val_loss"
+    },
+    {
+      "name": "total_time"
+    }
+  ]
+}
+```
+
+Install Tensorboard and run the Tensorboard command-line interface as described [here](https://pytorch.org/tutorials/recipes/recipes/tensorboard_with_pytorch.html). The default directory that runs get saved in is the `runs/` directory.
+To display runs in Tensorboard, use `tensorboard --logdir=runs`, then open a browser and navigate to [127.0.0.1:6006](127.0.0.1:6006)
 
 ### Preprocessing Config
 

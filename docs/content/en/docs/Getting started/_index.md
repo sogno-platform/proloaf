@@ -37,7 +37,7 @@ might be necessary. Depending on your machine you might need to use pip3 instead
 This project contains 3 scripts that can be used in conjunction with one another or separately. Configuration for these scripts is given in a config.json file in the targets/ folder.
 
 * All scripts are located in the source folder.
-* To start one of the scripts use 'Python3 fc_script.py argument', where the argument is either the name of a station (-s) (e.g. 'gefcom2017/ct_data') or the path (-c) of the corresponding config file located in the model_ folders.
+* To start one of the scripts use 'Python3 script.py argument', where the argument is either the name of a station (-s) (e.g. 'gefcom2017/ct_data') or the path (-c) of the corresponding config file located in the model_ folders.
 * To prepare load and weather data from selected stations run ./source/preprocess.py
 * To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./source/train.py
 * To analyze the performance of the forecast: ./source/evaluate.py

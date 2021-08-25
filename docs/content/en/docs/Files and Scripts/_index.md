@@ -7,3 +7,6 @@ description: >
 ---
 
 ### Files and Scripts
+
+Here you can browse through  user guides on the main entry points and most relevant modules of ProLoaF.
+If you are looking for some hands on application, check out the [Tutorial Notebooks]({{< resource url="https://github.com/sogno-platform/proloaf/blob/master/notebooks/" >}}).
