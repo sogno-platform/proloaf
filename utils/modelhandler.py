@@ -104,6 +104,111 @@ class EarlyStopping:
         self.val_loss_min = val_loss
         self.temp_dir=temp_dir
 
+
+class ModelHandler:
+    """
+    Utility wrapper for the model, implementing sklearns Predictor interface in addition to providing methods for initializing and handling the forecasting model.
+
+    Parameters
+    ----------
+    TODO
+    patience : int, default = 7
+        How long to wait after last time validation loss improved.
+    verbose : bool, default = False
+        If True, prints a message for each validation loss improvement.
+    delta : float, default = 0.0
+        Minimum change in the monitored quantity to qualify as an improvement.
+    model : utils.models.EncoderDecoder
+        The model which is to be used for forecasting, if one was perpared separately. It is however recommended to initialize and train the model using the modelhandler.
+    Notes
+    -----
+    Reference: https://scikit-learn.org/stable/developers/develop.html
+    """
+    def __init__(self, model = None, scalers = None, hparam_tuning = False, device = 'cpu'):
+        self._model = model
+        self._scalers = scalers
+        self.hparam_tuning = hparam_tuning
+        self.optimizer = None
+        self._device = device
+
+    def to(self,device):
+        self._device = device
+        self._model.to(device)
+        return self
+    
+    def fit(self, data):
+        raise NotImplemented()
+
+    def predict(self, data):
+        raise NotImplemented()
+
+    def load(self, path:str):
+        raise NotImplemented()
+    
+    def save(self, path:str):
+        raise NotImplemented()
+
+    def score(self,data):
+        raise NotImplemented()
+
+    def initialize_model(self):
+        raise NotImplemented()
+    
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def scalers(self):
+        return self._scalers
+    
+
+    def set_optimizer(self, name, learning_rate):
+        """
+        Specify which optimizer to use during training.
+
+        Initialize a torch.optim optimizer for the given model based on the specified name and learning rate.
+
+        Parameters
+        ----------
+        name : string or None, default = 'adam'
+            The name of the torch.optim optimizer to be used. The following
+            strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
+
+        learning_rate : float or None
+            The learning rate to be used by the optimizer. If set to None, the default value as defined in
+            torch.optim is used
+
+        Returns
+        -------
+        torch.optim optimizer class
+            A torch.optim optimizer that implements one of the following algorithms:
+            Adagrad, Adam, Adamax, AdamW, RMSprop, or SGD (stochastic gradient descent)
+            SGD is set to use a momentum of 0.5.
+
+        """
+        if self.model is None:
+            raise AttributeError("The model has to be initialized before the optimizer is set.")
+
+        if name == "adam":
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        if name == "sgd":
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.5)
+        if name == "adamw":
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
+        if name == "adagrad":
+            self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=learning_rate)
+        if name == "adamax":
+            self.optimizer = torch.optim.Adamax(self.model.parameters(), lr=learning_rate)
+        if name == "rmsprop":
+            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=learning_rate)
+        return self
+
+
+
+###################################################### REFACTOR ABOVE #############################################################################
+
+
 def get_prediction(net, data_loader, horizon, number_of_targets):
     """
     Get the predictions for the given model and data
@@ -213,6 +318,9 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
 
+
+
+
 # ToDo: refactor best score, refactor relative_metric
 def calculate_relative_metric(curr_score, best_score):
     """
@@ -318,6 +426,7 @@ def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_hor
         score=None
     return score
 
+
 def set_optimizer(name, model, learning_rate):
     """
     Specify which optimizer to use during training.
@@ -357,6 +466,7 @@ def set_optimizer(name, model, learning_rate):
     if name == "rmsprop":
         optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
     return optimizer
+
 
 def make_model(
     scalers,
