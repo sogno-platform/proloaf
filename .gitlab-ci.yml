@@ -42,6 +42,7 @@ prep-docs:
     - cd docs/static/reference/proloaf
     - ls -l
     - cd ../../../..
+  allow_failure: true
   artifacts:
     expire_in: 1 day
     when: on_success
