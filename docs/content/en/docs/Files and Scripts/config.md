@@ -16,7 +16,7 @@ Numbers and booleans should be  unquoted.
 
 For better readability, we assume in the examples below, 
 that your working directory is set to the main project path of the cloned 
-[repository](https://git.rwth-aachen.de/acs/public/automation/plf/plf-training).
+[repository](https://github.com/sogno-platform/proloaf).
 
 #### Generating a Configuration File
 

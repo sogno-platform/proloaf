@@ -9,4 +9,4 @@ description: >
 ---
 > Tutorials are **complete worked examples** made up of **multiple tasks** that guide the user through a relatively simple but realistic scenario.
 ### Summarized Description of Performance Metrics
-Please visit our GitHub repository and check out the latest [Tutorial Notebooks]({{< url="https://github.com/sogno-platform/proloaf/blob/master/notebooks/" >}}).
+Please visit our GitHub repository and check out the latest [Tutorial Notebooks](https://github.com/sogno-platform/proloaf/tree/master/notebooks).
