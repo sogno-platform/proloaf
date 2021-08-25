@@ -16,21 +16,21 @@ Numbers and booleans should be  unquoted.
 
 For better readability, we assume in the examples below, 
 that your working directory is set to the main project path of the cloned 
-[repository](https://git.rwth-aachen.de/acs/public/automation/plf/plf-training).
+[repository](https://github.com/sogno-platform/proloaf).
 
 #### Generating a Configuration File
 
 A *new* config file can be generated automatically by using:
 ```sh
-python source\config_maker.py --new targets/<STATION-NAME>/config.json
+python source\configmaker.py --new targets/<STATION-NAME>/config.json
 ```
 or manually.
 
 To *modify* the file, you can change parameters with our helper or apply modifications manually. 
-When using the helper, your modifications must be set in `config_maker.py`. You can then run:
+When using the helper, your modifications must be set in `configmaker.py`. You can then run:
 
 ```sh
-python source\config_maker.py --mod targets/<STATION-NAME>/config.json
+python source\configmaker.py --mod targets/<STATION-NAME>/config.json
 ```
 
 #### Configuration Loading
@@ -55,7 +55,7 @@ The flag ``-s`` allows us to specify the station name (=target directory) throug
 i.e. *gefcom2017/nh_data*. The 'train' script will expect and parse the config.json given in the target directory.
 <!---
 ```sh
-from utils.config_util import read_config, parse_with_loss
+from utils.cli import read_config, parse_with_loss
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 

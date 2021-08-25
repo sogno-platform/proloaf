@@ -45,26 +45,33 @@ Here all settings considering hyperparameter exploration can be adjusted. Any hy
 *Example:*
 ```json
 {
-    "rel_base_path": "model_targets/sege/fc_sege_tuned_hyper_config.json",
-    "number_of_tests": 20,
-    "settings": {
-        "learning_rate": {
-            "function": "random.gauss",
-            "kwargs":{
-                "mu": 0.001,
-                "sigma": 0.0001
-            }
-        },
-        "batch_size": {
-            "function": "random.randint",
-            "kwargs":{
-                "a": 5,
-                "b": 300
-            }
-        },
-        "core_net" : ["gru","lstm"],
-        "drop_out_core": 0.2
+  "number_of_tests": 100,
+  "settings": {
+      "learning_rate": {
+          "function": "suggest_loguniform",
+          "kwargs": {
+              "name": "learning_rate",
+              "low": 0.000001,
+              "high": 0.0001
+          }
+      },
+      "history_horizon": {
+          "function": "suggest_int",
+          "kwargs": {
+              "name": "history_horizon",
+              "low": 1,
+              "high": 168
+          }
+      },
+      "batch_size": {
+          "function": "suggest_int",
+          "kwargs": {
+              "name": "batch_size",
+              "low": 32,
+              "high": 120
+          }
     }
+  }
 }
 ```
 Possible hyperparameters are:
