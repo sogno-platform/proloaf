@@ -38,6 +38,7 @@ import math
 from statsmodels.tsa.seasonal import STL
 from statsmodels.tsa.api import ExponentialSmoothing, SimpleExpSmoothing, Holt
 from statsmodels.tsa.exponential_smoothing.ets import ETSModel
+from statsmodels.tsa.stattools import *
 from arch import arch_model
 from joblib import Parallel, delayed
 from pmdarima.arima import auto_arima
@@ -45,6 +46,18 @@ from pmdarima.arima import auto_arima
 # =======================================
 # save baseline model
 # =============================================================================
+from utils import plot
+
+def test_stationarity(timeseries,maxlag):
+    # source: https://towardsdatascience.com/end-to-end-time-series-analysis-and-forecasting-a-trio-of-sarimax-lstm-and-prophet-part-1-306367e57db8
+    # Perform Dickey-Fuller test:
+    print('Results of Dickey-Fuller Test:')
+    dftest = adfuller(timeseries,maxlag=maxlag,
+                      autolag='AIC')
+    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic','p-value','#Lags Used','Number of Observations Used'])
+    for key,value in dftest[4].items():
+        dfoutput['Critical Value (%s)'%key] = value
+    print (round(dfoutput,3))
 
 def save_baseline(path, fitted,name='sarimax', predictions=None, save_predictions = True):
     """
@@ -69,6 +82,10 @@ def save_baseline(path, fitted,name='sarimax', predictions=None, save_prediction
     """
 
     print('Saving fitted sarimax model')
+    if not os.path.exists(
+            os.path.join(path)
+    ):  # make output folder if it doesn't exist
+        os.makedirs(os.path.join(path))
     if 'ResultsWrapper' in str(type(fitted)):
         fitted.save(path+name+".pkl")
     else:
@@ -120,7 +137,7 @@ def load_baseline(path, name = 'sarimax'):
 # train SARIMAX model
 # =============================================================================
 
-def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='n'):
+def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='c'):
     """
     Train a SARIMAX model
 
@@ -151,7 +168,7 @@ def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='n'):
         Akaike Information Criterion with small sample correction
     """
 
-    model = sarimax.SARIMAX(endog, exog,
+    model = sarimax.SARIMAX(endog=endog,ecog=exog,
                             order=order, seasonal_order=seasonal_order, trend=trend) #time_varying_regression = True,
     fitted = model.fit(disp=-1)
     # use AICc - Take corrected Akaike Information Criterion here as default for performance check
@@ -203,11 +220,15 @@ def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seas
               'ARIMA does not improve with very long training sets. Set training set to: ',train_limit)
     else:
         train_limit=len(endog)
-    if exog is not None: exog = exog.iloc[-train_limit:]
+
+    if exog is not None:
+        exog = exog.iloc[-train_limit:]
+        trend = None # TODO: calrify why. If exogeneous variables have a constant trend e.g. trend = 'c' will fail.
 
     if grid_search:
         # Apply parameter tuning script for (seasonal) ARIMA using [auto-arima]
         # (https://github.com/alkaline-ml/pmdarima)
+        # TODO: add warning that auto arima does not support exogeneous features
         print('Training SARIMA(X) with parameter grid search by auto-arima...')
         if not seasonal: m=1
         auto_model = auto_arima(endog[-train_limit:], exog,
@@ -230,12 +251,12 @@ def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seas
         print('Train SARIMA with order:',order,' and seasonal order:',seasonal_order)
     sarimax_model, untrained_model, val_loss = train_SARIMAX(endog[-train_limit:], exog, order,
                                                              seasonal_order, trend=trend)
-    return sarimax_model, untrained_model, val_loss
+    return sarimax_model, untrained_model, val_loss, order, seasonal_order
 # =============================================================================
 # evaluate forecasts
 # =============================================================================
 
-def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=24, alpha=0.05, total=True):
+def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, model_name, path, config, analyzed_metrics=["mse"]):
     """
     Calculate evaluation metrics
 
@@ -247,6 +268,7 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
     rmse, sharpness, coverage, mis
 
     Parameters
+    # TODO: Update docstring!
     ----------
     forecasts : array_like
         The calculated forecasts
@@ -301,28 +323,50 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, seasonality=
     true_values = torch.tensor(endog_val)
     upper_limits = torch.tensor(upper_limits)
     lower_limits = torch.tensor(lower_limits)
-    #torch.tensor([i[target].T.values for i in output_matrix]).reshape(forecasts.shape).type(torch.FloatTensor)
-    #true_values = torch.tensor([i.T.values for i in endog_val).reshape(forecasts.shape).type(torch.FloatTensor)
-    #upper_limits = torch.tensor([i.values for i in upper_limits]).reshape(forecasts.shape).type(torch.FloatTensor)
-    #lower_limits = torch.tensor([i.values for i in lower_limits]).reshape(forecasts.shape).type(torch.FloatTensor)
 
-    if total:
-        mse = metrics.mse(true_values, [forecasts])
-        rmse = metrics.rmse(true_values, [forecasts])
-        mase = metrics.mase(true_values, [forecasts], freq=7*24) #MASE always needs a reference vale, here we assume a 24 timestep seasonality.
-        rae = metrics.rae(true_values, [forecasts])
-        mae = metrics.mae(true_values, [forecasts])
-        sharpness = metrics.sharpness(None, [upper_limits, lower_limits])
-        coverage = metrics.picp(true_values, [upper_limits, lower_limits])
-        mis = metrics.mis(true_values, [upper_limits, lower_limits], alpha=alpha)
-        qs = metrics.pinball_loss(true_values, [upper_limits, lower_limits], [0.025, 0.975])
-        return mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs
-    else:
-        rmse_horizon = metrics.rmse(true_values, [forecasts], total)
-        sharpness_horizon = metrics.sharpness(None, [upper_limits, lower_limits], total)
-        coverage_horizon = metrics.picp(true_values, [upper_limits, lower_limits], total)
-        mis_horizon = metrics.mis(true_values, [upper_limits, lower_limits], alpha=alpha, total=total)
-        return rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon
+    # targets_rescaled, output_rescaled = dh.rescale_manually(..)
+    results = metrics.fetch_metrics(
+        targets=true_values,
+        expected_values=forecasts,
+        y_pred_upper=upper_limits,
+        y_pred_lower=lower_limits,
+        analyzed_metrics=analyzed_metrics  # all above listed metrics are fetched
+    )
+    results_per_timestep = metrics.fetch_metrics(
+        targets=true_values,
+        expected_values=forecasts,
+        y_pred_upper=upper_limits,
+        y_pred_lower=lower_limits,
+        analyzed_metrics=["rmse",
+                          "sharpness",
+                          "picp",
+                          "mis"],
+        total=False,
+    )
+    # plot forecast for sample time steps
+    # the first and 24th timestep relative to the start of the Test-Dataset
+    testhours = [0, 1]
+    for i in testhours:
+        plot.plot_timestep(
+            true_values[i].detach().numpy(),
+            forecasts[i].detach().numpy(),
+            upper_limits[i].detach().numpy(),
+            upper_limits[i].detach().numpy(),
+            i,
+            path+model_name,
+            config["cap_limit"],
+        )
+    # BOXPLOTS
+    plot.plot_boxplot(
+        targets=true_values,
+        expected_values=forecasts,
+        y_pred_upper=upper_limits,
+        y_pred_lower=lower_limits,
+        analyzed_metrics=['mse', 'rmse'],
+        sample_frequency=24,
+        save_to_disc=path+model_name,
+    )
+    return results.T, results_per_timestep, true_values, forecasts, upper_limits, lower_limits
 
 # =============================================================================
 # Create multiple forecasts with one model
@@ -366,7 +410,6 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
     numpy.ndarray
         Lower limit of prediction
     """
-
     num_cores = max(multiprocessing.cpu_count()-2,1)
     test_period = range(endog_val.shape[0])
 
@@ -378,7 +421,8 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
     else:
         train_limit = len(endog_val)
 
-    if exog is not None and exog_forecast is not None: print('Predicting with exogenous variables')
+    if exog is not None and exog_forecast is not None:
+        print('Predicting with exogenous variables')
     else: print('Predictions made without exogenous variables')
 
     def sarimax_predict(i, fitted=None):
@@ -395,13 +439,19 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
         if 'ResultsWrapper' in str(type(fitted)):
             if online:
                 # if we do standard parameters we have a SARIMAX object which can only be extended with apply (endog, exog)
-                fitted = fitted.apply(endog=endog_train_i[-train_limit:], exog=exog_train_i)
+                # statsmodels v0.12.2: This [issue](https://github.com/statsmodels/statsmodels/issues/7019) occurs when
+                # we only append small horizons here on which the trend is constant.
+                # So if the model was trained with a trend, it would through a ValueError.
+                # As in most tests we append one time-step we set the trend to none here to bypass the issue.
+                # First tests show that the model is not suffering much in terms of forecast quality.
+                fitted = fitted.apply(endog=endog_train_i[-train_limit:], exog=exog_train_i, trend = None)
             res = fitted.get_forecast(forecast_horizon, exog=exog_forecast_i)
         else:
             if online:
                 # when using hyperparam optimization we do have an arima object, then we need to use Update (y, X)
                 # Of course, you’ll have to re-persist your ARIMA model after updating it!
-                fitted = fitted.update(y=endog_train_i[-train_limit:], X=exog_train_i)
+                # Same issue with constant trend warning
+                fitted = fitted.update(y=endog_train_i[-train_limit:], X=exog_train_i, trend = None)
             res = fitted.predict(n_periods=forecast_horizon, X=exog_forecast_i,
                                       return_conf_int = False)
         fc_u = res.predicted_mean + pi_alpha * res.se_mean
@@ -746,7 +796,24 @@ def seasonal_decomposed(series, periodicity=None, seasonality=1):
         The seasonally decomposed series
     """
     # seasonally adjusted time series Y(t)-S(t).
-    stl = STL(series.squeeze(), period=periodicity, seasonal=seasonality)
+    if periodicity:
+        if (periodicity % 2) == 0:
+            if (seasonality % 2) == 0:
+                stl = STL(series.squeeze(), period=periodicity + 1, seasonal=seasonality + 1)
+            else:
+                stl = STL(series.squeeze(), period=periodicity + 1, seasonal=seasonality)
+        else:
+            if (seasonality % 2) == 0:
+                stl = STL(series.squeeze(), period=periodicity, seasonal=seasonality + 1)
+            else:
+                stl = STL(series.squeeze(), period=periodicity, seasonal=seasonality)
+    else:
+        if (seasonality % 2) == 0:
+            stl = STL(series.squeeze(), seasonal=seasonality + 1)
+        else:
+            stl = STL(series.squeeze(), seasonal=seasonality)
+
+
     res = stl.fit()
     #plt = res.plot()
     #plt.show()
