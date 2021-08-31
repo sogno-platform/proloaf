@@ -175,7 +175,7 @@ def main(infile, target_id):
         x_train_1D = x_train[:,:,target_column]
         x_val_1D = x_val[:,:,target_column]
         y_train_1D = y_train[:,:,target_column]
-        y_val_1D = y_val[:, :, target_column]
+        #y_val_1D = y_val[:, :, target_column]
 
         mean_forecast = []
         upper_PI = []
@@ -230,7 +230,6 @@ def main(infile, target_id):
             if arima_model == None:
                 arima_model,_,_,arima_order,_ = baselines.auto_sarimax_wrapper(
                     endog=df_train[target],
-                    exog=None,
                     order=ORDER,
                     seasonal_order=None,
                     seasonal = False,
@@ -262,7 +261,6 @@ def main(infile, target_id):
             if sarima_model == None:
                 sarima_model,_,_,sarima_order,sarima_sorder = baselines.auto_sarimax_wrapper(
                     endog=df_train[target],
-                    exog=None,
                     order=ORDER,
                     seasonal_order=sORDER,
                     seasonal = True,

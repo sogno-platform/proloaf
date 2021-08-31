@@ -437,21 +437,21 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
             exog_train_i = pd.concat([exog, exog_forecast.iloc[0:i]]).iloc[-train_limit:]
 
         if 'ResultsWrapper' in str(type(fitted)):
-            if online:
+            if online and exog==None:
                 # if we do standard parameters we have a SARIMAX object which can only be extended with apply (endog, exog)
                 # statsmodels v0.12.2: This [issue](https://github.com/statsmodels/statsmodels/issues/7019) occurs when
                 # we only append small horizons here on which the trend is constant.
                 # So if the model was trained with a trend, it would through a ValueError.
                 # As in most tests we append one time-step we set the trend to none here to bypass the issue.
                 # First tests show that the model is not suffering much in terms of forecast quality.
-                fitted = fitted.apply(endog=endog_train_i[-train_limit:], exog=exog_train_i, trend = None)
+                fitted = fitted.apply(endog=endog_train_i[-train_limit:])
             res = fitted.get_forecast(forecast_horizon, exog=exog_forecast_i)
         else:
-            if online:
+            if online and exog==None:
                 # when using hyperparam optimization we do have an arima object, then we need to use Update (y, X)
                 # Of course, you’ll have to re-persist your ARIMA model after updating it!
                 # Same issue with constant trend warning
-                fitted = fitted.update(y=endog_train_i[-train_limit:], X=exog_train_i, trend = None)
+                fitted = fitted.update(y=endog_train_i[-train_limit:])
             res = fitted.predict(n_periods=forecast_horizon, X=exog_forecast_i,
                                       return_conf_int = False)
         fc_u = res.predicted_mean + pi_alpha * res.se_mean
