@@ -29,16 +29,26 @@ import shutil
 import tempfile
 import optuna
 import torch
+from functools import partial
+from typing import Callable, Union
+import utils
 
 import utils.datahandler as dh
 
 from datetime import datetime
 from time import perf_counter  # ,localtime
-from utils import models
+from utils import models_wip as models
 from utils import metrics
-from utils.loghandler import log_data, clean_up_tensorboard_dir, log_tensorboard, add_tb_element, end_tensorboard
+from utils.loghandler import (
+    log_data,
+    clean_up_tensorboard_dir,
+    log_tensorboard,
+    add_tb_element,
+    end_tensorboard,
+)
 from utils.cli import query_true_false
 from utils.confighandler import read_config, write_config
+
 
 class EarlyStopping:
     """
@@ -57,9 +67,10 @@ class EarlyStopping:
     -----
     Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
+
     # implement early stopping
     # Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
-    def __init__(self, patience=7, verbose=False, delta=0):
+    def __init__(self, patience=7, verbose=False, delta=0, log_df=None, log_tb=False):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -68,6 +79,8 @@ class EarlyStopping:
         self.val_loss_min = np.Inf
         self.delta = delta
         self.temp_dir = ""
+        self.log_df = log_df
+        self.log_tb = False
 
     def __call__(self, val_loss, model):
 
@@ -78,7 +91,7 @@ class EarlyStopping:
             self.save_checkpoint(val_loss, model)
         elif score < self.best_score - self.delta:
             self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            print(f"EarlyStopping counter: {self.counter} out of {self.patience}")
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
@@ -98,9 +111,11 @@ class EarlyStopping:
             The model being trained
         """
         if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+            print(
+                f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ..."
+            )
         temp_dir = tempfile.mktemp()
-        torch.save(model.state_dict(), temp_dir+'checkpoint.pt')
+        torch.save(model.state_dict(), temp_dir + "checkpoint.pt")
         self.val_loss_min = val_loss
         self.temp_dir = temp_dir
 
@@ -124,39 +139,160 @@ class ModelHandler:
     -----
     Reference: https://scikit-learn.org/stable/developers/develop.html
     """
-    def __init__(self,work_dir=os.path.dirname(os.path.abspath(__main__)), model = None, scalers = None, hparam_tuning = False, loss = 'nll_gaus', device = 'cpu'):
+
+    def __init__(
+        self,
+        work_dir: str,
+        config: dict,
+        model_name: str,
+        model=None,
+        tuning_config: dict = None,
+        scalers=None,
+        loss="nll_gaus",
+        loss_kwargs: dict = {},
+        device="cpu",
+    ):
+        self.model_name = model_name
         self._model = model
+        self._config = config
         self._scalers = scalers
-        self.hparam_tuning = hparam_tuning
+        self.tuning_config = tuning_config
         self.optimizer = None
         self._device = device
-        self._loss = loss
+        self.set_loss(loss, **loss_kwargs)
         self.work_dir = work_dir
+        self.hparams = None
 
-    def to(self,device):
+        if config.get("exploration", False):
+            if not self.tuning_config:
+                raise AttributeError(
+                    "Exploration was requested but no configuration for it was provided. Define the relative path to the hyper parameter tuning config as 'exploration_path' in the main config or provide a dict to the modelhandler"
+                )
+
+    def to(self, device):
         self._device = device
         self._model.to(device)
         return self
-    
-    def fit(self, # Maybe use the datahandler as "data" which than provides all the data_loaders,for unifying the interface.
-            train_data_loader,
-            validation_data_loader,
-            test_data_loader,
-            args,
-            loss_options={},
-            best_loss=None,
-            best_score=None,
-            exploration=False,
-            learning_rate=None,
-            batch_size=None,
-            forecast_horizon=None,
-            dropout_fc=None,
-            log_df=None,
-            max_epochs=None,
-            logging_tb=False,
-            trial_id="main_run",
-            hparams={},
-            config={},
+
+    @property
+    def config(self):
+        return self._config
+
+    def set_loss(self, metric_id: str = "nll_gauss", **kwargs):
+        """
+        Set the meric which is to be used as loss for training
+
+        Parameters
+        ----------
+        metric_id : string, default = 'mis'
+            The name of the metric to use for scoring. See functions in utils.eval_metrics for
+            possible values.
+        **kwargs:
+            arguments provided to the chosen metric.
+        Returns
+        -------
+        self: ModelHandler
+        """
+        if metric_id == "mis":
+            self._loss = partial(metrics.mis, **kwargs)
+        elif metric_id == "nll_gauss":
+            self._loss = partial(metrics.nll_gauss, **kwargs)
+        elif metric_id == "quant":
+            self._loss = partial(metrics.quantile_score, **kwargs)
+        elif metric_id == "crps":
+            self._loss = partial(metrics.crps_gaussion, **kwargs)
+        elif metric_id == "mse":
+            self._loss = partial(metrics.mse, **kwargs)
+        elif metric_id == "rmse":
+            self._loss = partial(metrics.rmse, **kwargs)
+        elif metric_id == "mape":
+            self._loss = partial(metrics.mape, **kwargs)
+        else:
+            # TODO: catch exception here if performance self._loss is undefined
+            self._loss = None
+        return self
+
+    def tune_hyperparameters(
+        self,
+        previous_min_val_loss=float("inf"),
+        interactive=False,
+    ):
+        """
+        TODO: description
+
+        ToDo: long_description
+
+        Notes
+        -----
+        Hyperparameter exploration
+
+        - Any training parameter is considered a hyperparameter as long as it is specified in
+            either config.json or tuning.json. The latter is the standard file where the (so far)
+            best found configuration is saved and should usually not be manually adapted unless
+            new tests are for some reason not comparable to older ones (e.g. after changing the loss function).
+        - Possible hyperparameters are: target_column, encoder_features, decoder_features,
+            max_epochs, learning_rate, batch_size, shuffle, history_horizon, forecast_horizon,
+            train_split, validation_split, core_net, relu_leak, dropout_fc, dropout_core,
+            rel_linear_hidden_size, rel_core_hidden_size, optimizer_name, cuda_id
+
+        Parameters
+        ----------
+        TODO: complete
+        config : dict, default = {}
+            dict of model configurations
+        Returns
+        -------
+        TODO: complete
+        """
+        print(
+            "Max. number of iteration trials for hyperparameter tuning: ",
+            self.tuning_config["number_of_tests"],
+        )
+        study = self.make_study()
+        study.optimize(
+            self.tuning_objective(self.tuning_config["settings"]),
+            n_trials=self.tuning_config["number_of_tests"],
+            n_jobs=self.tuning_config.get("parallel_jobs", -1),
+            timeout=self.tuning_config.get("timeout", None),
+        )
+
+        print("Number of finished trials: ", len(study.trials))
+        # trials_df = study.trials_dataframe()
+
+        if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
+            os.mkdir(os.path.join(self.work_dir, self.config["log_path"]))
+
+        print("Best trial:")
+        trial = study.best_trial
+        print("  Value: ", trial.value)
+        print("  Params: ")
+        for key, value in trial.params.items():
+            print("    {}: {}".format(key, value))
+        if previous_min_val_loss is None:
+            previous_min_val_loss = float("inf")
+        if previous_min_val_loss < study.best_value:
+            print("None of the tested setups performed better than the loss provided.")
+        else:
+            if interactive:
+                if query_true_false(
+                    "Found a better performing setup.\nAccept changes?"
+                ):
+                    self.config.update(trial.params)
+                    print(
+                        "Saved ... do not forget to save the in memory changes to disc."
+                    )
+            else:
+                self.config.update(trial.params)
+        self.model = trial.user_attrs["training_details"].model
+        return self
+
+    def train(
+        self,  # Maybe use the datahandler as "data" which than provides all the data_loaders,for unifying the interface.
+        train_data_loader,
+        validation_data_loader,
+        model=None,
+        trial_id=None,
+        hparams={},
     ):
         """
         Train the given model.
@@ -204,8 +340,6 @@ class ModelHandler:
             dict of customized hyperparameters
         config : dict, default = {}
             dict of model configurations
-        args : dict, equals default setting, with default loss and default config path, etc.
-            dict of customized arguments of model call
         Returns
         -------
         utils.models.EncoderDecoder
@@ -220,224 +354,160 @@ class ModelHandler:
             A lower score is generally better
         TODO: update
         """
-        self.to(device)
-        #TODO having args here is really ugly, criterion is a function
-        criterion = args.loss
         # to track the validation loss as the model trains
-        valid_losses = []
+        config = self.config.deepcopy()
+        config.update(hparams)
+        if model is None:
+            model = self.model
+            use_self_model = True
+        training_run = TrainingRun(
+            model,
+            id=trial_id,
+            optimizer_name=config["optimizer_name"],
+            train_data_loader=train_data_loader,
+            validation_data_loader=validation_data_loader,
+            learning_rate=config["learning_rate"],
+            loss_function="TODO",
+            max_epochs=config["max_epochs"],
+        )
+        training_run.train()
+        if use_self_model:
+            self.model = training_run.model
+            return self
+        return model
 
-        early_stopping = EarlyStopping()
-        self.set_optimizer(optimizer_name, learning_rate)
-
-        inputs1, inputs2, targets = next(iter(train_data_loader))
-
-        #TODO: solve this ARGS.ci issue more elegantly
-        #always have logging disabled for ci to avoid failed jobs because of tensorboard
-        #if ARGS.ci:
-        #    logging_tb = False
-        if logging_tb:
-            tb = log_tensorboard(
-                work_dir=self.work_dir,
-                exploration=exploration,
-                trial_id=trial_id
-            )
-            tb.add_graph(net, [inputs1, inputs2])
+    # TODO dataformat curretnly includes targets and features which differs from sklearn
+    def fit(
+        self,
+        train_data_loader: utils.tensorloader.CustomTensorDataLoader,
+        validation_data_loader: utils.tensorloader.CustomTensorDataLoader,
+        tuning_config=None,
+    ):
+        if tuning_config is None:
+            self.make_model(**self.config)
+            self.train(train_data_loader, validation_data_loader, trial_id="main")
         else:
-            print("Begin training...")
-
-        t0_start = perf_counter()
-        step_counter = 0
-        final_epoch_loss = 0.0
-
-        for name, param in self._model.named_parameters():
-            torch.nn.init.uniform_(param.data, -0.08, 0.08)
-
-        for epoch in range(max_epochs):
-            epoch_loss = 0.0
-            t1_start = perf_counter()
-            self._model.train()
-            #train step
-            for (inputs1, inputs2, targets) in train_data_loader:
-                prediction, _ = self._model(inputs1, inputs2)
-                self.optimizer.zero_grad()
-                loss = criterion(targets, prediction, **(loss_options))
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self._model.parameters(), 1)
-                self.optimizer.step()
-                step_counter += 1
-                epoch_loss += loss.item() / len(train_data_loader)
-                final_epoch_loss = epoch_loss
-            t1_stop = perf_counter()
-
-            #validation_step
-            with torch.no_grad():
-                self._model.eval()
-                validation_loss = 0.0
-                for (inputs1, inputs2, targets) in validation_data_loader:
-                    output, _ = self._model(inputs1, inputs2)
-                    validation_loss += criterion(
-                        targets, output, **(loss_options)
-                    ).item() / len(validation_data_loader)
-                    valid_losses.append(validation_loss)
-
-            print(
-                "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
-                    epoch + 1, max_epochs, epoch_loss, validation_loss, t1_stop - t1_start
-                )
+            self.tune_hyperparameters(
+                previous_min_val_loss=self.config.get("best_loss", float("inf"))
             )
+        return self
 
-            if logging_tb:
-                add_tb_element(
-                    net=self._model,
-                    tb=tb,
-                    epoch_loss=epoch_loss,
-                    validation_loss=validation_loss,
-                    t0_start=t0_start,
-                    t1_stop=t1_stop,
-                    t1_start=t1_start,
-                    next_epoch=epoch+1,
-                    step_counter=step_counter
-                )
-
-            early_stopping(validation_loss, self._model)
-
-            if early_stopping.early_stop:
-                print("Stop in earlier epoch. Loading best model state_dict.")
-                # load the last checkpoint with the best model
-                self._model.load_state_dict(torch.load(early_stopping.temp_dir + "checkpoint.pt"))
-                break
-
-        # Now we are working with the best net and want to save the best score with respect to new test data
-        with torch.no_grad():
-            self._model.eval()
-
-            score = performance_test(
-                self._model,
-                data_loader=test_data_loader,
-                score_type="mis",
-                horizon=forecast_horizon,
-            ).item()
-
-            if best_score:
-                rel_score = calculate_relative_metric(score, best_score)
-            else:
-                rel_score = 0
-
-            best_loss = early_stopping.val_loss_min
-
-        # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, python database or table (MongoDB)
-        # Only log once per run so immediately if exploration is false and only on the trial_main_run if it's true
-        if (not exploration) or (exploration and not isinstance(trial_id, int)):
-            log_df = log_data(
-                config,
-                args,
-                loss_options,
-                t1_stop - t0_start,
-                final_epoch_loss,
-                best_loss,
-                score,
-                log_df,
-            )
-
-        if logging_tb:
-            # list of hyper parameters for tensorboard, will be available for sorting in tensorboard/hparams
-            # if hyperparam tuning is True, use hparams as defined in tuning.json
-            if exploration and isinstance(trial_id, int):
-                for items in hparams["hyper_params"]:
-                    config.update(
-                        {
-                            items: hparams["hyper_params"][items]
-                        }
-                    )
-            # metrics to evaluate the model by
-            values = {
-                "hparam/hp_total_time": t1_stop - t0_start,
-                "hparam/score": score,
-                "hparam/relative_score": rel_score,
-            }
-            end_tensorboard(
-                tb=tb,
-                params=hparams,
-                values=values,
-                work_dir=self.work_dir,
-                args=args)
-
-        return self._model, log_df, best_loss, score, config
-
-    def predict(self, data):
-        raise NotImplemented()
-
-    def load(self, path:str):
-        raise NotImplemented()
-    
-    def save(self, path:str):
-        raise NotImplemented()
-
-    #TODO adjust function inputs
-    def score(self,data, score_type='mis', option=0.05, avg_on_horizon=True, horizon=1, number_of_targets=1):
+    def predict(self, data: utils.tensorloader.CustomTensorDataLoader):
         """
-        Determine the score of the given model using the specified metrics in utils.eval_metrics
-
-        Return a single float value (total score) or a 1-D array (score over horizon) based on
-        the value of avg_on_horizon
+        Get the predictions for the given model and data
 
         Parameters
         ----------
-        data : utils.tensorloader.CustomTensorDataLoader
+        net : utils.models.EncoderDecoder
+            The model with which to calculate the predictions
+        data_loader : utils.tensorloader.CustomTensorDataLoader
             Contains the input data and targets
-        score_type : string, default = 'mis'
-            The name of the metric to use for scoring. See functions in utils.eval_metrics for
-            possible values.
-        option : float or list, default = 0.05
-            An optional parameter in case the 'mis' or 'quantile_score' functions are used. In the
-            case of 'mis' it should be given the value for 'alpha'. In the case of QS, it should
-            contain a list with the quantiles.
-        avg_on_horizon : bool, default = true
-            Determines whether the return value is a float (total score, when true) or a 1-D array
-            (score over the horizon, when false).
-        horizon : int, default = 1
+        horizon : int
             The horizon for the prediction
-        number_of_targets : int, default = 1
-            The number of targets for the prediction.
+        number_of_targets : int
+            The number of targets
 
         Returns
         -------
-        float or 1-D array (torch.Tensor)
-            Either the total score (float) or the score over the horizon (array), depending on the
-            value of avg_on_horizon
+        torch.Tensor
+            The targets (actual values)
+        torch.Tensor
+            The predictions from the given model
         """
-        # check performance
-        targets, raw_output = get_prediction(self._model, data,horizon, number_of_targets) ##should be test data loader
-        [y_pred_upper, y_pred_lower, expected_values] = get_pred_interval(raw_output, self.criterion, targets)
-        #get upper and lower prediction interval, depending on loss function used for training
-        # TODO give feedback on invalid score type
-        if ('mis' in str(score_type)):
-            output = [y_pred_upper, y_pred_lower]
-            score = metrics.mis(targets, output, alpha=option, total=avg_on_horizon)
-        elif ('nll_gauss' in str(score_type)):
-            output = raw_output ##this is only valid if self._model was trained with gaussin nll or crps
-            score = metrics.nll_gauss(targets, output, total=avg_on_horizon)
-        elif ('quant' in str(score_type)):
-            output = expected_values
-            score = metrics.quantile_score(targets, output, quantiles=option, total=avg_on_horizon)
-        elif ('crps' in str(score_type)):
-            output = raw_output  ##this is only valid if self._model was trained with gaussin nll or crps
-            score = metrics.crps_gaussian(targets, output, total=avg_on_horizon)
-        elif (score_type == 'mse'):
-            output = expected_values
-            score = metrics.mse(targets, output.unsqueeze(0), total=avg_on_horizon)
-        elif (score_type == 'rmse'):
-            output = expected_values
-            score = metrics.rmse(targets, output.unsqueeze(0), total=avg_on_horizon)
-        elif ('mape' in str(score_type)):
-            output = expected_values
-            score = metrics.mape(targets, output.unsqueeze(0), total=avg_on_horizon)
-        else:
-            #TODO: catch exception here if performance score is undefined
-            score=None
-        return score
+        if self.model is None:
+            raise RuntimeError("No model has been created to perform a prediction with")
+        # TODO this array of numbers is not very readable, maybe a dict would be helpful
+        return [
+            self.model(inputs_enc, inputs_dec) for inputs_enc, inputs_dec, _ in data
+        ]
 
-    def initialize_model(self,
+    def load(self, path: str):
+        raise NotImplemented()
+
+    def save(self, path: str):
+        raise NotImplemented()
+
+    # TODO adjust function inputs
+    # def score(
+    #     self,
+    #     data,
+    #     score_type="mis",
+    #     option=0.05,
+    #     avg_on_horizon=True,
+    #     horizon=1,
+    #     number_of_targets=1,
+    # ):
+    #     """
+    #     Determine the score of the given model using the specified metrics in utils.eval_metrics
+
+    #     Return a single float value (total score) or a 1-D array (score over horizon) based on
+    #     the value of avg_on_horizon
+
+    #     Parameters
+    #     ----------
+    #     data : utils.tensorloader.CustomTensorDataLoader
+    #         Contains the input data and targets
+    #     score_type : string, default = 'mis'
+    #         The name of the metric to use for scoring. See functions in utils.eval_metrics for
+    #         possible values.
+    #     option : float or list, default = 0.05
+    #         An optional parameter in case the 'mis' or 'quantile_score' functions are used. In the
+    #         case of 'mis' it should be given the value for 'alpha'. In the case of QS, it should
+    #         contain a list with the quantiles.
+    #     avg_on_horizon : bool, default = true
+    #         Determines whether the return value is a float (total score, when true) or a 1-D array
+    #         (score over the horizon, when false).
+    #     horizon : int, default = 1
+    #         The horizon for the prediction
+    #     number_of_targets : int, default = 1
+    #         The number of targets for the prediction.
+
+    #     Returns
+    #     -------
+    #     float or 1-D array (torch.Tensor)
+    #         Either the total score (float) or the score over the horizon (array), depending on the
+    #         value of avg_on_horizon
+    #     """
+    #     # check performance
+    #     targets, raw_output = get_prediction(
+    #         self._model, data, horizon, number_of_targets
+    #     )  ##should be test data loader
+    #     [y_pred_upper, y_pred_lower, expected_values] = get_pred_interval(
+    #         raw_output, self.criterion, targets
+    #     )
+    #     # get upper and lower prediction interval, depending on loss function used for training
+    #     # TODO give feedback on invalid score type
+    #     if "mis" in str(score_type):
+    #         output = [y_pred_upper, y_pred_lower]
+    #         score = metrics.mis(targets, output, alpha=option, total=avg_on_horizon)
+    #     elif "nll_gauss" in str(score_type):
+    #         output = raw_output  ##this is only valid if self._model was trained with gaussin nll or crps
+    #         score = metrics.nll_gauss(targets, output, total=avg_on_horizon)
+    #     elif "quant" in str(score_type):
+    #         output = expected_values
+    #         score = metrics.quantile_score(
+    #             targets, output, quantiles=option, total=avg_on_horizon
+    #         )
+    #     elif "crps" in str(score_type):
+    #         output = raw_output  ##this is only valid if self._model was trained with gaussin nll or crps
+    #         score = metrics.crps_gaussian(targets, output, total=avg_on_horizon)
+    #     elif score_type == "mse":
+    #         output = expected_values
+    #         score = metrics.mse(targets, output.unsqueeze(0), total=avg_on_horizon)
+    #     elif score_type == "rmse":
+    #         output = expected_values
+    #         score = metrics.rmse(targets, output.unsqueeze(0), total=avg_on_horizon)
+    #     elif "mape" in str(score_type):
+    #         output = expected_values
+    #         score = metrics.mape(targets, output.unsqueeze(0), total=avg_on_horizon)
+    #     else:
+    #         # TODO: catch exception here if performance score is undefined
+    #         score = None
+    #     return score
+
+    # TODO arguments are not correct yet
+    def make_model(
+        self,
         enc_size,
         dec_size,
         num_pred,
@@ -492,7 +562,7 @@ class ModelHandler:
         utils.models.EncoderDecoder
             The prepared model with desired encoder/decoder features
         """
-        self._model = models.EncoderDecoder(
+        model = models.EncoderDecoder(
             input_size1=enc_size,
             input_size2=dec_size,
             out_size=num_pred,
@@ -505,8 +575,10 @@ class ModelHandler:
             core_layers=core_layers,
             criterion=loss,
         )
-        return self
-    
+        for param in model.parameters():
+            torch.nn.init.uniform_(param.data, -0.08, 0.08)
+        return model
+
     @property
     def model(self):
         return self._model
@@ -514,9 +586,140 @@ class ModelHandler:
     @property
     def scalers(self):
         return self._scalers
-    
 
-    def set_optimizer(self, name, learning_rate):
+    def make_study(
+        seed=10,
+        direction="minimize",
+        pruner=optuna.pruners.MedianPruner(),
+    ):
+        """
+        TODO: Description
+
+        Parameters
+        ----------
+        Returns
+        -------
+        TODO
+        Raises
+        ------
+        TODO
+        """
+        # Set up the median stopping rule as the pruning condition.
+        sampler = optuna.samplers.TPESampler(
+            seed=seed
+        )  # Make the sampler behave in a deterministic way.
+        study = optuna.create_study(
+            sampler=sampler,
+            direction=direction,
+            pruner=pruner,
+        )
+        return study
+
+    def tuning_objective(
+        self,
+        tuning_settings: dict,
+        train_data_loader: utils.datahandler.CustomTensorDataLoader,
+        validation_data_loader: utils.datahandler.CustomTensorDataLoader,
+    ):
+        """
+        Implement an objective function for optimization with Optuna.
+
+        Provide a callable for Optuna to use for optimization. The callable creates and trains a
+        model with the specified features, scalers and hyperparameters. Each hyperparameter triggers a trial.
+
+        Parameters
+        ----------
+        work_dir: TODO
+        selected_features : pandas.DataFrame
+            The data frame containing the model features, to be split into sets for training
+        scalers : dict
+            A dict of sklearn.preprocessing scalers with their corresponding feature group
+            names (e.g."main", "add") as keywords
+        hyper_param: dict
+            A dictionary containing hyperparameters for the Optuna optimizer
+        log_df : pandas.DataFrame
+            A DataFrame in which the results and parameters of the training are logged
+        config : dict, default = {}
+            dict of model configurations
+        args : TODO
+        Returns
+        -------
+        Callable
+            A callable that implements the objective function. Takes an optuna.trial._trial.Trial as an argument,
+            and is used as the first argument of a call to optuna.study.Study.optimize()
+            TODO: update
+        Raises
+        ------
+        optuna.exceptions.TrialPruned
+            If the trial was pruned
+        """
+
+        def search_params(trial: optuna.trial.Trial):
+            # for more hyperparam, add settings and kwargs in a way compatible with
+            # trial object(and suggest methods) of optuna
+            hparams = {}
+            for key, hparam in tuning_settings.items():
+                print("Creating parameter: ", key)
+                func_generator = getattr(trial, hparam["function"])
+                hparams[key] = func_generator(**(hparam["kwargs"]))
+
+            config = self.config.deepcopy()
+            config.update(hparams)
+
+            model = self.make_model(**config)
+            training_run = TrainingRun(
+                model,
+                optimizer_name=config["optimizer_name"],
+                train_data_loader=train_data_loader,
+                validation_data_loader=validation_data_loader,
+                learning_rate=config["learning_rate"],
+                loss_function="TODO",
+                max_epochs=config["max_epochs"],
+            )
+            training_run.train()
+            trial.set_user_attr("training_details", training_run)
+            # Handle pruning based on the intermediate value.
+            if trial.should_prune():
+                raise optuna.exceptions.TrialPruned()
+
+            return training_run.validation_loss
+
+        return search_params
+
+
+class TrainingRun:
+    _next_id = 1
+
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        optimizer_name: str,
+        train_data_loader: utils.datahandler.CustomTensorDataLoader,
+        validation_data_loader: utils.datahandler.CustomTensorDataLoader,
+        learning_rate: float,
+        loss_function: Callable[[torch.Tensor, torch.Tensor], float],
+        max_epochs: int,
+        id: Union[str, int] = None,
+        device: str = "cpu",
+    ):
+        if id is None:
+            self.id = TrainingRun._next_id
+            TrainingRun._next_id += 1
+        else:
+            self.id = id
+        self.model = model
+        self.train_dl = train_data_loader
+        self.validation_dl = validation_data_loader
+        self.validation_loss = float("inf")
+        self.training_loss = float("inf")
+        self.set_optimizer(optimizer_name, learning_rate)
+        self.loss_function = loss_function
+        self.step_counter = 0
+        self.max_epochs = max_epochs
+        self.early_stopping = EarlyStopping()
+        self.device = device
+
+    def set_optimizer(self, optimizer_name: str, learning_rate: float):
         """
         Specify which optimizer to use during training.
 
@@ -541,61 +744,99 @@ class ModelHandler:
 
         """
         if self.model is None:
-            raise AttributeError("The model has to be initialized before the optimizer is set.")
-
-        if name == "adam":
+            raise AttributeError(
+                "The model has to be initialized before the optimizer is set."
+            )
+        if optimizer_name == "adam":
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
-        if name == "sgd":
-            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.5)
-        if name == "adamw":
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
-        if name == "adagrad":
-            self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=learning_rate)
-        if name == "adamax":
-            self.optimizer = torch.optim.Adamax(self.model.parameters(), lr=learning_rate)
-        if name == "rmsprop":
-            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=learning_rate)
+        if optimizer_name == "sgd":
+            self.optimizer = torch.optim.SGD(
+                self.model.parameters(), lr=learning_rate, momentum=0.5
+            )
+        if optimizer_name == "adamw":
+            self.optimizer = torch.optim.AdamW(
+                self.model.parameters(), lr=learning_rate
+            )
+        if optimizer_name == "adagrad":
+            self.optimizer = torch.optim.Adagrad(
+                self.model.parameters(), lr=learning_rate
+            )
+        if optimizer_name == "adamax":
+            self.optimizer = torch.optim.Adamax(
+                self.model.parameters(), lr=learning_rate
+            )
+        if optimizer_name == "rmsprop":
+            self.optimizer = torch.optim.RMSprop(
+                self.model.parameters(), lr=learning_rate
+            )
+        if self.optimizer is None:
+            raise AttributeError(f"Could find optimizer with name {optimizer_name}.")
+        return self
+
+    def reset(self):
+        self.step_counter = 0
+        self.validation_loss = float("inf")
+        self.training_loss = float("inf")
+
+    def step(self):
+        epoch_loss = 0.0
+        t1_start = perf_counter()
+        self.model.train()
+        # train step
+        for (inputs1, inputs2, targets) in self.train_dl:
+            prediction, _ = self.model(inputs1, inputs2)
+            self.optimizer.zero_grad()
+            loss = self.loss_function(targets, prediction)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+            self.optimizer.step()
+            self.step_counter += 1
+            epoch_loss += loss.item() / len(self.train_dl)
+            final_epoch_loss = epoch_loss
+        t1_stop = perf_counter()
+        return self
+
+    def validate(self):
+        with torch.no_grad():
+            self.model.eval()
+            self.validation_loss = 0.0
+            for (inputs1, inputs2, targets) in self.validation_dl:
+                output, _ = self.model(inputs1, inputs2)
+                self.validation_loss += self.loss_function(
+                    targets, output
+                ).item() / len(self.validation_dl)
+        return self
+
+    def train(self):
+        self.model.train()
+        for epoch in range(self.max_epochs):
+            self.step()
+            self.validate()
+            # TODO Here should be some logging
+            self.early_stopping(self.validation_loss, self.model)
+            if self.early_stopping.early_stop:
+                print(
+                    f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
+                )
+                # load the last checkpoint with the best model
+                self.model.load_state_dict(
+                    torch.load(self.early_stopping.temp_dir + "checkpoint.pt")
+                )
+                self.validation_loss = self.early_stopping.val_loss_min
+                break
+        self.model.eval()
+        return self
+
+    def to(self, device: str):
+        self.device = device
+        self.model.to(device)
+        self.train_dl.to(device)
+        self.validation_dl.to(device)
         return self
 
 
+###################################################### REFACTORED ABOVE #############################################################################
 
-###################################################### REFACTOR ABOVE #############################################################################
-
-
-def get_prediction(net, data_loader, horizon, number_of_targets):
-    """
-    Get the predictions for the given model and data
-
-    Parameters
-    ----------
-    net : utils.models.EncoderDecoder
-        The model with which to calculate the predictions
-    data_loader : utils.tensorloader.CustomTensorDataLoader
-        Contains the input data and targets
-    horizon : int
-        The horizon for the prediction
-    number_of_targets : int
-        The number of targets
-
-    Returns
-    -------
-    torch.Tensor
-        The targets (actual values)
-    torch.Tensor
-        The predictions from the given model
-    """
-    record_targets = torch.zeros((len(data_loader), horizon, number_of_targets))
-    #TODO: try to remove loop here to make less time-consuming,
-    # was inspired from original numpy version of code but torches should be more intuitive
-    for i, (inputs1, inputs2, targets) in enumerate(data_loader):
-        record_targets[i,:,:] = targets
-        output,_ = net(inputs1, inputs2)
-        if i==0:
-            record_output = torch.zeros((len(data_loader), horizon, len(output)))
-        for j, elementwise_output in enumerate(output):
-            record_output[i, :, j] = elementwise_output.squeeze()
-
-    return record_targets, record_output
 
 def get_pred_interval(predictions, criterion, targets):
     """
@@ -620,58 +861,37 @@ def get_pred_interval(predictions, criterion, targets):
         The expected values of the predictions
     """
     # Better solution for future: save criterion as class object of 'loss' with 'name' attribute
-    #detect criterion
-    if ('nll_gaus' in str(criterion)) or ('crps' in str(criterion)):
-        #loss_type = 'nll_gaus'
-        expected_values = predictions[:,:,0:1] # expected_values:mu
-        sigma = torch.sqrt(predictions[:,:,-1:].exp())
-        #TODO: make 95% prediction interval changeable
+    # detect criterion
+    if ("nll_gaus" in str(criterion)) or ("crps" in str(criterion)):
+        # loss_type = 'nll_gaus'
+        expected_values = predictions[:, :, 0:1]  # expected_values:mu
+        sigma = torch.sqrt(predictions[:, :, -1:].exp())
+        # TODO: make 95% prediction interval changeable
         y_pred_upper = expected_values + 1.96 * sigma
         y_pred_lower = expected_values - 1.96 * sigma
-    elif 'quantile' in str(criterion):
-        #loss_type = 'pinball'
-        y_pred_lower = predictions[:,:,0:1]
-        y_pred_upper = predictions[:,:,1:2]
-        expected_values = predictions[:,:,-1:]
-    elif 'rmse' in str(criterion):
+    elif "quantile" in str(criterion):
+        # loss_type = 'pinball'
+        y_pred_lower = predictions[:, :, 0:1]
+        y_pred_upper = predictions[:, :, 1:2]
+        expected_values = predictions[:, :, -1:]
+    elif "rmse" in str(criterion):
         expected_values = predictions
         rmse = metrics.rmse(targets, expected_values.unsqueeze(0))
         # In order to produce an interval covering roughly 95% of the error magnitudes,
         # the prediction interval is usually calculated using the model output ± 2 × RMSE.
-        y_pred_lower = expected_values-2*rmse
-        y_pred_upper = expected_values+2*rmse
-    elif ('mse' in str(criterion)) or ('mape' in str(criterion)):
+        y_pred_lower = expected_values - 2 * rmse
+        y_pred_upper = expected_values + 2 * rmse
+    elif ("mse" in str(criterion)) or ("mape" in str(criterion)):
         # loss_type = 'mis'
         expected_values = predictions
         y_pred_lower = 0
         y_pred_upper = 1
 
-        #TODO: add all criterion possibilities
+        # TODO: add all criterion possibilities
     else:
-        print('invalid criterion')
+        print("invalid criterion")
 
     return y_pred_upper, y_pred_lower, expected_values
-
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    """
-    Save the given Pytorch object as a checkpoint.
-
-    If is_best is true, create a copy of the object called 'model_best.pth.tar'
-
-    Parameters
-    ----------
-    state : PyTorch object
-        The object to save
-    is_best : bool
-        If true, create a copy of the saved object.
-    filename : string, default = 'checkpoint.pth.tar'
-        The name to give the saved object
-    """
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
-
-
 
 
 # ToDo: refactor best score, refactor relative_metric
@@ -694,7 +914,8 @@ def calculate_relative_metric(curr_score, best_score):
     float
         The relative score in percent
     """
-    return (100 / best_score) * (curr_score-best_score)
+    return (100 / best_score) * (curr_score - best_score)
+
 
 class loss:
     """
@@ -712,598 +933,18 @@ class loss:
         self._func = func
         self.num_params = num_params
 
-    def __call__(self, *args,**kwargs):
-        return self._func(*args,**kwargs)
+    def __call__(self, *args, **kwargs):
+        return self._func(*args, **kwargs)
 
-def performance_test(net, data_loader, score_type='mis', option=0.05, avg_on_horizon=True, horizon=1, number_of_targets=1):
-    """
-    Determine the score of the given model using the specified metrics in utils.eval_metrics
-
-    Return a single float value (total score) or a 1-D array (score over horizon) based on
-    the value of avg_on_horizon
-
-    Parameters
-    ----------
-    net : utils.models.EncoderDecoder
-        The model for which the score is to be determined
-    data_loader : utils.tensorloader.CustomTensorDataLoader
-        Contains the input data and targets
-    score_type : string, default = 'mis'
-        The name of the metric to use for scoring. See functions in utils.eval_metrics for
-        possible values.
-    option : float or list, default = 0.05
-        An optional parameter in case the 'mis' or 'quantile_score' functions are used. In the
-        case of 'mis' it should be given the value for 'alpha'. In the case of QS, it should
-        contain a list with the quantiles.
-    avg_on_horizon : bool, default = true
-        Determines whether the return value is a float (total score, when true) or a 1-D array
-        (score over the horizon, when false).
-    horizon : int, default = 1
-        The horizon for the prediction
-    number_of_targets : int, default = 1
-        The number of targets for the prediction.
-
-    Returns
-    -------
-    float or 1-D array (torch.Tensor)
-        Either the total score (float) or the score over the horizon (array), depending on the
-        value of avg_on_horizon
-    """
-    # check performance
-    targets, raw_output = get_prediction(net, data_loader,horizon, number_of_targets) ##should be test data loader
-    [y_pred_upper, y_pred_lower, expected_values] = get_pred_interval(raw_output, net.criterion, targets)
-    #get upper and lower prediction interval, depending on loss function used for training
-    if ('mis' in str(score_type)):
-        output = [y_pred_upper, y_pred_lower]
-        score = metrics.mis(targets, output, alpha=option, total=avg_on_horizon)
-    elif ('nll_gauss' in str(score_type)):
-        output = raw_output ##this is only valid if net was trained with gaussin nll or crps
-        score = metrics.nll_gauss(targets, output, total=avg_on_horizon)
-    elif ('quant' in str(score_type)):
-        output = expected_values
-        score = metrics.quantile_score(targets, output, quantiles=option, total=avg_on_horizon)
-    elif ('crps' in str(score_type)):
-        output = raw_output  ##this is only valid if net was trained with gaussin nll or crps
-        score = metrics.crps_gaussian(targets, output, total=avg_on_horizon)
-    elif (score_type == 'mse'):
-        output = expected_values
-        score = metrics.mse(targets, output.unsqueeze(0), total=avg_on_horizon)
-    elif (score_type == 'rmse'):
-        output = expected_values
-        score = metrics.rmse(targets, output.unsqueeze(0), total=avg_on_horizon)
-    elif ('mape' in str(score_type)):
-        output = expected_values
-        score = metrics.mape(targets, output.unsqueeze(0), total=avg_on_horizon)
-    else:
-        #TODO: catch exception here if performance score is undefined
-        score=None
-    return score
-
-
-def train(
-        work_dir,
-        train_data_loader,
-        validation_data_loader,
-        test_data_loader,
-        net,
-        device,
-        args,
-        loss_options={},
-        best_loss=None,
-        best_score=None,
-        exploration=False,
-        learning_rate=None,
-        batch_size=None,
-        forecast_horizon=None,
-        dropout_fc=None,
-        log_df=None,
-        optimizer_name="adam",
-        max_epochs=None,
-        logging_tb=False,
-        trial_id="main_run",
-        hparams={},
-        config={},
-        **_,
-):
-    """
-    Train the given model.
-
-    Train the provided model using the given parameters for up to the specified number of epochs, with early stopping.
-    Log the training data (optionally using TensorBoard's SummaryWriter)
-    Finally, determine the score of the resulting best net.
-
-    Parameters
-    ----------
-    work_dir : string
-        TODO
-    train_data_loader : utils.tensorloader.CustomTensorDataLoader
-        The training data loader
-    validation_data_loader : utils.tensorloader.CustomTensorDataLoader
-        The validation data loader
-    test_data_loader : utils.tensorloader.CustomTensorDataLoader
-        The test data loader
-    net : utils.models.EncoderDecoder
-        The model to be trained
-    learning_rate : float, optional
-        The specified optimizer's learning rate
-    batch_size :  int scalar, optional
-        The size of a batch for the tensor data loader
-    forecast_horizon : int scalar, optional
-        The length of the forecast horizon in hours
-    dropout_fc : float scalar, optional
-        The dropout probability for the decoder
-    dropout_core : float scalar, optional
-        The dropout probability for the core_net
-    log_df : pandas.DataFrame, optional
-        A DataFrame in which the results and parameters of the training are logged
-    optimizer_name : string, optional, default "adam"
-        The name of the torch.optim optimizer to be used. Currently only the following
-        strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
-    max_epochs : int scalar, optional
-        The maximum number of training epochs
-    logging_tb : bool, default = True
-        Specifies whether TensorBoard's SummaryWriter class should be used for logging during the training
-    loss_options : dict, default={}
-        Contains extra options if the loss functions mis or quantile score are used.
-    exploration : bool
-        todo
-    trial_id : string , default "main_run"
-        separate the trials per study and store all in one directory for better handling in tensorboard
-    hparams : dict, default = {}, equals standard list of hyperparameters (batch_size, learning_rate)
-        dict of customized hyperparameters
-    config : dict, default = {}
-        dict of model configurations
-    args : dict, equals default setting, with default loss and default config path, etc.
-        dict of customized arguments of model call
-    Returns
-    -------
-    utils.models.EncoderDecoder
-        The trained model
-    pandas.DataFrame
-        A DataFrame in which the results and parameters of the training have been logged
-    float
-        The minimum validation loss of the trained model
-    float or torch.Tensor
-        The score returned by the performance test. The data type depends on which metric was used.
-        The current implementation calculates the Mean Interval Score and returns either a float, or 1d-Array with the MIS along the horizon.
-        A lower score is generally better
-    TODO: update
-    """
-    net.to(device)
-    criterion = args.loss
-    # to track the validation loss as the model trains
-    valid_losses = []
-
-    early_stopping = EarlyStopping()
-    optimizer = set_optimizer(optimizer_name, net, learning_rate)
-
-    inputs1, inputs2, targets = next(iter(train_data_loader))
-
-    #TODO: solve this ARGS.ci issue more elegantly
-    #always have logging disabled for ci to avoid failed jobs because of tensorboard
-    #if ARGS.ci:
-    #    logging_tb = False
-    if logging_tb:
-        tb = log_tensorboard(
-            work_dir=work_dir,
-            exploration=exploration,
-            trial_id=trial_id
-        )
-        tb.add_graph(net, [inputs1, inputs2])
-    else:
-        print("Begin training...")
-
-    t0_start = perf_counter()
-    step_counter = 0
-    final_epoch_loss = 0.0
-
-    for name, param in net.named_parameters():
-        torch.nn.init.uniform_(param.data, -0.08, 0.08)
-
-    for epoch in range(max_epochs):
-        epoch_loss = 0.0
-        t1_start = perf_counter()
-        net.train()
-        #train step
-        for (inputs1, inputs2, targets) in train_data_loader:
-            prediction, _ = net(inputs1, inputs2)
-            optimizer.zero_grad()
-            loss = criterion(targets, prediction, **(loss_options))
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
-            optimizer.step()
-            step_counter += 1
-            epoch_loss += loss.item() / len(train_data_loader)
-            final_epoch_loss = epoch_loss
-        t1_stop = perf_counter()
-
-        #validation_step
-        with torch.no_grad():
-            net.eval()
-            validation_loss = 0.0
-            for (inputs1, inputs2, targets) in validation_data_loader:
-                output, _ = net(inputs1, inputs2)
-                validation_loss += criterion(
-                    targets, output, **(loss_options)
-                ).item() / len(validation_data_loader)
-                valid_losses.append(validation_loss)
-
-        print(
-            "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
-                epoch + 1, max_epochs, epoch_loss, validation_loss, t1_stop - t1_start
-            )
-        )
-
-        if logging_tb:
-            add_tb_element(
-                net=net,
-                tb=tb,
-                epoch_loss=epoch_loss,
-                validation_loss=validation_loss,
-                t0_start=t0_start,
-                t1_stop=t1_stop,
-                t1_start=t1_start,
-                next_epoch=epoch+1,
-                step_counter=step_counter
-            )
-
-        early_stopping(validation_loss, net)
-
-        if early_stopping.early_stop:
-            print("Stop in earlier epoch. Loading best model state_dict.")
-            # load the last checkpoint with the best model
-            net.load_state_dict(torch.load(early_stopping.temp_dir + "checkpoint.pt"))
-            break
-
-    # Now we are working with the best net and want to save the best score with respect to new test data
-    with torch.no_grad():
-        net.eval()
-
-        score = performance_test(
-            net,
-            data_loader=test_data_loader,
-            score_type="mis",
-            horizon=forecast_horizon,
-        ).item()
-
-        if best_score:
-            rel_score = calculate_relative_metric(score, best_score)
-        else:
-            rel_score = 0
-
-        best_loss = early_stopping.val_loss_min
-
-    # ToDo: define logset, move to main. Log on line per script execution, fetch best trial if hp_true, python database or table (MongoDB)
-    # Only log once per run so immediately if exploration is false and only on the trial_main_run if it's true
-    if (not exploration) or (exploration and not isinstance(trial_id, int)):
-        log_df = log_data(
-            config,
-            args,
-            loss_options,
-            t1_stop - t0_start,
-            final_epoch_loss,
-            best_loss,
-            score,
-            log_df,
-        )
-
-    if logging_tb:
-        # list of hyper parameters for tensorboard, will be available for sorting in tensorboard/hparams
-        # if hyperparam tuning is True, use hparams as defined in tuning.json
-        if exploration and isinstance(trial_id, int):
-            for items in hparams["hyper_params"]:
-                config.update(
-                    {
-                        items: hparams["hyper_params"][items]
-                    }
-                )
-        # metrics to evaluate the model by
-        values = {
-            "hparam/hp_total_time": t1_stop - t0_start,
-            "hparam/score": score,
-            "hparam/relative_score": rel_score,
-        }
-        end_tensorboard(
-            tb=tb,
-            params=hparams,
-            values=values,
-            work_dir=work_dir,
-            args=args)
-
-    return net, log_df, best_loss, score, config
-
-def tuning_objective(
-        work_dir,
-        selected_features,
-        scalers,
-        hyper_param,
-        device,
-        log_df,
-        config,
-        args,
-        loss_options,
-        **_,
-):
-    """
-    Implement an objective function for optimization with Optuna.
-
-    Provide a callable for Optuna to use for optimization. The callable creates and trains a
-    model with the specified features, scalers and hyperparameters. Each hyperparameter triggers a trial.
-
-    Parameters
-    ----------
-    work_dir: TODO
-    selected_features : pandas.DataFrame
-        The data frame containing the model features, to be split into sets for training
-    scalers : dict
-        A dict of sklearn.preprocessing scalers with their corresponding feature group
-        names (e.g."main", "add") as keywords
-    hyper_param: dict
-        A dictionary containing hyperparameters for the Optuna optimizer
-    log_df : pandas.DataFrame
-        A DataFrame in which the results and parameters of the training are logged
-    config : dict, default = {}
-        dict of model configurations
-    args : TODO
-    Returns
-    -------
-    Callable
-        A callable that implements the objective function. Takes an optuna.trial._trial.Trial as an argument,
-        and is used as the first argument of a call to optuna.study.Study.optimize()
-        TODO: update
-    Raises
-    ------
-    optuna.exceptions.TrialPruned
-        If the trial was pruned
-    """
-    def search_params(trial):
-        if config["exploration"]:
-            param = {}
-            # for more hyperparam, add settings and kwargs in a way compatible with
-            # trial object(and suggest methods) of optuna
-            for key in hyper_param["settings"].keys():
-                print("Creating parameter: ", key)
-                func_generator = getattr(
-                    trial, hyper_param["settings"][key]["function"]
-                )
-                param[key] = func_generator(**(hyper_param["settings"][key]["kwargs"]))
-
-        config.update(param)
-        hyper_param["hyper_params"] = param
-        config["trial_id"] = config["trial_id"] + 1
-        train_dl, validation_dl, test_dl = dh.transform(selected_features, device=device, **config)
-
-        model = make_model(
-            scalers=scalers,
-            enc_size=train_dl.number_features1(),
-            dec_size=train_dl.number_features2(),
-            num_pred=args.num_pred,
-            loss=args.loss,
-            **config,
-        )
-        _, _, val_loss, _, config_update = train(
-            work_dir=work_dir,
-            train_data_loader=train_dl,
-            validation_data_loader=validation_dl,
-            test_data_loader=test_dl,
-            log_df=log_df,
-            net=model,
-            device=device,
-            args=args,
-            loss_options=loss_options,
-            logging_tb=True,
-            config = config,
-            hparams=hyper_param,
-            **config,
-        )
-        # Handle pruning based on the intermediate value.
-        if trial.should_prune():
-            raise optuna.exceptions.TrialPruned()
-
-        return val_loss
-
-    return search_params
-
-def init_tuning(
-        work_dir,
-        model_name,
-        config,
-        seed=10,
-        direction="minimize",
-        pruner=optuna.pruners.MedianPruner(),
-):
-    """
-    TODO: Description
-
-    Parameters
-    ----------
-    work_dir : string
-        TODO
-    config : dict, default = {}
-        dict of model configurations
-    model_name : string,
-        TODO
-    Returns
-    -------
-    TODO
-    Raises
-    ------
-    TODO
-    """
-
-    timeout = None
-    hyper_param = read_config(
-        model_name=model_name,
-        config_path=config["exploration_path"],
-        main_path=work_dir,
-    )
-    if "number_of_tests" in hyper_param.keys():
-        n_trials = hyper_param["number_of_tests"]
-        config["n_trials"] = n_trials
-    if "timeout" in hyper_param.keys():
-        timeout = hyper_param["timeout"]
-
-    # Set up the median stopping rule as the pruning condition.
-    sampler = optuna.samplers.TPESampler(
-        seed=seed
-    )  # Make the sampler behave in a deterministic way.
-    study = optuna.create_study(
-        sampler=sampler,
-        direction=direction,
-        pruner=pruner,
-    )
-    return hyper_param, sampler, study
-
-def hparam_tuning(
-        work_dir,
-        config,
-        hparam,
-        study,
-        selected_features,
-        scalers,
-        log_df,
-        args,
-        loss_options,
-        device='cpu',
-        min_val_loss=float('inf'),
-        interactive=False,
-        **_,
-):
-    """
-    TODO: description
-
-    ToDo: long_description
-
-    Notes
-    -----
-    Hyperparameter exploration
-
-    - Any training parameter is considered a hyperparameter as long as it is specified in
-        either config.json or tuning.json. The latter is the standard file where the (so far)
-        best found configuration is saved and should usually not be manually adapted unless
-        new tests are for some reason not comparable to older ones (e.g. after changing the loss function).
-    - Possible hyperparameters are: target_column, encoder_features, decoder_features,
-        max_epochs, learning_rate, batch_size, shuffle, history_horizon, forecast_horizon,
-        train_split, validation_split, core_net, relu_leak, dropout_fc, dropout_core,
-        rel_linear_hidden_size, rel_core_hidden_size, optimizer_name, cuda_id
-
-    Parameters
-    ----------
-    TODO: complete
-    config : dict, default = {}
-        dict of model configurations
-    Returns
-    -------
-    TODO: complete
-    """
-    print(
-        "Max. number of iteration trials for hyperparameter tuning: ", hparam["number_of_tests"]
-    )
-    if 'timeout' in hparam.keys():
-        if "parallel_jobs" in hparam.keys():
-            parallel_jobs = hparam["parallel_jobs"]
-            study.optimize(
-                tuning_objective(
-                    work_dir=work_dir,
-                    selected_features=selected_features,
-                    scalers=scalers,
-                    hyper_param=hparam,
-                    device=device,
-                    log_df=log_df,
-                    config=config,
-                    args=args,
-                    loss_options=loss_options,
-                    **config
-                ),
-                n_trials=hparam["number_of_tests"],
-                n_jobs=hparam["parallel_jobs"],
-                timeout=hparam["timeout"],
-            )
-        else:
-            study.optimize(
-                tuning_objective(
-                    work_dir=work_dir,
-                    selected_features=selected_features,
-                    scalers=scalers,
-                    hyper_param=hparam,
-                    device=device,
-                    log_df=log_df,
-                    config=config,
-                    args=args,
-                    loss_options=loss_options,
-                    **config
-                ),
-                n_trials=hparam["number_of_tests"],
-                timeout=hparam["timeout"],
-            )
-    else:
-        if "parallel_jobs" in hparam.keys():
-            parallel_jobs = hparam["parallel_jobs"]
-            study.optimize(
-                tuning_objective(
-                    work_dir=work_dir,
-                    selected_features=selected_features,
-                    scalers=scalers,
-                    hyper_param=hparam,
-                    device=device,
-                    log_df=log_df,
-                    config=config,
-                    args=args,
-                    loss_options=loss_options,
-                    **config
-                ),
-                n_trials=hparam["number_of_tests"],
-                n_jobs=hparam["parallel_jobs"]
-            )
-        else:
-            study.optimize(
-                tuning_objective(
-                    work_dir=work_dir,
-                    selected_features=selected_features,
-                    scalers=scalers,
-                    hyper_param=hparam,
-                    device=device,
-                    log_df=log_df,
-                    config=config,
-                    args=args,
-                    loss_options=loss_options,
-                    **config
-                ),
-                n_trials=hparam["number_of_tests"],
-            )
-
-    print("Number of finished trials: ", len(study.trials))
-    # trials_df = study.trials_dataframe()
-
-    if not os.path.exists(os.path.join(work_dir, config["log_path"])):
-        os.mkdir(os.path.join(work_dir, config["log_path"]))
-
-    print("Best trial:")
-    trial = study.best_trial
-    print("  Value: ", trial.value)
-    print("  Params: ")
-    for key, value in trial.params.items():
-        print("    {}: {}".format(key, value))
-    if min_val_loss == None: min_val_loss=float('inf')
-    if min_val_loss > study.best_value or interactive:
-        print("Training with hyper parameters fetched from config.json")
-    else:
-        if query_true_false("Overwrite config with new parameters?"):
-            config.update(trial.params)
-            # TODO: check if one can retrieve a checkpoint/model from best trial in optuna, to omit redundant training
-            #  else:
-            #  print("Training with hyper parameters fetched from config.json")
-
-    return study, trial, config
 
 def update(
-        model_name,
-        achieved_score,
-        config,
-        loss,
-        exploration=True,
-        study=None,
-        interactive=False,
+    model_name,
+    achieved_score,
+    config,
+    loss,
+    exploration=True,
+    study=None,
+    interactive=False,
 ):
     config["best_score"] = achieved_score
     config["best_loss"] = loss
@@ -1323,6 +964,7 @@ def update(
             model_name, config["output_path"]
         )
     )
+
 
 def save(
     work_dir,
@@ -1361,7 +1003,7 @@ def save(
     min_net
     TODO: complete
     """
-    min_net=None
+    min_net = None
     if old_score > achieved_score:
         if config["exploration"]:
             update(
@@ -1371,19 +1013,21 @@ def save(
                 exploration=config["exploration"],
                 study=study,
                 interactive=interactive,
-                loss=achieved_loss
+                loss=achieved_loss,
             )
         min_net = achieved_net
     else:
-        if query_true_false("Existing model for this target did not improve in current run. "
-                            "Do you still want to overwrite the existing model?"):
+        if query_true_false(
+            "Existing model for this target did not improve in current run. "
+            "Do you still want to overwrite the existing model?"
+        ):
             # user has selected to overwrite existing model file
             min_net = achieved_net
 
     if min_net is not None:
         print("saving model")
         if not os.path.exists(
-                os.path.join(work_dir, config["output_path"])
+            os.path.join(work_dir, config["output_path"])
         ):  # make output folder if it doesn't exist
             os.makedirs(os.path.join(work_dir, config["output_path"]))
         torch.save(min_net, out_model)
