@@ -49,16 +49,28 @@ class Metric(ABC):
         self,
         target: torch.Tensor,
         predictions: List[torch.Tensor],
-        total: bool = False,
+        total: bool = True,
     ):
         return self.func(
-            target=target, predictions=predictions, total=total ** self.options
+            target=target, predictions=predictions, total=total, **self.options
         )
 
     # @abstractmethod
-    def get_prediction_intervall(self, predictions: List[torch.Tensor], **kwargs):
+    def get_prediction_interval(self, predictions: List[torch.Tensor], **kwargs):
         raise NotImplementedError(
             f"get_prediciton is not available for {self.__class__}"
+        )
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        exected_value: torch.Tensor,
+        **kwargs,
+    ):
+        raise NotImplementedError(
+            f"from_interval is not available for {self.__class__}"
         )
 
     @abstractstaticmethod
@@ -73,13 +85,27 @@ class NllGauss(Metric):
         super().__init__()
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_intervall(self, predictions: List[torch.Tensor], alpha: float):
+    def get_prediction_interval(
+        self, predictions: List[torch.Tensor], alpha: float = 0.95
+    ):
         expected_values = predictions[:, :, 0:1]  # expected_values:mu
         sigma = torch.sqrt(predictions[:, :, -1:].exp())
         # TODO: make 95% prediction interval changeable
         y_pred_upper = expected_values + 1.96 * sigma
         y_pred_lower = expected_values - 1.96 * sigma
         return y_pred_upper, y_pred_lower, expected_values
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        alpha: float = 0.95,
+    ):
+        sigma = (upper_bound - lower_bound) / (2 * 1.96)
+        log_var = 2 * sigma.log()
+        return self(target, [expected_value, log_var])
 
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
@@ -130,7 +156,7 @@ class NllGauss(Metric):
 class PinnballLoss(Metric):
     def __init__(self, quantiles: List[float]):
         super().__init__(quantiles=quantiles)
-        self.input_labels = ["expected_value"]
+        self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
     @staticmethod
     def func(
@@ -188,13 +214,25 @@ class PinnballLoss(Metric):
 class QuantileScore(Metric):
     def __init__(self, quantiles):
         super().__init__(quantiles=quantiles)
-        self.input_labels = ["expected_value"]
+        self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
-    def get_prediction_intervall(self, predictions: List[torch.Tensor]):
-        y_pred_lower = predictions[:, :, 0:1]
-        y_pred_upper = predictions[:, :, 1:2]
-        expected_values = predictions[:, :, -1:]
-        return y_pred_upper, y_pred_lower, expected_values
+    # def get_prediction_interval(self, predictions: List[torch.Tensor]):
+    #     y_pred_lower = predictions[:, :, 0:1]
+    #     y_pred_upper = predictions[:, :, 1:2]
+    #     expected_values = predictions[:, :, -1:]
+    #     return y_pred_upper, y_pred_lower, expected_values
+
+    # def from_interval(
+    #     self,
+    #     target: torch.Tensor,
+    #     upper_bound: torch.Tensor,
+    #     lower_bound: torch.Tensor,
+    #     expected_value: torch.Tensor,
+    #     alpha: float = 0.95,
+    # ):
+    #     sigma = (upper_bound - lower_bound) / (2 * 1.96)
+    #     log_var = 2 * sigma.log()
+    #     return self(target, [expected_value, log_var])
 
     @staticmethod
     def func(
@@ -239,7 +277,7 @@ class CRPSGauss(Metric):
         super().__init__()
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_intervall(self, predictions: List[torch.Tensor], alpha: float):
+    def get_prediction_interval(self, predictions: List[torch.Tensor], alpha: float):
         expected_values = predictions[:, :, 0:1]  # expected_values:mu
         sigma = torch.sqrt(predictions[:, :, -1:].exp())
         # TODO: make 95% prediction interval changeable
@@ -353,7 +391,7 @@ class Mse(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def get_prediction_intervall(self, predictions: List[torch.Tensor]):
+    def get_prediction_interval(self, predictions: List[torch.Tensor]):
         expected_values = predictions
         y_pred_lower = 0
         y_pred_upper = 1
@@ -410,7 +448,7 @@ class Rmse(Metric):
         super().__init__(**options)
         self.input_labels = ["expected_value"]
 
-    def get_prediction_intervall(
+    def get_prediction_interval(
         self, predictions: List[torch.Tensor], target: torch.Tensor
     ):
         expected_values = predictions
@@ -466,7 +504,7 @@ class Mse(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def get_prediction_intervall(self, predictions: List[torch.Tensor]):
+    def get_prediction_interval(self, predictions: List[torch.Tensor]):
         expected_values = predictions
         y_pred_lower = 0
         y_pred_upper = 1
@@ -846,7 +884,7 @@ _all_dict = {
 }
 
 
-def get_metric(metric_name: str, options: dict = {}) -> Metric:
+def get_metric(metric_name: str, **options) -> Metric:
     cls = _all_dict[metric_name.lower()]
     return cls(**options)
 

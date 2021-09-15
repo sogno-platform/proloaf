@@ -177,7 +177,7 @@ def make_dataloader(
 
     Parameters
     ----------
-    df : pandas.Dataframe
+    df : pandas.DataFrame
         The data to be stored in a CustomTensorDataLoader
     target_id : string
         The name of feature to forecast, e.g. "demand"

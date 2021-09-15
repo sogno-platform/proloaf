@@ -44,30 +44,46 @@ class Encoder(nn.Module):
     core_net : string, default = 'torch.nn.GRU'
         The name of the desired core net
     """
-    def __init__(self,
-                 input_size: int,
-                 core_size: int,
-                 core_layers: int = 1,
-                 dropout_core: float = 0.0,
-                 core_net ='torch.nn.GRU'):
+
+    def __init__(
+        self,
+        input_size: int,
+        core_size: int,
+        core_layers: int = 1,
+        dropout_core: float = 0.0,
+        core_net="torch.nn.GRU",
+    ):
 
         super(Encoder, self).__init__()
-
-        parse = core_net.rsplit('.',1)
-        mod = importlib.__import__(parse[0],fromlist=parse[1])
+        parse = core_net.rsplit(".", 1)
+        mod = importlib.__import__(parse[0], fromlist=parse[1])
         net_constructor = getattr(mod, parse[1])
         try:
-            self.core = net_constructor(input_size=input_size,
-                                hidden_size=core_size,
-                                batch_first=True,
-                                num_layers=core_layers,
-                                dropout=dropout_core)
+            self.core = net_constructor(
+                input_size=input_size,
+                hidden_size=core_size,
+                batch_first=True,
+                num_layers=core_layers,
+                dropout=dropout_core,
+            )
         except:
             print()
-            print("The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:", file=sys.stderr)
-            print("input_size: int, number of features at any point in the sequence.", file=sys.stderr)
-            print("hidden_size: int, size of the produced state vector that encodes the recurred data.", file=sys.stderr)
-            print("batch_first: bool, specifying that the data is of shape (batch_size, sequence_length, num_features), always True.", file=sys.stderr)
+            print(
+                "The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:",
+                file=sys.stderr,
+            )
+            print(
+                "input_size: int, number of features at any point in the sequence.",
+                file=sys.stderr,
+            )
+            print(
+                "hidden_size: int, size of the produced state vector that encodes the recurred data.",
+                file=sys.stderr,
+            )
+            print(
+                "batch_first: bool, specifying that the data is of shape (batch_size, sequence_length, num_features), always True.",
+                file=sys.stderr,
+            )
             print("num_layers: int, number of layers of the core_net.", file=sys.stderr)
             print("dropout: float, internal dropout ratio.", file=sys.stderr)
             print()
@@ -89,6 +105,7 @@ class Encoder(nn.Module):
         """
         _, state = self.core(inputs)
         return state
+
 
 class Decoder(nn.Module):
     """
@@ -115,35 +132,52 @@ class Decoder(nn.Module):
     relu_leak : float, default = 0.01
         The value of the negative slope for the LeakyReLU
     """
-    def __init__(self,
-                 input_size: int,
-                 hidden_size: int,
-                 core_size: int,
-                 out_size: int = 1,
-                 core_layers: int = 1,
-                 dropout_fc: float = 0.0,
-                 dropout_core: float = 0.0,
-                 core_net='torch.nn.GRU',
-                 relu_leak = 0.01):
+
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        core_size: int,
+        out_size: int = 1,
+        core_layers: int = 1,
+        dropout_fc: float = 0.0,
+        dropout_core: float = 0.0,
+        core_net="torch.nn.GRU",
+        relu_leak=0.01,
+    ):
 
         super(Decoder, self).__init__()
 
-        parse = core_net.rsplit('.',1)
-        mod = importlib.__import__(parse[0],fromlist=parse[1])
+        parse = core_net.rsplit(".", 1)
+        mod = importlib.__import__(parse[0], fromlist=parse[1])
         net_constructor = getattr(mod, parse[1])
 
         try:
-            self.core = net_constructor(input_size=input_size,
-                                hidden_size=core_size,
-                                batch_first=True,
-                                num_layers=core_layers,
-                                dropout=dropout_core)
+            self.core = net_constructor(
+                input_size=input_size,
+                hidden_size=core_size,
+                batch_first=True,
+                num_layers=core_layers,
+                dropout=dropout_core,
+            )
         except:
             print()
-            print("The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:", file=sys.stderr)
-            print("input_size: int, number of features at any point in the sequence.", file=sys.stderr)
-            print("hidden_size: int, size of the produced state vector that encodes the recurred data.", file=sys.stderr)
-            print("batch_first: bool, specifying that the data is of shape (batch_size, sequence_length, num_features), always True.", file=sys.stderr)
+            print(
+                "The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:",
+                file=sys.stderr,
+            )
+            print(
+                "input_size: int, number of features at any point in the sequence.",
+                file=sys.stderr,
+            )
+            print(
+                "hidden_size: int, size of the produced state vector that encodes the recurred data.",
+                file=sys.stderr,
+            )
+            print(
+                "batch_first: bool, specifying that the data is of shape (batch_size, sequence_length, num_features), always True.",
+                file=sys.stderr,
+            )
             print("num_layers: int, number of layers of the core_net.", file=sys.stderr)
             print("dropout: float, internal dropout ratio.", file=sys.stderr)
             print()
@@ -173,7 +207,7 @@ class Decoder(nn.Module):
             Tensor containing the hidden state for the given inputs
         """
         out, new_states = self.core(inputs, states)
-        #for decoder seq_length = forecast horizon
+        # for decoder seq_length = forecast horizon
         h = out[:, :, :]
         h = self.fc1(h)
         # Here output_feature_size chosen as hidden size
@@ -182,6 +216,7 @@ class Decoder(nn.Module):
         output = [fc(h) for fc in self.fc2]
 
         return output, new_states
+
 
 class EncoderDecoder(nn.Module):
     """
@@ -195,8 +230,6 @@ class EncoderDecoder(nn.Module):
         Encoder input size
     input_size2 : int
         Decoder input size
-    criterion : string
-        The loss function that is used to train the model
     out_size : int, default = 1
         Dimension of Decoder output (number of predictions)
     rel_linear_hidden_size : float, default = 1
@@ -209,34 +242,43 @@ class EncoderDecoder(nn.Module):
         The dropout probability for the decoder
     dropout_core : float, default = 0.0
         The dropout probability for the core_net
-    scalers : dict
-        A dict of sklearn.preprocessing scalers with scaler names (e.g. "minmax", "robust") as keywords
     core_net : string, default = 'torch.nn.GRU'
         The name of the desired core net
     relu_leak : float, default = 0.01
         The value of the negative slope for the LeakyReLU
     """
-    def __init__(self,
-                input_size1: int,
-                input_size2: int,
-                criterion = 'nll_gaus',
-                out_size: int = 1,
-                rel_linear_hidden_size : float = 1.,
-                rel_core_hidden_size : float = 1.,
-                core_layers: int = 1,
-                dropout_fc: float = 0.0,
-                dropout_core: float = 0.0,
-                scalers = None,
-                core_net = 'torch.nn.GRU',
-                relu_leak = 0.01):
-        self.scalers = scalers
-        linear_hidden_size = int(rel_linear_hidden_size*(input_size1+input_size2))
-        core_hidden_size = int(rel_core_hidden_size*(input_size1+input_size2))
+
+    def __init__(
+        self,
+        enc_size: int,
+        dec_size: int,
+        out_size: int = 1,
+        rel_linear_hidden_size: float = 1.0,
+        rel_core_hidden_size: float = 1.0,
+        core_layers: int = 1,
+        dropout_fc: float = 0.0,
+        dropout_core: float = 0.0,
+        core_net="torch.nn.GRU",
+        relu_leak=0.01,
+    ):
+        linear_hidden_size = int(rel_linear_hidden_size * (enc_size + dec_size))
+        core_hidden_size = int(rel_core_hidden_size * (enc_size + dec_size))
 
         super(EncoderDecoder, self).__init__()
-        self.encoder = Encoder(input_size1, core_hidden_size, core_layers,  dropout_core, core_net)
-        self.decoder = Decoder(input_size2, linear_hidden_size, core_hidden_size, out_size, core_layers, dropout_fc, dropout_core, core_net, relu_leak)
-        self.criterion = criterion
+        self.encoder = Encoder(
+            enc_size, core_hidden_size, core_layers, dropout_core, core_net
+        )
+        self.decoder = Decoder(
+            dec_size,
+            linear_hidden_size,
+            core_hidden_size,
+            out_size,
+            core_layers,
+            dropout_fc,
+            dropout_core,
+            core_net,
+            relu_leak,
+        )
 
     def forward(self, inputs_encoder, inputs_decoder):
         """

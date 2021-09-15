@@ -162,7 +162,7 @@ def parse_with_loss(args=sys.argv[1:]):
     losses.add_argument(
         "--nll_gauss",
         dest="loss",
-        const=metrics.nll_gauss,
+        const="NllGauss",
         help="train with nll guassian loss",
         action="store_const",
     )
@@ -173,7 +173,7 @@ def parse_with_loss(args=sys.argv[1:]):
         metavar=" q1 q2",
         nargs="+",
         type=float,
-        const=metrics.quantile_score,
+        const="QuantileScore",
         help="train with pinball loss and MSE with q1 and q2 being the upper and lower quantiles",
         action=flag_and_store,
     )
@@ -181,7 +181,7 @@ def parse_with_loss(args=sys.argv[1:]):
         "--crps",
         "--crps_gaussian",
         dest="loss",
-        const=metrics.crps_gaussian,
+        const="CRPSGauss",
         help="train with crps gaussian loss",
         action="store_const",
     )
@@ -189,7 +189,7 @@ def parse_with_loss(args=sys.argv[1:]):
         "--mse",
         "--mean_squared_error",
         dest="loss",
-        const=metrics.mse,
+        const="Mse",
         help="train with mean squared error",
         action="store_const",
     )
@@ -197,23 +197,23 @@ def parse_with_loss(args=sys.argv[1:]):
         "--rmse",
         "--root_mean_squared_error",
         dest="loss",
-        const=metrics.rmse,
+        const="Rmse",
         help="train with root mean squared error",
         action="store_const",
     )
     losses.add_argument(
         "--mape",
         dest="loss",
-        const=metrics.mape,
+        const="Mape",
         help="train with root mean absolute error",
         action="store_const",
     )
     # losses.add_argument("--mase", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.mase,2], help = "train with root mean absolute scaled error", action=flag_and_store)
-    # losses.add_argument("--picp", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.picp_loss,2], help = "train with 1 - prediction intervall coverage",action=flag_and_store)
+    # losses.add_argument("--picp", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.picp_loss,2], help = "train with 1 - prediction interval coverage",action=flag_and_store)
     losses.add_argument(
         "--sharpness",
         dest="loss",
-        const=metrics.sharpness,
+        const="Shaprness",
         help="train with sharpness",
         action="store_const",
     )
@@ -225,17 +225,17 @@ def parse_with_loss(args=sys.argv[1:]):
         nargs=1,
         metavar="A",
         type=float,
-        const=metrics.mis,
+        const="Mis",
         help="train with mean interval score. 'A' corresponds to the inverse weight",
         action=flag_and_store,
     )
     # TODO write mis as default argument as soon as evaluate works with it
-    parser.set_defaults(loss=metrics.nll_gauss)
+    parser.set_defaults(loss="NllGauss")
     ret = parser.parse_args(args)
 
-    if ret.loss == metrics.mis:
+    if ret.loss.lower() == "mis":
         options = dict(alpha=ret.loss_arguments)
-    elif ret.loss == metrics.quantile_score:
+    elif ret.loss.lower() == "quantilescore":
         options = dict(quantiles=ret.loss_argumets)
     else:
         options = {}

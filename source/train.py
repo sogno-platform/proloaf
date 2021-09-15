@@ -33,7 +33,9 @@ Notes
 
 import os
 import sys
+from typing import Callable
 import warnings
+from copy import deepcopy
 
 import pandas as pd
 import torch
@@ -46,7 +48,9 @@ sys.path.append(MAIN_PATH)
 import utils.loghandler as log
 import utils.datahandler as dh
 import utils.modelhandler as mh
-#TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
+import utils
+
+# TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
 from utils.confighandler import read_config, get_existing_score
 from utils.cli import parse_with_loss
 
@@ -56,109 +60,70 @@ torch.manual_seed(1)
 
 warnings.filterwarnings("ignore")
 
-def main(infile, outmodel, log_path=None):
+
+def main(
+    infile: str,
+    outmodel: str,
+    config: dict,
+    station_name: str,
+    work_dir: str,
+    loss: str,
+    loss_kwargs: dict = {},
+    log_path: str = None,
+    device: str = "cpu",
+):
     # Read load data
-    df = pd.read_csv(infile, sep=";", index_col=0)
-
-    dh.fill_if_missing(df, periodicity=24)
-
-    #TODO: cleanup work on target list
-    #only use target list if you want to predict the summed value. Actually the use is not recommended.
-    #if "target_list" in PAR:
-    #    if PAR["target_list"] is not None:
-    #        df[target_id] = df[PAR["target_list"]].sum(axis=1)
-    selected_features, scalers = dh.scale_all(df, **PAR)
-
-    log_df = log.init_logging(
-        model_name=ARGS.station,
-        work_dir=MAIN_PATH,
-        config=PAR,
-    )
-
-    old_val_loss = get_existing_score(config=PAR)
-
+    config = deepcopy(config)
+    log_df = log.init_logging(model_name=station_name, work_dir=work_dir, config=config)
     try:
-        study = None
-        trial = None
-        if PAR["exploration"]:
-            hparams, sampler, study = mh.init_tuning(
-                work_dir=MAIN_PATH,
-                model_name=ARGS.station,
-                config=PAR
-            )
+        df = pd.read_csv(infile, sep=";", index_col=0)
 
-            study, trial, config = mh.hparam_tuning(
-                work_dir=MAIN_PATH,
-                config=PAR,
-                hparam=hparams,
-                study=study,
-                selected_features=selected_features,
-                scalers=scalers,
-                log_df=log_df,
-                args=ARGS,
-                loss_options=LOSS_OPTIONS,
-                device=DEVICE,
-                min_val_loss=old_val_loss,
-                interactive=False,
-                **hparams,
-            )
-            PAR["exploration"]=False
+        dh.fill_if_missing(df, periodicity=24)
 
-        # If no exploration is done or hyperparameter tuning has ended in the best trial,
-        # construct and train the model with current (updated) config in a "main-run"
-        PAR["trial_id"] = "main_run"
-        train_dl, validation_dl, test_dl = dh.transform(selected_features, device=DEVICE, **PAR)
+        selected_features, scalers = dh.scale_all(df, **config)
 
-        model = mh.make_model(
-            scalers=scalers,
-            enc_size=train_dl.number_features1(),
-            dec_size=train_dl.number_features2(),
-            num_pred=ARGS.num_pred,
-            loss=ARGS.loss,
-            **PAR,
+        tuning_config = read_config(
+            config_path=config["exploration_path"],
+            main_path=work_dir,
         )
 
-        net, log_df, loss, new_score, config = mh.train(
-            work_dir=MAIN_PATH,
-            train_data_loader=train_dl,
-            validation_data_loader=validation_dl,
-            test_data_loader=test_dl,
-            net=model,
-            device=DEVICE,
-            args=ARGS,
-            loss_options=LOSS_OPTIONS,
-            log_df=log_df,
-            logging_tb=True,
-            config=PAR,
-            **PAR,
-        )
-
-        old_score = get_existing_score(PAR)
-
-        min_net = mh.save(
-            work_dir=MAIN_PATH,
-            model_name=ARGS.station,
-            out_model=outmodel,
-            old_score=old_score,
-            achieved_score=new_score,
-            achieved_loss=loss,
-            achieved_net=net,
+        modelhandler = mh.ModelHandler(
+            work_dir=work_dir,
             config=config,
-            config_path=ARGS.config,
-            study=study,
-            trial=trial,
-            interactive=not ARGS.ci # TODO: make this more intuitive independent from CI args
+            tuning_config=tuning_config,
+            scalers=scalers,
+            loss=loss,
+            loss_kwargs=loss_kwargs,
+            device=device,
         )
+
+        train_dl, validation_dl, test_dl = dh.transform(
+            selected_features, device=device, **config
+        )
+        # modelhandler.load_model(os.path.join(work_dir, "oracles", "opsd_LSTM_gnll.pkl"))
+
+        modelhandler.fit(train_dl, validation_dl, exploration=True)
+        # rel_perf = modelhandler.compare_to_old_model(test_dl)
+        for input_enc, input_dec, targets in test_dl:
+            rel_perf = modelhandler.predict(input_enc, input_dec)
+        # print(f"{rel_perf = }")
+        # TODO this is not implemented yet
+        modelhandler.save_model()
+
+        # TODO not implemented either
+        # confighandler.update_config_file(modelhandler.config)
 
     except KeyboardInterrupt:
         print("manual interrupt")
 
     finally:
-        if log_df is not None: log.end_logging(
-            model_name=PAR["model_name"],
-            work_dir=MAIN_PATH,
-            log_path=log_path,
-            df=log_df)
+        if log_df is not None:
+            log.end_logging(
+                model_name=PAR["model_name"],
+                work_dir=MAIN_PATH,
+                log_path=log_path,
+                df=log_df,
+            )
 
 
 if __name__ == "__main__":
@@ -166,18 +131,23 @@ if __name__ == "__main__":
     PAR = read_config(
         model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH
     )
-
+    loss = "crps"
+    loss_args = {"quantiles": [0.2, 0.8]}
     if torch.cuda.is_available():
         DEVICE = "cuda"
         if PAR["cuda_id"] is not None:
             torch.cuda.set_device(PAR["cuda_id"])
     else:
-        DEVICE = 'cpu'
+        DEVICE = "cpu"
 
-    if PAR["exploration"]:
-        PAR["trial_id"] = 0  # set global trial ID for logging trials in subfolders
     main(
         infile=os.path.join(MAIN_PATH, PAR["data_path"]),
         outmodel=os.path.join(MAIN_PATH, PAR["output_path"], PAR["model_name"]),
+        config=PAR,
+        station_name=ARGS.station,
         log_path=os.path.join(MAIN_PATH, PAR["log_path"]),
+        device=DEVICE,
+        work_dir=MAIN_PATH,
+        loss=ARGS.loss,
+        loss_kwargs=LOSS_OPTIONS,
     )
