@@ -560,7 +560,7 @@ def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, periodici
         test_period = range(limit_steps)
 
     model_garch = arch_model(endog_train, vol = 'GARCH', mean='LS',lags = periodicity, p=p, q=q)#(endog_val[1:]
-    res = model_garch.fit(update_freq=5)
+    res = model_garch.fit(update_freq=20)
     # do stepwise iteration and prolongation of the train data again, as a forecast can only work in-sample
     def garch_PI_predict(i):
         # extend the train-series with observed values as we move forward in the prediction horizon
@@ -927,7 +927,7 @@ def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alp
                      dates=y_train.index)
     fit = model.fit()
 
-    def ets_predict(i):
+    def ets_predict(i, fit):
         if online:
             # extend the train-series with observed values as we move forward in the prediction horizon
             # to achieve a receding window prediction
@@ -958,7 +958,7 @@ def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alp
 
     expected_value, fc_u, fc_l = \
         zip(*Parallel(n_jobs=min(num_cores,len(test_period)), mmap_mode = 'c',
-                      temp_folder='/tmp')(delayed(ets_predict)(i)
+                      temp_folder='/tmp')(delayed(ets_predict)(i, fit)
                                           for i in test_period
                                           if i+forecast_horizon<=len(y_test)))
 

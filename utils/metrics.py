@@ -605,7 +605,7 @@ def mae(target, predictions: list, total=True):
     return torch.mean(torch.abs(target - y_hat_test))
 
 
-def results_table(models, results, save_to_disc=False):
+def results_table(target, models, results, save_to_disc=False):
     """
     Put the models' scores for the given metrics in a DataFrame.
 
@@ -643,7 +643,8 @@ def results_table(models, results, save_to_disc=False):
     """
     results.index = [models]
     if save_to_disc:
-        save_path = save_to_disc+models.replace("/", "_")
+        if ("_") in target: target = target.replace("/", "_")
+        save_path = save_to_disc+target
         results.to_csv(save_path+'.csv', sep=';', index=True)
 
     return results
@@ -701,6 +702,13 @@ def fetch_metrics(
             total=total
         ).detach().numpy()
         results["mis"] = mis_result
+    if "residuals" in analyzed_metrics:
+        residuals_result= residuals(
+            targets,
+            [expected_values],
+            total=total
+        ).detach().numpy()
+        results["residuals"] = residuals_result
 
     if total:
         # only add these metrics if total is true as the performance per time_step is not implemented yet

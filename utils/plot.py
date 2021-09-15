@@ -125,35 +125,39 @@ def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,
         ax_rmse = plt.subplot(2, 2, 1)
         ax_sharpness = plt.subplot(2, 2, 3)
         ax_PICP = plt.subplot(2, 2, 2)
-        ax_MSIS = plt.subplot(2, 2, 4)
-
-        ax_rmse.plot(rmse_horizon, label='rmse')
+        ax_MIS = plt.subplot(2, 2, 4)
+        
+        for element in rmse_horizon:
+            ax_rmse.plot(rmse_horizon[element], label = element)
         ax_rmse.set_title('RMSE along horizon', fontsize=22)
         ax_rmse.set_xlabel("Hour", fontsize=18)
         ax_rmse.set_ylabel("RMSE", fontsize=20)
         ax_rmse.legend(fontsize=20)
         ax_rmse.grid(b=True, linestyle='-')
 
-        ax_sharpness.plot(sharpness_horizon, label='sharpness')
+        for element in sharpness_horizon:
+            ax_sharpness.plot(sharpness_horizon[element], label = element)
         ax_sharpness.set_title('sharpness along horizon', fontsize=22)
         ax_sharpness.set_xlabel("Hour", fontsize=18)
         ax_sharpness.set_ylabel("sharpness", fontsize=20)
         ax_sharpness.legend(fontsize=20)
         ax_sharpness.grid(b=True, linestyle='-')
 
-        ax_PICP.plot(coverage_horizon, label='coverage')
+        for element in coverage_horizon:
+            ax_PICP.plot(coverage_horizon[element], label = element)
         ax_PICP.set_title('coverage along horizon', fontsize=22)
         ax_PICP.set_xlabel("Hour", fontsize=18)
         ax_PICP.set_ylabel("coverage in %", fontsize=20)
         ax_PICP.legend(fontsize=20)
         ax_PICP.grid(b=True, linestyle='-')
 
-        ax_MSIS.plot(mis_horizon, label='MIS')
-        ax_MSIS.set_title('Mean Interval score', fontsize=22)
-        ax_MSIS.set_xlabel("Hour", fontsize=18)
-        ax_MSIS.set_ylabel("MIS", fontsize=20)
-        ax_MSIS.legend(fontsize=20)
-        ax_MSIS.grid(b=True, linestyle='-')
+        for element in mis_horizon:
+            ax_MIS.plot(mis_horizon[element], label = element)
+        ax_MIS.set_title('Mean Interval score', fontsize=22)
+        ax_MIS.set_xlabel("Hour", fontsize=18)
+        ax_MIS.set_ylabel("MIS", fontsize=20)
+        ax_MIS.legend(fontsize=20)
+        ax_MIS.grid(b=True, linestyle='-')
 
         st.set_y(1.08)
         fig.subplots_adjust(top=0.95)
@@ -285,6 +289,7 @@ def plot_hist(
         sample_frequency=1,
         save_to_disc=False,
         fig_title="Error Probability Distribution",
+        method="method",
         bins=10,
 ):
     """
@@ -382,10 +387,16 @@ def plot_hist(
         keys=metrics_per_sample.keys(),
         axis=1
     )
-
     with plt.style.context('seaborn'):
-        fig = plt.figure()  # plt.figure(figsize=(16, 12))
-        ax1 = all_results.xs('residuals', axis=1, level=1, drop_level=True).plot(kind='hist',bins=bins,alpha=0.5)
+        fig = plt.figure(figsize=(16, 12))  # plt.figure()
+        results = pd.DataFrame(data=all_results.xs('residuals', axis=1, level=1, drop_level=False).values, columns=method)
+        #print("Residuals DataFrame Head:",results.head())
+        for element in results:
+            ax1 = results[element].plot(kind='hist',bins=bins,alpha=0.5, label = element)
+            ax1.set_title('Histogram of Residuals', fontsize=22)
+            ax1.set_xlabel('Residuals', fontsize=18)
+            ax1.set_ylabel('Frequency', fontsize=20)
+            ax1.legend(fontsize=20, loc='upper center', fancybox=True)
         if save_to_disc:
             plt.savefig(save_to_disc + fig_title + '.png')
         plt.show()
