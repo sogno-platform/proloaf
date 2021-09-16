@@ -393,9 +393,6 @@ class ModelHandler:
                 validation_data_loader=validation_data_loader,
             ),
             n_trials=self.tuning_config["number_of_tests"],
-            n_jobs=self.tuning_config.get(
-                "parallel_jobs", 2
-            ),  # TODO set to -1 (=processors)
             timeout=self.tuning_config.get("timeout", None),
         )
 
