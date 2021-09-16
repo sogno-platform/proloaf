@@ -560,6 +560,10 @@ class ModelHandler:
             optimizer_name=config["optimizer_name"],
             train_data_loader=train_data_loader,
             validation_data_loader=validation_data_loader,
+            earlystopping=EarlyStopping(
+                patience=config.get("early_stopping_patience", 7),
+                delta=config.get("early_stopping_margin",0.0)
+            ),
             learning_rate=config["learning_rate"],
             loss_function=temp_model_wrap.loss_metric,
             max_epochs=config["max_epochs"],
