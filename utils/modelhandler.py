@@ -560,10 +560,8 @@ class ModelHandler:
             optimizer_name=config["optimizer_name"],
             train_data_loader=train_data_loader,
             validation_data_loader=validation_data_loader,
-            earlystopping=EarlyStopping(
-                patience=config.get("early_stopping_patience", 7),
-                delta=config.get("early_stopping_margin",0.0)
-            ),
+            early_stopping_patience=config.get("early_stopping_patience", 7),
+            early_stopping_margin=config.get("early_stopping_margin", 0.0),
             learning_rate=config["learning_rate"],
             loss_function=temp_model_wrap.loss_metric,
             max_epochs=config["max_epochs"],
@@ -750,6 +748,8 @@ class TrainingRun:
         learning_rate: float,
         loss_function: Callable[[torch.Tensor, torch.Tensor], float],
         max_epochs: int,
+        early_stopping_patience: int,
+        early_stopping_margin: float,
         train_data_loader: utils.tensorloader.CustomTensorDataLoader = None,
         validation_data_loader: utils.tensorloader.CustomTensorDataLoader = None,
         id: Union[str, int] = None,
@@ -771,7 +771,9 @@ class TrainingRun:
         self.loss_function = loss_function
         self.step_counter = 0
         self.max_epochs = max_epochs
-        self.early_stopping = EarlyStopping()
+        self.early_stopping = EarlyStopping(
+            patience=early_stopping_patience, delta=early_stopping_margin
+        )
         self.log_df = log_df
         self.log_tb = log_tb
         self.training_start_time = None

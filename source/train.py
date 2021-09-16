@@ -102,7 +102,7 @@ def main(
         )
         # modelhandler.load_model(os.path.join(work_dir, "oracles", "opsd_LSTM_gnll.pkl"))
 
-        modelhandler.fit(train_dl, validation_dl, exploration=True)
+        modelhandler.fit(train_dl, validation_dl)
         # rel_perf = modelhandler.compare_to_old_model(test_dl)
         for input_enc, input_dec, targets in test_dl:
             rel_perf = modelhandler.predict(input_enc, input_dec)
