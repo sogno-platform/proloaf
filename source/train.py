@@ -34,10 +34,12 @@ Notes
 import os
 import sys
 from typing import Callable
+
 import warnings
 from copy import deepcopy
 
 import pandas as pd
+from sklearn.utils import validation
 import torch
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -45,7 +47,9 @@ print(MAIN_PATH)
 sys.path.append(MAIN_PATH)
 
 # Do relative imports below this
+from utils import metrics
 import utils.loghandler as log
+import utils.confighandler as ch
 import utils.datahandler as dh
 import utils.modelhandler as mh
 import utils
@@ -88,7 +92,7 @@ def main(
         )
 
         modelhandler = mh.ModelHandler(
-            work_dir=work_dir,
+            # work_dir=work_dir,
             config=config,
             tuning_config=tuning_config,
             scalers=scalers,
@@ -104,12 +108,36 @@ def main(
 
         modelhandler.fit(train_dl, validation_dl)
         # rel_perf = modelhandler.compare_to_old_model(test_dl)
-        for input_enc, input_dec, targets in test_dl:
-            rel_perf = modelhandler.predict(input_enc, input_dec)
+        ref_model_1 = modelhandler.load_model(
+            os.path.join(
+                work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl"
+            )
+        )
+        ref_model_2 = modelhandler.load_model(
+            os.path.join(
+                work_dir, config.get("output_path", ""), f"opsd_LSTM_gnll_2.pkl"
+            )
+        )
+        modelhandler.select_model(
+            validation_dl, [ref_model_1, modelhandler.model_wrap], metrics.NllGauss()
+        )
+        # print(f"{modelhandler.model.name}")
+        # for input_enc, input_dec, targets in test_dl:
+        #     rel_perf = modelhandler.predict(input_enc, input_dec)
         # print(f"{rel_perf = }")
         # TODO this is not implemented yet
-        modelhandler.save_model()
-
+        modelhandler.save_current_model(
+            os.path.join(
+                work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl"
+            )
+        )
+        config.update(modelhandler.get_config())
+        PAR = ch.write_config(
+            config,
+            model_name=ARGS.station,
+            config_path=ARGS.config,
+            main_path=work_dir,
+        )
         # TODO not implemented either
         # confighandler.update_config_file(modelhandler.config)
 
@@ -119,8 +147,8 @@ def main(
     finally:
         if log_df is not None:
             log.end_logging(
-                model_name=PAR["model_name"],
-                work_dir=MAIN_PATH,
+                model_name=config["model_name"],
+                work_dir=work_dir,
                 log_path=log_path,
                 df=log_df,
             )
@@ -131,8 +159,6 @@ if __name__ == "__main__":
     PAR = read_config(
         model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH
     )
-    loss = "crps"
-    loss_args = {"quantiles": [0.2, 0.8]}
     if torch.cuda.is_available():
         DEVICE = "cuda"
         if PAR["cuda_id"] is not None:
