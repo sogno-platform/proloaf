@@ -312,7 +312,7 @@ def log_tensorboard(
     run_dir = os.path.join(work_dir, "runs", logname)
     tb = SummaryWriter(log_dir=run_dir)
 
-    print("Begin training,\t tensorboard log here:\t", tb.log_dir)
+    print("Tensorboard log here:\t", tb.log_dir)
     return tb
 
 
@@ -354,7 +354,7 @@ def end_tensorboard(
     params,
     values,
     work_dir,
-    args,
+    logname,
 ):
     """
     Wrap up TensorBoard's SummaryWriter
@@ -371,7 +371,7 @@ def end_tensorboard(
     # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
     # https://pytorch.org/docs/master/tensorboard.html
     if params:
-        tb.add_hparams(params["hyper_params"], values)
+        tb.add_hparams(params, values)
     tb.close()
-    run_dir = os.path.join(work_dir, str("runs/" + args.logname))
+    run_dir = os.path.join(work_dir, str("runs/" + logname))
     clean_up_tensorboard_dir(run_dir)
