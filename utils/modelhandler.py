@@ -39,7 +39,6 @@ from utils import models
 from utils import metrics
 from utils.loghandler import (
     log_data,
-    clean_up_tensorboard_dir,
     log_tensorboard,
     add_tb_element,
     end_tensorboard,
@@ -123,23 +122,114 @@ class ModelWrapper:
         name: str = "model",
         target_id: Union[str, int] = "target",
         # output_labels: List[str] = None,
+        core_net: str = "torch.nn.LSTM",
+        relu_leak: float = 0.1,
+        encoder_features: List[str] = None,
+        decoder_features: List[str] = None,
+        core_layers: int = 1,
+        rel_linear_hidden_size: float = 1.0,
+        rel_core_hidden_size: float = 1.0,
+        dropout_fc: float = 0.4,
+        dropout_core: float = 0.3,
         scalers=None,
         training_metric: str = None,
         metric_options: Dict[str, Any] = {},
     ):
+        self.initialzed = False
         self.model = None  # model
-        self.name = name
-        self.target_id = target_id
+        self.name = "model"
+        self.target_id = "target"
+        self.core_net = "torch.nn.LSTM"
+        self.relu_leak = 0.1
+        self.encoder_features = None
+        self.decoder_features = None
+        self.core_layers = 1
+        self.rel_linear_hidden_size = 1.0
+        self.rel_core_hidden_size = 1.0
+        self.dropout_fc = 0.4
+        self.dropout_core = 0.3
+        self.scalers = (
+            None  # TODO make custom wrapper for scaler that know what data goes where?
+        )
+        self.set_loss(loss="nllgauss", loss_options={})
+        self.update(
+            name=name,
+            target_id=target_id,
+            core_net=core_net,
+            relu_leak=relu_leak,
+            encoder_features=encoder_features,
+            decoder_features=decoder_features,
+            core_layers=core_layers,
+            rel_linear_hidden_size=rel_linear_hidden_size,
+            rel_core_hidden_size=rel_core_hidden_size,
+            dropout_fc=dropout_fc,
+            dropout_core=dropout_core,
+            scalers=scalers,
+            training_metric=training_metric,
+            metric_options=metric_options,
+        )
 
-        self.scalers = scalers  # TODO make custom wrapper for scaler that know what data goes where?
-        # self.previous_loss = None
-        self.training_metric = training_metric
-        self._loss = training_metric
-        self._loss_options = deepcopy(metric_options)
-        if self._loss is not None:
-            self.output_labels = deepcopy(self.loss_metric.input_labels)
-        else:
-            self.output_labels = None
+    def get_config(self):
+        return {
+            "model_name": self.name,
+            "target_id": self.target_id,
+            "core_net": self.core_net,
+            "relu_leak": self.relu_leak,
+            "encoder_features": deepcopy(self.encoder_features),
+            "decoder_features": deepcopy(self.decoder_features),
+            "core_layers": self.core_layers,
+            "rel_linear_hidden_size": self.rel_linear_hidden_size,
+            "rel_core_hidden_size": self.rel_core_hidden_size,
+            "dropout_fc": self.dropout_fc,
+            "dropout_core": self.dropout_core,
+        }
+
+    def update(
+        self,
+        name: str = None,
+        target_id: Union[str, int] = None,
+        core_net: str = None,
+        relu_leak: float = None,
+        encoder_features: List[str] = None,
+        decoder_features: List[str] = None,
+        core_layers: int = None,
+        rel_linear_hidden_size: float = None,
+        rel_core_hidden_size: float = None,
+        dropout_fc: float = None,
+        dropout_core: float = None,
+        scalers=None,
+        training_metric: str = None,
+        metric_options: Dict[str, Any] = None,
+        **_,
+    ):
+        if name is not None:
+            self.name = name
+        if target_id is not None:
+            self.target_id = target_id
+        if core_net is not None:
+            self.core_net = core_net
+        if relu_leak is not None:
+            self.relu_leak = relu_leak
+        if encoder_features is not None:
+            self.encoder_features = deepcopy(encoder_features)
+        if decoder_features is not None:
+            self.decoder_features = deepcopy(decoder_features)
+        if core_layers is not None:
+            self.core_layers = core_layers
+        if rel_linear_hidden_size is not None:
+            self.rel_linear_hidden_size = rel_linear_hidden_size
+        if rel_core_hidden_size is not None:
+            self.rel_core_hidden_size = rel_core_hidden_size
+        if dropout_fc is not None:
+            self.dropout_fc = dropout_fc
+        if dropout_core is not None:
+            self.dropout_core = dropout_core
+        if scalers is not None:
+            self.scalers = scalers
+        if training_metric is not None:
+            self.set_loss(loss=training_metric, loss_options=metric_options)
+        self.initialzed = False
+        return self
 
     @property
     def loss_metric(self):
@@ -147,68 +237,84 @@ class ModelWrapper:
 
     @loss_metric.setter
     def loss_metric(self, var):
-        raise AttributeError("Can't set loss manually")
+        raise AttributeError("Can't set loss manually, use .set_loss() instead")
+
+    def set_loss(self, loss: str, loss_options=None):
+        if not isinstance(loss, str):
+            raise AttributeError(
+                "Set the loss using the string identifier of the metric."
+            )
+        if loss is None:
+            self._loss = None
+            self._loss_options = None
+            self.output_labels = None
+        if loss_options is None:
+            loss_options = {}
+        self._loss = loss
+        self._loss_options = deepcopy(loss_options)
+        self.output_labels = deepcopy(self.loss_metric.input_labels)
+        return self
 
     def wrap(self, model: torch.nn.Module):  # , previous_loss: float = None):
         self.model = model
-        # self.previous_loss = previous_loss
 
     def copy(self):
-        return ModelWrapper(
+        temp_mh = ModelWrapper(
             name=self.name,
             target_id=self.target_id,
+            core_net=self.core_net,
+            relu_leak=self.relu_leak,
+            encoder_features=self.encoder_features,
+            decoder_features=self.decoder_features,
+            core_layers=self.core_layers,
+            rel_linear_hidden_size=self.rel_linear_hidden_size,
+            rel_core_hidden_size=self.rel_core_hidden_size,
+            dropout_fc=self.dropout_fc,
+            dropout_core=self.dropout_core,
             scalers=self.scalers,
             training_metric=self._loss,
             metric_options=self._loss_options,
         )
+        if self.model is not None:
+            temp_mh.model.load_state_dict(self.model.state_dict())
+            temp_mh.initialzed = self.initialzed
+        return temp_mh
 
-    def init_model(
-        self,
-        enc_size: int,
-        dec_size: int,
-        out_size: int,
-        rel_linear_hidden_size: float = 1.0,
-        rel_core_hidden_size: float = 1.0,
-        core_layers: int = 1,
-        dropout_fc: float = 0.0,
-        dropout_core: float = 0.0,
-        core_net: str = "torch.nn.GRU",
-        relu_leak: float = 0.1,
-    ):
+    def init_model(self):
         self.model = models.EncoderDecoder(
-            enc_size=enc_size,
-            dec_size=dec_size,
-            out_size=out_size,
-            dropout_fc=dropout_fc,
-            dropout_core=dropout_core,
-            rel_linear_hidden_size=rel_linear_hidden_size,
-            rel_core_hidden_size=rel_core_hidden_size,
-            core_net=core_net,
-            relu_leak=relu_leak,
-            core_layers=core_layers,
+            enc_size=len(self.encoder_features),
+            dec_size=len(self.decoder_features),
+            out_size=len(self.output_labels),
+            dropout_fc=self.dropout_fc,
+            dropout_core=self.dropout_core,
+            rel_linear_hidden_size=self.rel_linear_hidden_size,
+            rel_core_hidden_size=self.rel_core_hidden_size,
+            core_net=self.core_net,
+            relu_leak=self.relu_leak,
+            core_layers=self.core_layers,
         )
         for param in self.model.parameters():
             torch.nn.init.uniform_(param.data, -0.08, 0.08)
-        self.previous_loss = None
+        self.initialzed = True
         return self
 
-    def init_model_from_config(self, config: dict):
-        if not self.output_labels:
-            raise AttributeError(
-                "The output labels for the model have to be specified to create the forecasting model, they determine the number of predicted values."
-            )
-        self.init_model(
-            enc_size=len(config["encoder_features"]),
-            dec_size=len(config["decoder_features"]),
-            out_size=len(self.output_labels),
-            rel_linear_hidden_size=config.get("rel_linear_hidden_size", 1.0),
-            rel_core_hidden_size=config.get("rel_core_hidden_size", 1.0),
-            core_layers=config.get("core_layers", 1),
-            dropout_fc=config.get("dropout_fc", 0),
-            dropout_core=config.get("dropout_core", 0),
-            core_net=config.get("core_net", "torch.nn.GRU"),
-            relu_leak=config.get("relu_leak", 0.01),
-        )
+    # def init_model_from_config(self, config: dict):
+    #     if not self.output_labels:
+    #         raise AttributeError(
+    #             "The output labels for the model have to be specified to create the forecasting model, they determine the number of predicted values."
+    #         )
+    #     self.init_model(
+    #         enc_size=len(config["encoder_features"]),
+    #         dec_size=len(config["decoder_features"]),
+    #         out_size=len(self.output_labels),
+    #         rel_linear_hidden_size=config.get("rel_linear_hidden_size", 1.0),
+    #         rel_core_hidden_size=config.get("rel_core_hidden_size", 1.0),
+    #         core_layers=config.get("core_layers", 1),
+    #         dropout_fc=config.get("dropout_fc", 0),
+    #         dropout_core=config.get("dropout_core", 0),
+    #         core_net=config.get("core_net", "torch.nn.GRU"),
+    #         relu_leak=config.get("relu_leak", 0.01),
+    #     )
 
     def to(self, device):
         if self.model:
@@ -237,9 +343,11 @@ class ModelWrapper:
         torch.Tensor
             The predictions from the given model
         """
-        if self.model is None:
-            raise RuntimeError("No model has been created to perform a prediction with")
-        # TODO this array of numbers is not very readable, maybe a dict would be helpful
+        if not self.initialzed:
+            raise RuntimeError(
+                "The model has not been initialized. Use .init_model() to do that"
+            )
+        # TODO this returned array of numbers is not very readable, maybe a dict would be helpful
         val, _ = self.model(inputs_enc, inputs_dec)
         return val
 
@@ -270,19 +378,22 @@ class ModelHandler:
 
     def __init__(
         self,
-        work_dir: str,  # TODO this is not great if the modelhandler is loaded on a different machine
         config: dict,
-        # reference_model: Union[torch.nn.Module, ModelWrapper] = None,
+        work_dir: str = None,
         tuning_config: dict = None,
         scalers=None,  # TODO think about we can reasonably provide typing here
         loss: str = "nllgauss",
         loss_kwargs: dict = {},
         device: str = "cpu",
         log_df=None,
-        log_tb=False,
+        logname: str = "",
     ):
-        print(f"{os.path.dirname(os.path.abspath(sys.argv[0])) = }")
-        self.work_dir = work_dir
+        self.work_dir = (
+            work_dir
+            if work_dir is not None
+            else os.path.dirname(os.path.abspath(sys.argv[0]))
+        )
+        print(self.work_dir)
         self.config = deepcopy(config)
         # if isinstance(reference_model, ModelWrapper):
         #     self.reference_model = reference_model
@@ -297,12 +408,21 @@ class ModelHandler:
         #     )
         #     if isinstance(reference_model, torch.nn.Module):
         #         self.reference_model.model = reference_model
-
+        self.logname = logname
         self.tuning_config = deepcopy(tuning_config)
         # self.set_loss(loss, **loss_kwargs)
         self._model_wrap: ModelWrapper = ModelWrapper(
-            name=self.config.get("model_name", "temp_model"),
-            target_id=self.config["target_id"],
+            name=config.get("model_name"),
+            target_id=config.get("target_id"),
+            core_net=config.get("core_net"),
+            relu_leak=config.get("relu_leak"),
+            encoder_features=config.get("encoder_features"),
+            decoder_features=config.get("decoder_features"),
+            core_layers=config.get("core_layers"),
+            rel_linear_hidden_size=config.get("rel_linear_hidden_size"),
+            rel_core_hidden_size=config.get("rel_core_hidden_size"),
+            dropout_fc=config.get("dropout_fc"),
+            dropout_core=config.get("dropout_core"),
             scalers=scalers,
             training_metric=loss,
             metric_options=loss_kwargs,
@@ -314,6 +434,11 @@ class ModelHandler:
                 raise AttributeError(
                     "Exploration was requested but no configuration for it was provided. Define the relative path to the hyper parameter tuning config as 'exploration_path' in the main config or provide a dict to the modelhandler"
                 )
+
+    def get_config(self):
+        config = deepcopy(self.config)
+        config.update(self.model_wrap.get_config())
+        return config
 
     @property
     def model_wrap(self):
@@ -429,8 +554,21 @@ class ModelHandler:
         self.model_wrap = trial.user_attrs["wrapped_model"]
         return self
 
-    def benchmark(
+    def select_model(
         self,
+        data: utils.tensorloader.CustomTensorDataLoader,
+        models: List[ModelWrapper],
+        loss: metrics.Metric,
+    ):
+        perf_df = self.benchmark(data, models, [loss])
+        print(f"Peformance was: \n{perf_df}")
+        idx = perf_df.to_numpy().argmin()
+        self.model_wrap = models[idx]
+        print(f"selected {self.model_wrap.name}")
+        return self.model_wrap
+
+    @staticmethod
+    def benchmark(
         data: utils.tensorloader.CustomTensorDataLoader,
         models: List[ModelWrapper],
         test_metrics: List[metrics.Metric],
@@ -445,7 +583,7 @@ class ModelHandler:
             ]
             scores = [
                 [
-                    metric.from_interval(targets, upper, lower, expected)
+                    metric.from_interval(targets, upper, lower, expected).item()
                     for upper, lower, expected in intervals
                 ]
                 for metric in test_metrics
@@ -543,14 +681,16 @@ class ModelHandler:
 
         config = deepcopy(self.config)
         config.update(hparams)
-        temp_model_wrap: ModelWrapper = self.model_wrap.copy()
-        temp_model_wrap.init_model_from_config(config)
+        temp_model_wrap: ModelWrapper = (
+            self.model_wrap.copy().update(**hparams).init_model()
+        )
+        # temp_model_wrap.init_model_from_config(config)
 
-        # tb = log_tensorboard(
-        #     work_dir=self.work_dir,
-        #     exploration=self.config["exploration"],
-        #     trial_id=trial_id,
-        # )
+        tb = log_tensorboard(
+            work_dir=self.work_dir,
+            exploration=self.config["exploration"],
+            trial_id=trial_id,
+        )
         training_run = TrainingRun(
             temp_model_wrap.model,
             id=trial_id,
@@ -562,9 +702,17 @@ class ModelHandler:
             learning_rate=config["learning_rate"],
             loss_function=temp_model_wrap.loss_metric,
             max_epochs=config["max_epochs"],
-            # log_tb=tb,
+            log_tb=tb,
         )
         training_run.train()
+        # TODO readd rel_score
+        values = {
+            "hparam/hp_total_time": training_run.training_start_time
+            - training_run.training_end_time,
+            "hparam/score": training_run.validation_loss,
+            # "hparam/relative_score": rel_score,
+        }
+        end_tensorboard(tb, hparams, values, self.work_dir, self.logname)
         return temp_model_wrap, training_run
 
     # TODO dataformat currently includes targets and features which differs from sklearn
@@ -617,28 +765,41 @@ class ModelHandler:
         # TODO this array of numbers is not very readable, maybe a dict would be helpful
         return self.model_wrap.predict(inputs_enc, inputs_dec)
 
-    def load_model(self, path: str = None):
-        if path is None:
-            path = os.path.join(
-                self.work_dir,
-                self.config.get("output_path", ""),
-                f"{self.config['model_name']}.pkl",
-            )
+    @staticmethod
+    def load_model(path: str = None):
+        # if path is None:
+        #     path = os.path.join(
+        #         self.work_dir,
+        #         self.config.get("output_path", ""),
+        #         f"{self.config['model_name']}.pkl",
+        #     )
         inst = torch.load(path)
         if not isinstance(inst, ModelWrapper):
             raise RuntimeError(
                 f"you tryied to load from '{path}' but the object was not a ModelWrapper"
             )
-        self.model_wrap = inst
-        # self.model_wrap = inst  # TODO decide on one
-        return self
+        return inst
 
-    def save_model(self, path: str = None):
-        if path is None:
-            path = os.path.join(
-                self.work_dir,
-                self.config.get("output_path", ""),
-                f"{self.config['model_name']}.pkl",
+    @staticmethod
+    def save_model(model: ModelWrapper, path: str):
+        # if path is None:
+        #     path = os.path.join(
+        #         self.work_dir,
+        #         self.config.get("output_path", ""),
+        #         f"{self.config['model_name']}.pkl",
+        #     )
+        torch.save(model, path)
+
+    def save_current_model(self, path: str):
+        # if path is None:
+        #     path = os.path.join(
+        #         self.work_dir,
+        #         self.config.get("output_path", ""),
+        #         f"{self.config['model_name']}.pkl",
+        #     )
+        if self.model_wrap.model is None:
+            raise RuntimeError(
+                "The Model is not initialized and can thus not be saved."
             )
         torch.save(self.model_wrap, path)
         return self
@@ -726,6 +887,7 @@ class ModelHandler:
                 trial_id=trial.number,
             )
             trial.set_user_attr("wrapped_model", model_wrap)
+            trial.set_user_attr("training_run", training_run)
             # Handle pruning based on the intermediate value.
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
@@ -764,6 +926,8 @@ class TrainingRun:
         self.validation_dl = validation_data_loader
         self.validation_loss = np.inf
         self.training_loss = np.inf
+        self.optimizer_name = optimizer_name
+        self.learning_rate = learning_rate
         self.set_optimizer(optimizer_name, learning_rate)
         self.loss_function = loss_function
         self.step_counter = 0
@@ -776,6 +940,15 @@ class TrainingRun:
         self.training_start_time = None
         self.training_end_time = None
         self.to(device)
+
+    def get_config(self):
+        return {
+            "optimizer_name": self.optimizer_name,
+            "may_epochs": self.max_epochs,
+            "early_stopping_patience": self.early_stopping.patience,
+            "early_stopping_margin": self.early_stopping.delta,
+            "learning_rate": self.learning_rate,
+        }
 
     def set_optimizer(self, optimizer_name: str, learning_rate: float):
         """
