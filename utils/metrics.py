@@ -43,7 +43,7 @@ class Metric(ABC):
     def __init__(self, **options):
         self.options: dict = options
         self.input_labels: List[str]
-        self.id: str = self.__class__
+        self.id: str = self.__class__.__name__
 
     def __call__(
         self,
@@ -88,8 +88,10 @@ class NllGauss(Metric):
     def get_prediction_interval(
         self, predictions: List[torch.Tensor], alpha: float = 0.95
     ):
-        expected_values = predictions[:, :, 0:1]  # expected_values:mu
-        sigma = torch.sqrt(predictions[:, :, -1:].exp())
+        #     print(f"{predictions = }")
+        #     print(f"{len(predictions) = }")
+        expected_values = predictions[0]  # expected_values:mu
+        sigma = torch.sqrt(predictions[1].exp())
         # TODO: make 95% prediction interval changeable
         y_pred_upper = expected_values + 1.96 * sigma
         y_pred_lower = expected_values - 1.96 * sigma
