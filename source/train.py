@@ -92,7 +92,7 @@ def main(
         )
 
         modelhandler = mh.ModelHandler(
-            # work_dir=work_dir,
+            work_dir=work_dir,
             config=config,
             tuning_config=tuning_config,
             scalers=scalers,
@@ -107,25 +107,14 @@ def main(
         # modelhandler.load_model(os.path.join(work_dir, "oracles", "opsd_LSTM_gnll.pkl"))
 
         modelhandler.fit(train_dl, validation_dl)
-        # rel_perf = modelhandler.compare_to_old_model(test_dl)
         ref_model_1 = modelhandler.load_model(
             os.path.join(
                 work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl"
             )
         )
-        ref_model_2 = modelhandler.load_model(
-            os.path.join(
-                work_dir, config.get("output_path", ""), f"opsd_LSTM_gnll_2.pkl"
-            )
-        )
         modelhandler.select_model(
             validation_dl, [ref_model_1, modelhandler.model_wrap], metrics.NllGauss()
         )
-        # print(f"{modelhandler.model.name}")
-        # for input_enc, input_dec, targets in test_dl:
-        #     rel_perf = modelhandler.predict(input_enc, input_dec)
-        # print(f"{rel_perf = }")
-        # TODO this is not implemented yet
         modelhandler.save_current_model(
             os.path.join(
                 work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl"

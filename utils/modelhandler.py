@@ -118,10 +118,8 @@ class EarlyStopping:
 class ModelWrapper:
     def __init__(
         self,
-        # model: torch.nn.Module = None,
         name: str = "model",
         target_id: Union[str, int] = "target",
-        # output_labels: List[str] = None,
         core_net: str = "torch.nn.LSTM",
         relu_leak: float = 0.1,
         encoder_features: List[str] = None,
@@ -134,8 +132,14 @@ class ModelWrapper:
         scalers=None,
         training_metric: str = None,
         metric_options: Dict[str, Any] = {},
+        optimizer_name: str = "adam",
+        early_stopping_patience: int = 7,
+        early_stopping_margin: float = 0.0,
+        learning_rate: float = 1e-4,
+        max_epochs: int = 100,
     ):
         self.initialzed = False
+        self.last_training = None
         self.model = None  # model
         self.name = "model"
         self.target_id = "target"
@@ -152,6 +156,13 @@ class ModelWrapper:
             None  # TODO make custom wrapper for scaler that know what data goes where?
         )
         self.set_loss(loss="nllgauss", loss_options={})
+
+        self.optimizer_name = "adam"
+        self.early_stopping_patience = 7
+        self.early_stopping_margin = 0.0
+        self.learning_rate = 1e-4
+        self.max_epochs = 100
+
         self.update(
             name=name,
             target_id=target_id,
@@ -167,9 +178,14 @@ class ModelWrapper:
             scalers=scalers,
             training_metric=training_metric,
             metric_options=metric_options,
+            optimizer_name=optimizer_name,
+            early_stopping_patience=early_stopping_patience,
+            early_stopping_margin=early_stopping_margin,
+            learning_rate=learning_rate,
+            max_epochs=max_epochs,
         )
 
-    def get_config(self):
+    def get_model_config(self):
         return {
             "model_name": self.name,
             "target_id": self.target_id,
@@ -182,6 +198,15 @@ class ModelWrapper:
             "rel_core_hidden_size": self.rel_core_hidden_size,
             "dropout_fc": self.dropout_fc,
             "dropout_core": self.dropout_core,
+        }
+
+    def get_training_config(self):
+        return {
+            "optimizer_name": self.optimizer_name,
+            "early_stopping_patience": self.early_stopping_patience,
+            "early_stopping_margin": self.early_stopping_margin,
+            "learning_rate": self.learning_rate,
+            "max_epochs": self.max_epochs,
         }
 
     def update(
@@ -200,6 +225,11 @@ class ModelWrapper:
         scalers=None,
         training_metric: str = None,
         metric_options: Dict[str, Any] = None,
+        optimizer_name: str = None,
+        early_stopping_patience: int = None,
+        early_stopping_margin: float = None,
+        learning_rate: float = None,
+        max_epochs: int = None,
         **_,
     ):
         if name is not None:
@@ -228,6 +258,17 @@ class ModelWrapper:
             self.scalers = scalers
         if training_metric is not None:
             self.set_loss(loss=training_metric, loss_options=metric_options)
+        if optimizer_name is not None:
+            self.optimizer_name = optimizer_name
+        if early_stopping_patience is not None:
+            self.early_stopping_patience = early_stopping_patience
+        if early_stopping_margin is not None:
+            self.early_stopping_margin = early_stopping_margin
+        if learning_rate is not None:
+            self.learning_rate = learning_rate
+        if max_epochs is not None:
+            self.max_epochs = max_epochs
+
         self.initialzed = False
         return self
 
@@ -274,7 +315,13 @@ class ModelWrapper:
             scalers=self.scalers,
             training_metric=self._loss,
             metric_options=self._loss_options,
+            optimizer_name=self.optimizer_name,
+            early_stopping_patience=self.early_stopping_patience,
+            early_stopping_margin=self.early_stopping_margin,
+            learning_rate=self.learning_rate,
+            max_epochs=self.max_epochs,
         )
+        # TODO include trainingparameters
         if self.model is not None:
             temp_mh.model.load_state_dict(self.model.state_dict())
             temp_mh.initialzed = self.initialzed
@@ -298,27 +345,101 @@ class ModelWrapper:
         self.initialzed = True
         return self
 
-    # def init_model_from_config(self, config: dict):
-    #     if not self.output_labels:
-    #         raise AttributeError(
-    #             "The output labels for the model have to be specified to create the forecasting model, they determine the number of predicted values."
-    #         )
-    #     self.init_model(
-    #         enc_size=len(config["encoder_features"]),
-    #         dec_size=len(config["decoder_features"]),
-    #         out_size=len(self.output_labels),
-    #         rel_linear_hidden_size=config.get("rel_linear_hidden_size", 1.0),
-    #         rel_core_hidden_size=config.get("rel_core_hidden_size", 1.0),
-    #         core_layers=config.get("core_layers", 1),
-    #         dropout_fc=config.get("dropout_fc", 0),
-    #         dropout_core=config.get("dropout_core", 0),
-    #         core_net=config.get("core_net", "torch.nn.GRU"),
-    #         relu_leak=config.get("relu_leak", 0.01),
-    #     )
-
     def to(self, device):
         if self.model:
             self.model.to(device)
+        return self
+
+    def run_training(
+        self,  # Maybe use the datahandler as "data" which than provides all the data_loaders,for unifying the interface.
+        train_data_loader,
+        validation_data_loader,
+        trial_id=None,
+        log_tb=None,
+    ):
+        """
+        Train the given model.
+
+        Train the provided model using the given parameters for up to the specified number of epochs, with early stopping.
+        Log the training data (optionally using TensorBoard's SummaryWriter)
+        Finally, determine the score of the resulting best net.
+
+        Parameters
+        ----------
+        train_data_loader : utils.tensorloader.CustomTensorDataLoader
+            The training data loader
+        validation_data_loader : utils.tensorloader.CustomTensorDataLoader
+            The validation data loader
+        test_data_loader : utils.tensorloader.CustomTensorDataLoader
+            The test data loader
+        net : utils.models.EncoderDecoder
+            The model to be trained
+        learning_rate : float, optional
+            The specified optimizer's learning rate
+        batch_size :  int scalar, optional
+            The size of a batch for the tensor data loader
+        forecast_horizon : int scalar, optional
+            The length of the forecast horizon in hours
+        dropout_fc : float scalar, optional
+            The dropout probability for the decoder
+        dropout_core : float scalar, optional
+            The dropout probability for the core_net
+        log_df : pandas.DataFrame, optional
+            A DataFrame in which the results and parameters of the training are logged
+        optimizer_name : string, optional, default "adam"
+            The name of the torch.optim optimizer to be used. Currently only the following
+            strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
+        max_epochs : int scalar, optional
+            The maximum number of training epochs
+        logging_tb : bool, default = True
+            Specifies whether TensorBoard's SummaryWriter class should be used for logging during the training
+        loss_options : dict, default={}
+            Contains extra options if the loss functions mis or quantile score are used.
+        exploration : bool
+            todo
+        trial_id : string , default "main_run"
+            separate the trials per study and store all in one directory for better handling in tensorboard
+        hparams : dict, default = {}, equals standard list of hyperparameters (batch_size, learning_rate)
+            dict of customized hyperparameters
+        config : dict, default = {}
+            dict of model configurations
+        Returns
+        -------
+        utils.models.EncoderDecoder
+            The trained model
+        pandas.DataFrame
+            A DataFrame in which the results and parameters of the training have been logged
+        float
+            The minimum validation loss of the trained model
+        float or torch.Tensor
+            The score returned by the performance test. The data type depends on which metric was used.
+            The current implementation calculates the Mean Interval Score and returns either a float, or 1d-Array with the MIS along the horizon.
+            A lower score is generally better
+        TODO: update
+        """
+
+        training_run = TrainingRun(
+            self.model,
+            id=trial_id,
+            optimizer_name=self.optimizer_name,
+            train_data_loader=train_data_loader,
+            validation_data_loader=validation_data_loader,
+            early_stopping_patience=self.early_stopping_patience,
+            early_stopping_margin=self.early_stopping_margin,
+            learning_rate=self.learning_rate,
+            loss_function=self.loss_metric,
+            max_epochs=self.max_epochs,
+            log_tb=log_tb,
+        )
+        training_run.train()
+        # TODO readd rel_score
+        values = {
+            "hparam/hp_total_time": training_run.training_start_time
+            - training_run.training_end_time,
+            "hparam/score": training_run.validation_loss,
+            # "hparam/relative_score": rel_score,
+        }
+        self.last_training = training_run
         return self
 
     def predict(self, inputs_enc: torch.Tensor, inputs_dec: torch.Tensor):
@@ -426,6 +547,11 @@ class ModelHandler:
             scalers=scalers,
             training_metric=loss,
             metric_options=loss_kwargs,
+            optimizer_name=config.get("adam"),
+            early_stopping_patience=int(config.get("early_stopping_patience", 7)),
+            early_stopping_margin=float(config.get("early_stopping_margin", 0.0)),
+            learning_rate=float(config.get("learning_rate", 1e-4)),
+            max_epochs=int(config.get("max_epochs", 100)),
         )
         self.to(device)
 
@@ -437,7 +563,8 @@ class ModelHandler:
 
     def get_config(self):
         config = deepcopy(self.config)
-        config.update(self.model_wrap.get_config())
+        config.update(self.model_wrap.get_model_config())
+        config.update(self.model_wrap.get_training_config())
         return config
 
     @property
@@ -455,24 +582,6 @@ class ModelHandler:
         if self.model_wrap:
             self.model_wrap.to(device)
         return self
-
-    # def set_loss(self, metric: str = "nllgauss", **kwargs):
-    #     """
-    #     Set the meric which is to be used as loss for training
-
-    #     Parameters
-    #     ----------
-    #     metric_id : string, default = 'mis'
-    #         The name of the metric to use for scoring. See functions in utils.eval_metrics for
-    #         possible values.
-    #     **kwargs:
-    #         arguments provided to the chosen metric.
-    #     Returns
-    #     -------
-    #     self: ModelHandler
-    #     """
-    #     self._loss = metrics.get_metric(metric, **kwargs)
-    #     return self
 
     def tune_hyperparameters(
         self,
@@ -534,22 +643,6 @@ class ModelHandler:
         for key, value in trial.params.items():
             print("    {}: {}".format(key, value))
 
-        # TODO this is wonky self.model and self.config should ALWAYS be related.
-        # How can we compare to previous performance. Probably by just running both models on the same dataset.
-        # if previous_min_val_loss is None:
-        #     previous_min_val_loss = np.inf
-        # if previous_min_val_loss < study.best_value:
-        #     print("None of the tested setups performed better than the loss provided.")
-        # else:
-        #     if interactive:
-        #         if query_true_false(
-        #             "Found a better performing setup.\nAccept changes?"
-        #         ):
-        #             self.config.update(trial.params)
-        #             print(
-        #                 "Saved ... do not forget to save the in memory changes to disc."
-        #             )
-        #     else:
         self.config.update(trial.params)
         self.model_wrap = trial.user_attrs["wrapped_model"]
         return self
@@ -594,22 +687,7 @@ class ModelHandler:
             columns=[mod.name for mod in models],
         )
 
-    # def compare_to_old_model(self, data: utils.tensorloader.CustomTensorDataLoader):
-    #     cumulative_loss = 0
-    #     with torch.no_grad():
-    #         for input_enc, input_dec, target in data:
-    #             predictions_old = self.reference_model.predict(input_enc, input_dec)
-    #             predictions_current = self.model_wrap.predict(input_enc, input_dec)
-    #             loss_old = self._loss(predictions=predictions_old, target=target)
-    #             loss_current = self._loss(
-    #                 predictions=predictions_current, target=target
-    #             )
-    #             cumulative_loss = (
-    #                 cumulative_loss + loss_current.item() - loss_old.item()
-    #             )
-    #             break
-    #     return cumulative_loss
-
+    # TODO Deprecated
     def run_training(
         self,  # Maybe use the datahandler as "data" which than provides all the data_loaders,for unifying the interface.
         train_data_loader,
@@ -691,29 +769,19 @@ class ModelHandler:
             exploration=self.config["exploration"],
             trial_id=trial_id,
         )
-        training_run = TrainingRun(
-            temp_model_wrap.model,
-            id=trial_id,
-            optimizer_name=config["optimizer_name"],
-            train_data_loader=train_data_loader,
-            validation_data_loader=validation_data_loader,
-            early_stopping_patience=config.get("early_stopping_patience", 7),
-            early_stopping_margin=config.get("early_stopping_margin", 0.0),
-            learning_rate=config["learning_rate"],
-            loss_function=temp_model_wrap.loss_metric,
-            max_epochs=config["max_epochs"],
-            log_tb=tb,
+        temp_model_wrap.run_training(
+            train_data_loader, validation_data_loader, trial_id, tb
         )
-        training_run.train()
+
         # TODO readd rel_score
         values = {
-            "hparam/hp_total_time": training_run.training_start_time
-            - training_run.training_end_time,
-            "hparam/score": training_run.validation_loss,
+            "hparam/hp_total_time": temp_model_wrap.last_training.training_start_time
+            - temp_model_wrap.last_training.training_end_time,
+            "hparam/score": temp_model_wrap.last_training.validation_loss,
             # "hparam/relative_score": rel_score,
         }
         end_tensorboard(tb, hparams, values, self.work_dir, self.logname)
-        return temp_model_wrap, training_run
+        return temp_model_wrap
 
     # TODO dataformat currently includes targets and features which differs from sklearn
     def fit(
@@ -731,7 +799,7 @@ class ModelHandler:
                 )
             self.tune_hyperparameters(train_data_loader, validation_data_loader)
         else:
-            self.model_wrap, _ = self.run_training(
+            self.model_wrap = self.run_training(
                 train_data_loader,
                 validation_data_loader,
                 trial_id="main",
@@ -880,19 +948,19 @@ class ModelHandler:
                 func_generator = getattr(trial, hparam["function"])
                 hparams[key] = func_generator(**(hparam["kwargs"]))
 
-            model_wrap, training_run = self.run_training(
+            model_wrap = self.run_training(
                 train_data_loader,
                 validation_data_loader,
                 hparams=hparams,
                 trial_id=trial.number,
             )
             trial.set_user_attr("wrapped_model", model_wrap)
-            trial.set_user_attr("training_run", training_run)
+            trial.set_user_attr("training_run", model_wrap.last_training)
             # Handle pruning based on the intermediate value.
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
-            return training_run.validation_loss
+            return model_wrap.last_training.validation_loss
 
         return search_params
 
