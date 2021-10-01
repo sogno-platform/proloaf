@@ -175,7 +175,6 @@ def main(infile, target_id):
         x_train_1D = x_train[:,:,target_column]
         x_val_1D = x_val[:,:,target_column]
         y_train_1D = y_train[:,:,target_column]
-        #y_val_1D = y_val[:, :, target_column]
 
         mean_forecast = []
         upper_PI = []
