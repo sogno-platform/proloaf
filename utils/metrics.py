@@ -26,6 +26,7 @@ import torch
 from abc import ABC, abstractstaticmethod
 from typing import List, Union
 import inspect
+from statistics import NormalDist
 
 
 class Metric(ABC):
@@ -81,20 +82,20 @@ class Metric(ABC):
 
 
 class NllGauss(Metric):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, alpha=0.05):
+        super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_interval(
-        self, predictions: List[torch.Tensor], alpha: float = 0.95
-    ):
+    def get_prediction_interval(self, predictions: List[torch.Tensor], alpha=None):
         #     print(f"{predictions = }")
         #     print(f"{len(predictions) = }")
+        alpha = alpha if alpha is not None else self.options.get("alpha")
+        z = abs(NormalDist().inv_cdf((alpha) / 2.0))
+        # print(f"{z = }")
         expected_values = predictions[0]  # expected_values:mu
         sigma = torch.sqrt(predictions[1].exp())
-        # TODO: make 95% prediction interval changeable
-        y_pred_upper = expected_values + 1.96 * sigma
-        y_pred_lower = expected_values - 1.96 * sigma
+        y_pred_upper = expected_values + z * sigma
+        y_pred_lower = expected_values - z * sigma
         return y_pred_upper, y_pred_lower, expected_values
 
     def from_interval(
@@ -110,7 +111,12 @@ class NllGauss(Metric):
         return self(target, [expected_value, log_var])
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: List[torch.Tensor],
+        total: bool = True,
+        **_,
+    ):
         """
         Calculates gaussian negative log likelihood score
 
@@ -159,6 +165,28 @@ class PinnballLoss(Metric):
     def __init__(self, quantiles: List[float]):
         super().__init__(quantiles=quantiles)
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
+
+    def get_prediction_interval(self, predictions: List[torch.Tensor], **kwargs):
+        raise NotImplementedError(
+            f"get_prediciton is not available for {self.__class__}"
+        )
+
+    def get_prediction_interval(self, predictions: List[torch.Tensor], **kwargs):
+        raise NotImplementedError(
+            f"get_prediciton is not available for {self.__class__}"
+        )
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        exected_value: torch.Tensor,
+        **kwargs,
+    ):
+        raise NotImplementedError(
+            f"from_interval is not available for {self.__class__}"
+        )
 
     @staticmethod
     def func(
