@@ -140,5 +140,7 @@
     "rel_linear_hidden_size": 1.0,
     "rel_core_hidden_size": 1.0,
     "dropout_fc": 0.4,
-    "dropout_core": 0.3
+    "dropout_core": 0.3,
+    "early_stopping_patience": 7,
+    "early_stopping_margin": 0.0
 }
