@@ -654,7 +654,7 @@ class ModelHandler:
         loss: metrics.Metric,
     ):
         perf_df = self.benchmark(data, models, [loss])
-        print(f"Peformance was: \n{perf_df}")
+        print(f"Performance was:\n {perf_df}")
         idx = perf_df.to_numpy().argmin()
         self.model_wrap = models[idx]
         print(f"selected {self.model_wrap.name}")
