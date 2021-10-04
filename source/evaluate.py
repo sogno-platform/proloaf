@@ -142,30 +142,63 @@ if __name__ == "__main__":
             "pinball_loss",
             "residuals"
         ]
-        results = metrics.fetch_metrics(
-            targets=record_targets,
-            expected_values=record_expected_values,
-            y_pred_upper=y_pred_upper,
-            y_pred_lower=y_pred_lower,
-            analyzed_metrics=analyzed_metrics #all above listes metrics are fetched
+        results = pd.DataFrame(index=analyzed_metrics)
+        mean_forecast = []
+        upper_PI = []
+        lower_PI = []
+        method = [PAR['model_name']]
+        results_per_timestep = {}
+        # true_values = torch.zeros([len(method), len(record_expected_values), PAR['forecast_horizon']])
+        # forecasts = torch.zeros([len(method), len(record_expected_values), PAR['forecast_horizon']])
+        # upper_limits = torch.zeros([len(method), len(record_expected_values), PAR['forecast_horizon']])
+        # lower_limits = torch.zeros([len(method), len(record_expected_values), PAR['forecast_horizon']])
+
+        for i in method:
+            results_per_timestep[i] = metrics.fetch_metrics(
+                targets=record_targets, # TODO: need to iterate here when it shall work for more than one model
+                expected_values=record_expected_values,
+                y_pred_upper=y_pred_upper,
+                y_pred_lower=y_pred_lower,
+                analyzed_metrics=["rmse",
+                                  "sharpness",
+                                  "picp",
+                                  "mis"],
+                total=False,
+            )
+
+            results[i] = metrics.fetch_metrics(
+                targets=record_targets,
+                expected_values=record_expected_values,
+                y_pred_upper=y_pred_upper,
+                y_pred_lower=y_pred_lower,
+                analyzed_metrics=analyzed_metrics
+            ).T
+
+        results_per_timestep_per_forecast = pd.concat(
+            results_per_timestep.values(),
+            keys=results_per_timestep.keys(),
+            axis=1
         )
-        results_per_timestep = metrics.fetch_metrics(
-            targets=record_targets,
-            expected_values=record_expected_values,
-            y_pred_upper=y_pred_upper,
-            y_pred_lower=y_pred_lower,
-            analyzed_metrics=["rmse",
-                              "sharpness",
-                              "picp",
-                              "mis"],
-            total=False,
-        )
+        results_per_timestep_per_forecast.head()
+
+        rmse_values = pd.DataFrame(
+            data=results_per_timestep_per_forecast.xs('rmse', axis=1, level=1, drop_level=False).values,
+            columns=method)
+        sharpness_values = pd.DataFrame(
+            data=results_per_timestep_per_forecast.xs('sharpness', axis=1, level=1, drop_level=True),
+            columns=method)
+        picp_values = pd.DataFrame(
+            data=results_per_timestep_per_forecast.xs('picp', axis=1, level=1, drop_level=True),
+            columns=results_per_timestep.keys())
+        mis_values = pd.DataFrame(
+            data=results_per_timestep_per_forecast.xs('mis', axis=1, level=1, drop_level=True),
+            columns=method)
         # plot metrics
         plot.plot_metrics(
-            results_per_timestep["rmse"],
-            results_per_timestep["sharpness"],
-            results_per_timestep["picp"],
-            results_per_timestep["mis"],
+            rmse_values,
+            sharpness_values,
+            picp_values,
+            mis_values,
             OUTDIR,
             "metrics-evaluation",
         )
@@ -192,8 +225,9 @@ if __name__ == "__main__":
 
         print(
             metrics.results_table(
-                target_stations,
-                results,
+                target=PAR['model_name'],
+                models=target_stations,
+                results=results.T,
                 save_to_disc=OUTDIR,
             )
         )
@@ -208,4 +242,8 @@ if __name__ == "__main__":
             sample_frequency=24,
             save_to_disc=OUTDIR,
         )
+        torch.save(record_expected_values, 'RNN_best_forecasts.pt')
+        torch.save(y_pred_upper, 'RNN_best_upper_limits.pt')
+        torch.save(y_pred_lower, 'RNN_best_lower_limits.pt')
+        torch.save(record_targets, 'RNN_best_true_values.pt')
     print("Done!!")

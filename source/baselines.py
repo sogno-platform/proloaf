@@ -40,9 +40,7 @@ import argparse
 
 import pandas as pd
 import torch
-import matplotlib.pyplot as plt
-import contextlib
-import numpy as np
+import utils.plot as plot
 
 torch.set_printoptions(linewidth=120) # Display option for output
 torch.set_grad_enabled(True)
@@ -86,7 +84,7 @@ class flag_and_store(argparse._StoreAction):
             self.val = self.val[0]
         super().__call__(parser, namespace, self.val, option_strings)
 
-def eval_baseline(mean_forecast, df_target, upper_PI, lower_PI, load_limit, hours, baseline_method='baseline',
+def eval_baseline(config, mean_forecast, df_target, upper_PI, lower_PI, load_limit, hours, path, baseline_method='baseline', analyzed_metrics=["mse"],
                   forecast_horizon=1, anchor_adjustment =0):
     """
     Evaluate a baseline forecast using several different metrics and plot the results.
@@ -118,42 +116,31 @@ def eval_baseline(mean_forecast, df_target, upper_PI, lower_PI, load_limit, hour
         evaluated. I.e.:
         - For anchor_adjustment = 3, evaluate forecasts for hours 9, 21, 45, 97, and 109
     """
-
-    mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs = \
-        baselines.eval_forecast(mean_forecast, df_target,
-                                upper_PI, lower_PI,total=True)
-    rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon = \
-        baselines.eval_forecast(mean_forecast, df_target,
-                                upper_PI, lower_PI, total=False)
-    print(metrics.results_table(baseline_method + '_' + ARGS.station, mse.numpy(), rmse.numpy(), mase.numpy(),
-                                rae.numpy(), mae.numpy(), sharpness.numpy(), coverage.numpy(), mis.numpy(),qs.numpy(),
-                                save_to_disc=OUTDIR))
-    # plot metrics
-    metrics.plot_metrics(rmse_horizon.numpy(), sharpness_horizon.numpy(), coverage_horizon.numpy(),
-                         mis_horizon.numpy(), OUTDIR, baseline_method)
-
-    testhours = [0, 12, 24, 48, 100, 112]
-
-    for i in testhours:
-        if anchor_adjustment > 0:
-            # benchmark forecasts are adjusted to the forecast start time of the ProLoaF RNN method
-            # to facilitate the comparison of sample days
-            if i + forecast_horizon < len(mean_forecast) and i-anchor_adjustment>0:
-                i=i-anchor_adjustment
-                targets = df_target[i]
-                expected_values = mean_forecast[i]
-                y_pred_upper = upper_PI[i]
-                y_pred_lower = lower_PI[i]
-                metrics.evaluate_hours(targets, expected_values, y_pred_upper, y_pred_lower, i+anchor_adjustment,
-                                       OUTDIR + 'baseline_' + baseline_method+'_', load_limit, hours[i:i+forecast_horizon])
+    #forecasts,
+    # endog_val,
+    # upper_limits,
+    # lower_limits,
+    # model_name,
+    # path,
+    # config,
+    # analyzed_metrics
+    return baselines.eval_forecast(
+        forecasts=mean_forecast,
+        endog_val=df_target,
+        upper_limits=upper_PI,
+        lower_limits=lower_PI,
+        model_name=baseline_method,
+        path=path,
+        config=config,
+        analyzed_metrics=analyzed_metrics)
 
 def main(infile, target_id):
     sarimax_model = None
     # Read load data
     df = pd.read_csv(infile, sep=';',index_col=0)
-    dh.fill_if_missing(df, periodicity=24)
-    df['Time'] = pd.to_datetime(df['Time'])
-    df = df.set_index('Time')
+    dh.fill_if_missing(df, periodicity=SEASONALITY)
+    #df['Time'] = pd.to_datetime(df['Time'])
+    #df = df.set_index('Time')
     df = df.asfreq(freq='H')
     time_delta = pd.to_datetime(df.index[1]) - pd.to_datetime(df.index[0])
     timestamps = pd.date_range(start=pd.to_datetime(df.index, dayfirst=DAY_FIRST)[0],
@@ -183,7 +170,7 @@ def main(infile, target_id):
         y_train = dh.extract(df_train.iloc[PAR['forecast_horizon']:], PAR['forecast_horizon'])
         y_val = dh.extract(df_val.iloc[PAR['forecast_horizon']:], PAR['forecast_horizon'])
 
-        target_column = df.columns.get_loc(target)
+        target_column = df.columns.get_loc(target[0])
 
         x_train_1D = x_train[:,:,target_column]
         x_val_1D = x_val[:,:,target_column]
@@ -201,86 +188,9 @@ def main(infile, target_id):
             df_exog_train = None
             df_exog_val = None
 
-        if 'sarima' in CALC_BASELINES or 'sarimax' in CALC_BASELINES:
-            ###############################ARIMA####################################
-            sarimax_model=None
-            if(APPLY_EXISTING_MODEL): sarimax_model = baselines.load_baseline(OUTDIR,name='SARIMA')
-            # if sarimax_model == None:
-            #     sarimax_model,_,_ = baselines.auto_sarimax_wrapper(endog=df_train[target],
-            #                                                        exog=None,
-            #                                                        order=ORDER, seasonal_order=sORDER, seasonal = False,
-            #                                                        lag=PERIODICITY, grid_search = PAR['exploration'],
-            #                                                        train_limit=LIMIT_HISTORY)
-            # else: print('Loaded existing fitted ARIMA model from ',OUTDIR)
-            # ARIMA_expected_values, ARIMA_y_pred_upper, ARIMA_y_pred_lower = \
-            #     baselines.make_forecasts(df_train[target], df_val[target],None,
-            #                              None, sarimax_model,
-            #                              PAR['forecast_horizon'],
-            #                              train_limit=LIMIT_HISTORY, limit_steps=NUM_PRED, pi_alpha = ALPHA, online=True)
-            # mean_forecast.append(ARIMA_expected_values)
-            # upper_PI.append(ARIMA_y_pred_upper)
-            # lower_PI.append(ARIMA_y_pred_lower)
-            # baseline_method.append('ARIMA')
-            # baselines.save_baseline(OUTDIR,sarimax_model,name='ARIMA',  save_predictions=False)
-            ###############################SARIMA####################################
-            #sarimax_model = baselines.load_baseline(OUTDIR,name='SARIMA')
-            if sarimax_model == None:
-                sarimax_model,_,_ = baselines.auto_sarimax_wrapper(endog=df_train[target],
-                                                                   exog=None,
-                                                                   order=ORDER, seasonal_order=sORDER, seasonal = True,
-                                                                   lag=PERIODICITY,m=SEASONALITY,
-                                                                   train_limit=LIMIT_HISTORY,grid_search = PAR['exploration'])
-            else: print('Loaded existing fitted SARIMA model from ',OUTDIR)
-            SARIMA_expected_values, SARIMA_y_pred_upper, SARIMA_y_pred_lower = \
-                baselines.make_forecasts(df_train[target], df_val[target],None,
-                                         None, sarimax_model,
-                                         PAR['forecast_horizon'], train_limit=LIMIT_HISTORY,limit_steps=NUM_PRED, pi_alpha = ALPHA, online=True)
-            mean_forecast.append(SARIMA_expected_values)
-            upper_PI.append(SARIMA_y_pred_upper)
-            lower_PI.append(SARIMA_y_pred_lower)
-            baseline_method.append('SARIMA')
-            sarimax_model.summary()
-            baselines.save_baseline(OUTDIR, sarimax_model, name='SARIMA', save_predictions=False)
-            # ###############################ARIMAX####################################
-            # #sarimax_model = baselines.load_baseline(OUTDIR, name='ARIMAX')
-            # if sarimax_model == None:
-            #     sarimax_model,_,_ = baselines.auto_sarimax_wrapper(endog=df_train[target],
-            #                                                        exog=df_exog_train,
-            #                                                        order=ORDER, seasonal_order=sORDER, seasonal = False,
-            #                                                        train_limit=LIMIT_HISTORY,lag=PERIODICITY, grid_search = PAR['exploration'])
-            # else: print('Loaded existing fitted ARIMAX model from ',OUTDIR)
-            # ARIMAX_expected_values, ARIMAX_y_pred_upper, ARIMAX_y_pred_lower = \
-            #     baselines.make_forecasts(df_train[target], df_val[target],df_exog_train,
-            #                              df_exog_val, sarimax_model,
-            #                              PAR['forecast_horizon'], train_limit=LIMIT_HISTORY,limit_steps=NUM_PRED, pi_alpha = ALPHA, online=True)
-            # mean_forecast.append(ARIMAX_expected_values)
-            # upper_PI.append(ARIMAX_y_pred_upper)
-            # lower_PI.append(ARIMAX_y_pred_lower)
-            # baseline_method.append('ARIMAX')
-            # baselines.save_baseline(OUTDIR, sarimax_model, name='ARIMAX', save_predictions=False)
-            # ###############################SARIMAX###################################
-            # #sarimax_model = baselines.load_baseline(OUTDIR, name='SARIMAX')
-            # if sarimax_model == None:
-            #     sarimax_model,_,_ = baselines.auto_sarimax_wrapper(endog=df_train[target],
-            #                                                        exog=df_exog_train,
-            #                                                        order=ORDER, seasonal_order=sORDER, seasonal = True,
-            #                                                        train_limit=LIMIT_HISTORY,lag=PERIODICITY, m=SEASONALITY,
-            #                                                        grid_search = PAR['exploration'])
-            # else: print('Loaded existing fitted SARIMAX model from ',OUTDIR)
-            # SARIMAX_expected_values, SARIMAX_y_pred_upper, SARIMAX_y_pred_lower = \
-            #     baselines.make_forecasts(df_train[target], df_val[target],df_exog_train,
-            #                              df_exog_val, sarimax_model,
-            #                              PAR['forecast_horizon'], train_limit=LIMIT_HISTORY,
-            #                              limit_steps=NUM_PRED, pi_alpha = ALPHA, online=True)
-            # mean_forecast.append(SARIMAX_expected_values)
-            # upper_PI.append(SARIMAX_y_pred_upper)
-            # lower_PI.append(SARIMAX_y_pred_lower)
-            # baseline_method.append('SARIMAX')
-            # baselines.save_baseline(OUTDIR, sarimax_model, name='SARIMAX', save_predictions=False)
-
         if 'simple-naive' in CALC_BASELINES:
-        #Naïve
-            naive_expected_values, naive_y_pred_upper, naive_y_pred_lower  = \
+            # Naïve
+            naive_expected_values, naive_y_pred_upper, naive_y_pred_lower = \
                 baselines.persist_forecast(x_train_1D, x_val_1D, y_train_1D, PAR['forecast_horizon'], alpha=ALPHA)
             mean_forecast.append(naive_expected_values)
             upper_PI.append(naive_y_pred_upper)
@@ -288,7 +198,7 @@ def main(infile, target_id):
             baseline_method.append('simple-naive')
 
         if 'seasonal-naive' in CALC_BASELINES:
-        #SNaïve
+            # SNaïve
             s_naive_expected_values, s_naive_y_pred_upper, s_naive_y_pred_lower = \
                 baselines.seasonal_forecast(x_train_1D, x_val_1D, y_train_1D, PAR['forecast_horizon'], PERIODICITY,
                                             alpha=ALPHA)
@@ -298,8 +208,8 @@ def main(infile, target_id):
             baseline_method.append('seasonal-naive')
 
         if 'naive-stl' in CALC_BASELINES:
-        #decomposition(+ any#model)
-            sd_naive_expected_values, sd_naive_y_pred_upper, sd_naive_y_pred_lower  = \
+            # decomposition(+ any#model)
+            sd_naive_expected_values, sd_naive_y_pred_upper, sd_naive_y_pred_lower = \
                 baselines.persist_forecast(x_train_1D, x_val_1D, y_train_1D, PAR['forecast_horizon'],
                                            periodicity=PERIODICITY, seasonality=SEASONALITY,
                                            decomposed=True, alpha=ALPHA)
@@ -308,11 +218,152 @@ def main(infile, target_id):
             lower_PI.append(sd_naive_y_pred_lower)
             baseline_method.append('naive-stl')
 
+        #baselines.test_stationarity(df_train[target],maxlag=PERIODICITY*SEASONALITY)
+        arima_order = ORDER
+        sarima_order = ORDER
+        sarima_sorder = sORDER
+        if 'arima' in CALC_BASELINES:
+            ###############################ARIMA####################################
+            arima_model=None
+            if(APPLY_EXISTING_MODEL): arima_model = baselines.load_baseline(OUTDIR,name='ARIMA')
+            if arima_model == None:
+                arima_model,_,_,arima_order,_ = baselines.auto_sarimax_wrapper(
+                    endog=df_train[target],
+                    order=ORDER,
+                    seasonal_order=None,
+                    seasonal = False,
+                    lag=PERIODICITY*SEASONALITY,
+                    grid_search = PAR['exploration'],
+                    train_limit=LIMIT_HISTORY
+                )
+            else: print('Loaded existing fitted ARIMA model from ',OUTDIR)
+            ARIMA_expected_values, ARIMA_y_pred_upper, ARIMA_y_pred_lower = \
+                baselines.make_forecasts(
+                    endog_train = df_train[target],
+                    endog_val = df_val[target],
+                    fitted = arima_model,
+                    forecast_horizon = PAR['forecast_horizon'],
+                    train_limit = LIMIT_HISTORY,
+                    limit_steps = NUM_PRED,
+                    pi_alpha = ALPHA,
+                    online = True)
+            mean_forecast.append(ARIMA_expected_values)
+            upper_PI.append(ARIMA_y_pred_upper)
+            lower_PI.append(ARIMA_y_pred_lower)
+            baseline_method.append('ARIMA')
+            baselines.save_baseline(OUTDIR, arima_model, name='ARIMA',  save_predictions=False)
+
+        if 'sarima' in CALC_BASELINES:
+            ##############################SARIMA####################################
+            sarima_model=None
+            if(APPLY_EXISTING_MODEL): sarima_model = baselines.load_baseline(OUTDIR,name='SARIMA')
+            if sarima_model == None:
+                sarima_model,_,_,sarima_order,sarima_sorder = baselines.auto_sarimax_wrapper(
+                    endog=df_train[target],
+                    order=ORDER,
+                    seasonal_order=sORDER,
+                    seasonal = True,
+                    lag=PERIODICITY*SEASONALITY,
+                    m=SEASONALITY,
+                    train_limit=LIMIT_HISTORY,
+                    grid_search = PAR['exploration']
+                )
+            else: print('Loaded existing fitted SARIMA model from ',OUTDIR)
+            SARIMA_expected_values, SARIMA_y_pred_upper, SARIMA_y_pred_lower = \
+                baselines.make_forecasts(
+                    endog_train = df_train[target],
+                    endog_val = df_val[target],
+                    fitted = sarima_model,
+                    forecast_horizon = PAR['forecast_horizon'],
+                    train_limit = LIMIT_HISTORY,
+                    limit_steps = NUM_PRED,
+                    pi_alpha = ALPHA,
+                    online = True
+                )
+            mean_forecast.append(SARIMA_expected_values)
+            upper_PI.append(SARIMA_y_pred_upper)
+            lower_PI.append(SARIMA_y_pred_lower)
+
+            baseline_method.append('SARIMA')
+            sarima_model.summary()
+            baselines.save_baseline(OUTDIR, sarima_model, name='SARIMA', save_predictions=False)
+
+        if 'arimax' in CALC_BASELINES:
+            ###############################ARIMAX####################################
+            arimax_model = None
+            if(APPLY_EXISTING_MODEL): arimax_model = baselines.load_baseline(OUTDIR, name='ARIMAX')
+            if arimax_model == None:
+                arimax_model,_,_,_,_ = baselines.auto_sarimax_wrapper(
+                    endog=df_train[target],
+                    exog=df_exog_train,
+                    order=arima_order,
+                    seasonal_order=None,
+                    seasonal=False,
+                    train_limit=LIMIT_HISTORY,
+                    lag=PERIODICITY*SEASONALITY,
+                    grid_search=False
+                )
+            else: print('Loaded existing fitted ARIMAX model from ',OUTDIR)
+            ARIMAX_expected_values, ARIMAX_y_pred_upper, ARIMAX_y_pred_lower = \
+                baselines.make_forecasts(
+                    endog_train=df_train[target],
+                    endog_val=df_val[target],
+                    exog = df_exog_train,
+                    exog_forecast = df_exog_val,
+                    fitted=arimax_model,
+                    forecast_horizon=PAR['forecast_horizon'],
+                    train_limit=LIMIT_HISTORY,
+                    limit_steps=NUM_PRED,
+                    pi_alpha=ALPHA,
+                    online=True)
+            mean_forecast.append(ARIMAX_expected_values)
+            upper_PI.append(ARIMAX_y_pred_upper)
+            lower_PI.append(ARIMAX_y_pred_lower)
+            baseline_method.append('ARIMAX')
+            baselines.save_baseline(OUTDIR, arimax_model, name='ARIMAX', save_predictions=False)
+        if 'sarimax' in CALC_BASELINES:
+            ###############################SARIMAX###################################
+            sarimax_model = None
+            if (APPLY_EXISTING_MODEL): sarimax_model = baselines.load_baseline(OUTDIR, name='SARIMAX')
+            if sarimax_model == None:
+                sarimax_model,_,_,_,_ = baselines.auto_sarimax_wrapper(
+                    endog=df_train[target],
+                    exog=df_exog_train,
+                    order=sarima_order,
+                    seasonal_order=sarima_sorder,
+                    seasonal = True,
+                    train_limit=LIMIT_HISTORY,
+                    lag=PERIODICITY*SEASONALITY,
+                    m=SEASONALITY,
+                    grid_search = False
+                )
+            else: print('Loaded existing fitted SARIMAX model from ',OUTDIR)
+            SARIMAX_expected_values, SARIMAX_y_pred_upper, SARIMAX_y_pred_lower = \
+                baselines.make_forecasts(
+                    endog_train=df_train[target],
+                    endog_val=df_val[target],
+                    exog = df_exog_train,
+                    exog_forecast = df_exog_val,
+                    fitted=sarimax_model,
+                    forecast_horizon=PAR['forecast_horizon'],
+                    train_limit=LIMIT_HISTORY,
+                    limit_steps=NUM_PRED,
+                    pi_alpha=ALPHA,
+                    online=True
+                )
+            mean_forecast.append(SARIMAX_expected_values)
+            upper_PI.append(SARIMAX_y_pred_upper)
+            lower_PI.append(SARIMAX_y_pred_lower)
+            baseline_method.append('SARIMAX')
+            baselines.save_baseline(OUTDIR, sarimax_model, name='SARIMAX', save_predictions=False)
+
         if 'ets' in CALC_BASELINES:
         # Exponential smoothing
             #with contextlib.redirect_stdout(None):
+            train=pd.Series(df_train[target].values.squeeze(), index=df_train[target].index)
+            test=pd.Series(df_val[target].values.squeeze(), index=df_val[target].index)
             ets_expected_values, ets_y_pred_upper, ets_y_pred_lower = \
-                baselines.exp_smoothing(df_train[target], df_val[target], PAR['forecast_horizon'],
+                baselines.exp_smoothing(train, test, PAR['forecast_horizon'],
                                         limit_steps=NUM_PRED, online = True)
             mean_forecast.append(ets_expected_values)
             upper_PI.append(ets_y_pred_upper)
@@ -324,7 +375,7 @@ def main(infile, target_id):
             mean = None
             p = 1
             q = 1
-            if 'sarima' in CALC_BASELINES or 'sarimax' in CALC_BASELINES:
+            if 'arima' in CALC_BASELINES or 'sarima' in CALC_BASELINES:
                 # e.g. Garch (p'=1,q'=1) has the Arch order 1(past residuals squared) and the Garch order 1(past variance:=sigma^2)
                 # in comparison, ARMA (p=1,p=1) has AR order 1(past observations) and MA order 1(past residuals)
                 # --> this is why we just use the computed mean by sarimax (called SARIMAX_expected_values here)
@@ -334,14 +385,14 @@ def main(infile, target_id):
                 # p: is arch order and q ist garch order
                 # arch component is nearly equivalent to the MA component of SARIMAX_expected_values here --> p' = q
                 # garch component is nearly equivalent to the AR component of SARIMAX -->q'= p
-                mean = SARIMA_expected_values
-                #p= sarimax_model.model_orders['ma']
-                #q =sarimax_model.model_orders['ar']
+                mean = ARIMA_expected_values
+                #p= arimax_model.model_orders['ma']-->lagges variances
+                #q =arimax_model.model_orders['ar']--> lagged residuals
             GARCH_expected_values, GARCH_y_pred_upper, GARCH_y_pred_lower = \
                 baselines.GARCH_predictioninterval(df_train[target], df_val[target], PAR['forecast_horizon'],
                                                    mean_forecast=mean, p=p, q=q, alpha=ALPHA, limit_steps=NUM_PRED,
                                                    periodicity=PERIODICITY)
-            mean_forecast.append(GARCH_expected_values)
+            mean_forecast.append(mean)
             upper_PI.append(GARCH_y_pred_upper)
             lower_PI.append(GARCH_y_pred_lower)
             baseline_method.append('garch')
@@ -358,22 +409,89 @@ def main(infile, target_id):
         #for a proper benchmark with the rnn we need to consider that the rnn starts at anchor=t0(first data-entry)+history horizon
         #our baseline forecasts start at anchor=t0+forecast_horizon
         #so we have a shift in the start of the forecast simulation of about shift=Par[forecast-horizon]-Par[hist-horizon]
-        shift=PAR['forecast_horizon']-PAR['history_horizon']
+        #shift=PAR['forecast_horizon']-PAR['history_horizon']
+        analyzed_metrics = [
+            "mse",
+            "rmse",
+            "sharpness",
+            "picp",
+            "rae",
+            "mae",
+            "mis",
+            "mase",
+            "pinball_loss",
+            "residuals"
+        ]
+        results=pd.DataFrame(index=analyzed_metrics)
+        results_per_timestep = {}
+        true_values= torch.zeros([len(mean_forecast), NUM_PRED, PAR['forecast_horizon']])
+        forecasts=torch.zeros([len(mean_forecast), NUM_PRED, PAR['forecast_horizon']])
+        upper_limits=torch.zeros([len(mean_forecast), NUM_PRED, PAR['forecast_horizon']])
+        lower_limits=torch.zeros([len(mean_forecast), NUM_PRED, PAR['forecast_horizon']])
         for i, mean_forecast in enumerate(mean_forecast):
             if len(mean_forecast) - PAR['forecast_horizon'] == len(y_val):
-                eval_baseline(mean_forecast[PAR['forecast_horizon']:,:], y_val[:NUM_PRED,:,target_column],
-                              upper_PI[i][PAR['forecast_horizon']:,:], lower_PI[i][PAR['forecast_horizon']:,:],
-                              PAR['cap_limit'],
-                              hours = pd.to_datetime(df_val[PAR['forecast_horizon']:].index).to_series(),
-                              baseline_method='test'+baseline_method[i], forecast_horizon= PAR['forecast_horizon'],
-                              anchor_adjustment=shift)
+                results[baseline_method[i]], results_per_timestep[baseline_method[i]], true_values[i],forecasts[i],upper_limits[i],lower_limits[i] = \
+                    eval_baseline(
+                        config=PAR,
+                        mean_forecast=mean_forecast[PAR['forecast_horizon']:PAR['forecast_horizon']+NUM_PRED],
+                        df_target=y_val[:NUM_PRED,:,target_column],
+                        upper_PI=upper_PI[i][PAR['forecast_horizon']:PAR['forecast_horizon']+NUM_PRED,:],
+                        lower_PI=lower_PI[i][PAR['forecast_horizon']:PAR['forecast_horizon']+NUM_PRED,:],
+                        load_limit=PAR['cap_limit'],
+                        hours = pd.to_datetime(df_val[PAR['forecast_horizon']:].index).to_series(),
+                        path=OUTDIR,
+                        baseline_method='test'+baseline_method[i],
+                        forecast_horizon= PAR['forecast_horizon'],
+                        analyzed_metrics=analyzed_metrics,
+                    )
             else:
-                eval_baseline(mean_forecast, y_val[:NUM_PRED, :, target_column],
-                              upper_PI[i], lower_PI[i],
-                              PAR['cap_limit'],
-                              hours=pd.to_datetime(df_val[PAR['forecast_horizon']:].index).to_series(),
-                              baseline_method='test'+baseline_method[i], forecast_horizon=PAR['forecast_horizon'],
-                              anchor_adjustment=shift)
+                results[baseline_method[i]], results_per_timestep[baseline_method[i]], true_values[i],forecasts[i],upper_limits[i],lower_limits[i] = \
+                    eval_baseline(
+                        config=PAR,
+                        mean_forecast=mean_forecast[:NUM_PRED],
+                        df_target=y_val[:NUM_PRED, :, target_column],
+                        upper_PI=upper_PI[i][:NUM_PRED],
+                        lower_PI=lower_PI[i][:NUM_PRED],
+                        load_limit=PAR['cap_limit'],
+                        hours=pd.to_datetime(df_val.index).to_series(),
+                        path=OUTDIR,
+                        baseline_method='test'+baseline_method[i],
+                        forecast_horizon=PAR['forecast_horizon'],
+                        analyzed_metrics=analyzed_metrics,
+                    )
+        results_per_timestep_per_baseline = pd.concat(
+            results_per_timestep.values(),
+            keys=results_per_timestep.keys(),
+            axis=1
+        )
+
+        # plot metrics
+        # rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title
+        plot.plot_metrics(
+            results_per_timestep_per_baseline.xs('rmse', axis=1, level=1, drop_level=False),
+            results_per_timestep_per_baseline.xs('sharpness', axis=1, level=1, drop_level=False),
+            results_per_timestep_per_baseline.xs('picp', axis=1, level=1, drop_level=False),
+            results_per_timestep_per_baseline.xs('mis', axis=1, level=1, drop_level=False),
+            OUTDIR + "baselines",
+        )
+        plot.plot_hist(
+            targets=true_values,
+            expected_values=forecasts,
+            y_pred_upper=upper_limits,
+            y_pred_lower=lower_limits,
+            analyzed_metrics=["residuals"],
+            sample_frequency=24,
+            save_to_disc=OUTDIR + "baselines",
+            bins=80,
+        )
+
+        print(
+            metrics.results_table(
+                "baselines",
+                results,
+                save_to_disc=OUTDIR,
+            )
+        )
 
 
     except KeyboardInterrupt:
@@ -387,15 +505,15 @@ if __name__ == '__main__':
     PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
     OUTDIR = os.path.join(MAIN_PATH, PAR['evaluation_path'])
     SCALE_DATA = True
-    LIMIT_HISTORY = 1000
-    NUM_PRED = False
+    LIMIT_HISTORY = 300#PAR['history_horizon']
+    NUM_PRED = 10
     SLIDING_WINDOW = 1
-    CALC_BASELINES =['sarimax']#,'sarimax','simple-naive','seasonal-naive','naive-stl','ets','garch'
+    CALC_BASELINES =['simple-naive', 'seasonal-naive','ets','garch','naive-stl','arima','arimax','sarima','sarimax']
     DAY_FIRST = True
     ORDER = (3, 1, 0)
     sORDER = (2, 0, 0, 24)
-    SEASONALITY=7
-    PERIODICITY=24
+    SEASONALITY=24
+    PERIODICITY=7
     ALPHA = 1.96
     EXOG = True
     APPLY_EXISTING_MODEL = False

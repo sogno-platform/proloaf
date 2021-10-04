@@ -12,7 +12,7 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: recursive  # Fetch the Docsy theme
-        fetch-depth: 0         # Fetch all history for .GitInfo and .Lastmod
+        fetch-depth: 0         
 
     - name: Setup Hugo
       uses: peaceiris/actions-hugo@v2
@@ -37,12 +37,10 @@ jobs:
           ${{ runner.os }}-node-
 
     - name: Setup NPM
-      run: npm ci
+      run: npm ci --prefix ./docs
     
     - name: hugo build
-      run: |
-        cd docs
-        hugo --minify
+      run: hugo --minify --source docs --config config-sogno.toml
     
     - name: Deploy page
       uses: peaceiris/actions-gh-pages@v3
