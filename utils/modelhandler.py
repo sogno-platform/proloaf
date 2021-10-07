@@ -420,7 +420,6 @@ class ModelWrapper:
         """
         if self.model is None:
             raise AttributeError("Model was not initialized")
-        self.to(self._device)
         training_run = TrainingRun(
             self.model,
             id=trial_id,
@@ -433,6 +432,7 @@ class ModelWrapper:
             loss_function=self.loss_metric,
             max_epochs=self.max_epochs,
             log_tb=log_tb,
+            device=self._device,
         )
         training_run.train()
         # TODO readd rel_score
