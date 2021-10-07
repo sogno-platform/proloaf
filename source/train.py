@@ -107,14 +107,20 @@ def main(
         # modelhandler.load_model(os.path.join(work_dir, "oracles", "opsd_LSTM_gnll.pkl"))
 
         modelhandler.fit(train_dl, validation_dl)
-        ref_model_1 = modelhandler.load_model(
-            os.path.join(
-                work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl"
+        try:
+            ref_model_1 = modelhandler.load_model(
+                os.path.join(
+                    work_dir,
+                    config.get("output_path", ""),
+                    f"{config['model_name']}.pkl",
+                )
             )
-        )
-        modelhandler.select_model(
-            validation_dl, [ref_model_1, modelhandler.model_wrap], metrics.NllGauss()
-        )
+        except FileNotFoundError:
+            ref_model_1 = None
+        if ref_model_1 is not None:
+            modelhandler.select_model(
+                validation_dl, [ref_model_1, modelhandler.model_wrap], metrics.NllGauss()
+            )
         modelhandler.save_current_model(
             os.path.join(
                 work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl"
