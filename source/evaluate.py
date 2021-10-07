@@ -32,11 +32,6 @@ in the corresponding config file.
 
 """
 
-import utils.datahandler as dh
-import utils.tensorloader as tl
-import utils.metrics as metrics
-import utils.plot as plot
-import utils.modelhandler as mh
 
 # TODO: find workaround for PICP numpy issue
 import pandas as pd
@@ -51,6 +46,12 @@ warnings.filterwarnings("ignore")
 
 from utils.confighandler import read_config
 from utils.cli import parse_basic
+import utils.datahandler as dh
+import utils.tensorloader as tl
+import utils.metrics as metrics
+import utils.plot as plot
+import utils.modelhandler as mh
+
 
 if __name__ == "__main__":
     ARGS = parse_basic()
@@ -89,8 +90,10 @@ if __name__ == "__main__":
 
     # reload trained NN
     with torch.no_grad():
-        net = torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
-
+        net = mh.ModelHandler.load_model(
+            f"{INMODEL}.pkl"
+        )  # torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
+        net.to(DEVICE)
         df_new, _ = dh.scale_all(df, scalers=net.scalers, **PAR)
         df_new.index = df["Time"]
 
@@ -108,91 +111,73 @@ if __name__ == "__main__":
             shuffle=False,
         ).to(DEVICE)
 
-        # check performance
-        horizon = test_data_loader.dataset.targets.shape[1]
-        number_of_targets = test_data_loader.dataset.targets.shape[2]
+        # bench = mh.ModelHandler.benchmark(
+        #     test_data_loader,
+        #     [net],
+        #     [metrics.NllGauss(), metrics.Rmse()],  # metrics.Rmse(), metrics.Picp()],
+        #     total=True,
+        # )
 
-        record_targets, record_output = mh.get_prediction(
-            net,
-            test_data_loader,
-            horizon,
-            number_of_targets
-        )
-
-        net.eval()
-        # TODO: check model type (e.g gnll)
-        criterion = net.criterion
-        # get metrics parameters
-        y_pred_upper, y_pred_lower, record_expected_values = mh.get_pred_interval(
-            record_output,
-            criterion,
-            record_targets
-        )
-
-        # targets_rescaled, output_rescaled = dh.rescale_manually(..)
-        analyzed_metrics=[
-            "mse",
-            "rmse",
-            "sharpness",
-            "picp",
-            "rae",
-            "mae",
-            "mis",
-            "mase",
-            "pinball_loss",
-            "residuals"
+        test_metrics_timesteps = [
+            metrics.NllGauss(),
+            metrics.Rmse(),
+            metrics.Sharpness(),
+            metrics.Picp(),
+            metrics.Mis(),
         ]
-        results = pd.DataFrame(index=analyzed_metrics)
-        mean_forecast = []
-        upper_PI = []
-        lower_PI = []
-        method = [PAR['model_name']]
-        results_per_timestep = {}
-        # true_values = torch.zeros([len(method), len(record_expected_values), PAR['forecast_horizon']])
-        # forecasts = torch.zeros([len(method), len(record_expected_values), PAR['forecast_horizon']])
-        # upper_limits = torch.zeros([len(method), len(record_expected_values), PAR['forecast_horizon']])
-        # lower_limits = torch.zeros([len(method), len(record_expected_values), PAR['forecast_horizon']])
-
-        for i in method:
-            results_per_timestep[i] = metrics.fetch_metrics(
-                targets=record_targets, # TODO: need to iterate here when it shall work for more than one model
-                expected_values=record_expected_values,
-                y_pred_upper=y_pred_upper,
-                y_pred_lower=y_pred_lower,
-                analyzed_metrics=["rmse",
-                                  "sharpness",
-                                  "picp",
-                                  "mis"],
-                total=False,
+        test_metrics_total = [
+            metrics.NllGauss(),
+            metrics.Mse(),
+            metrics.Rmse(),
+            metrics.Sharpness(),
+            metrics.Picp(),
+            metrics.Rae(),
+            metrics.Mae(),
+            metrics.Mis(),
+            metrics.Mase(),
+            metrics.PinnballLoss(),
+            metrics.Residuals(),
+        ]
+        results_total_per_forecast = (
+            mh.ModelHandler.benchmark(
+                test_data_loader, [net], test_metrics=test_metrics_total, total=True
             )
-
-            results[i] = metrics.fetch_metrics(
-                targets=record_targets,
-                expected_values=record_expected_values,
-                y_pred_upper=y_pred_upper,
-                y_pred_lower=y_pred_lower,
-                analyzed_metrics=analyzed_metrics
-            ).T
-
-        results_per_timestep_per_forecast = pd.concat(
-            results_per_timestep.values(),
-            keys=results_per_timestep.keys(),
-            axis=1
+            .iloc[0]
+            .unstack()
+        )
+        results_per_timestep_per_forecast = mh.ModelHandler.benchmark(
+            test_data_loader,
+            [net],
+            test_metrics=test_metrics_timesteps,
+            total=False,
         )
         results_per_timestep_per_forecast.head()
 
+        # XXX why is this different from the rest?
         rmse_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs('rmse', axis=1, level=1, drop_level=False).values,
-            columns=method)
+            data=results_per_timestep_per_forecast.xs(
+                "Rmse", axis=1, level=1, drop_level=False
+            ).values,
+            columns=[net.name],
+        )
         sharpness_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs('sharpness', axis=1, level=1, drop_level=True),
-            columns=method)
+            data=results_per_timestep_per_forecast.xs(
+                "Sharpness", axis=1, level=1, drop_level=True
+            ),
+            columns=[net.name],
+        )
         picp_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs('picp', axis=1, level=1, drop_level=True),
-            columns=results_per_timestep.keys())
+            data=results_per_timestep_per_forecast.xs(
+                "Picp", axis=1, level=1, drop_level=True
+            ),
+            columns=[net.name],
+        )
         mis_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs('mis', axis=1, level=1, drop_level=True),
-            columns=method)
+            data=results_per_timestep_per_forecast.xs(
+                "Mis", axis=1, level=1, drop_level=True
+            ),
+            columns=[net.name],
+        )
         # plot metrics
         plot.plot_metrics(
             rmse_values,
@@ -202,48 +187,51 @@ if __name__ == "__main__":
             OUTDIR,
             "metrics-evaluation",
         )
-
         # plot forecast for sample time steps
         # the first and 24th timestep relative to the start of the Test-Dataset
-        testhours = [0,24]
+        testhours = [0, 24]
 
         actual_time = pd.to_datetime(
             df.loc[PAR["history_horizon"] + split_index :, "Time"]
         )
         for i in testhours:
+            inputs_enc, inputs_dec, targets = test_data_loader[i]
+
+            prediction = net.predict(inputs_enc, inputs_dec)
+            (
+                y_pred_upper,
+                y_pred_lower,
+                expected_values,
+            ) = net.loss_metric.get_prediction_interval(prediction)
             actuals = actual_time.iloc[i : i + FORECAST_HORIZON]
             plot.plot_timestep(
-                record_targets[i].detach().numpy(),
-                record_expected_values[i].detach().numpy(),
-                y_pred_upper[i].detach().numpy(),
-                y_pred_lower[i].detach().numpy(),
+                targets.detach().squeeze().numpy(),
+                expected_values.detach().squeeze().numpy(),
+                y_pred_upper.detach().squeeze().numpy(),
+                y_pred_lower.detach().squeeze().numpy(),
                 i,
                 OUTDIR,
                 PAR["cap_limit"],
                 actuals,
             )
 
-        print(
-            metrics.results_table(
-                target=PAR['model_name'],
-                models=target_stations,
-                results=results.T,
-                save_to_disc=OUTDIR,
-            )
+        results_total_per_forecast.to_csv(
+            os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
         )
-
+        print(results_total_per_forecast)
+        exit()
         # BOXPLOTS
         plot.plot_boxplot(
             targets=record_targets,
             expected_values=record_expected_values,
             y_pred_upper=y_pred_upper,
             y_pred_lower=y_pred_lower,
-            analyzed_metrics=['mse', 'rmse'],
+            analyzed_metrics=["mse", "rmse"],
             sample_frequency=24,
             save_to_disc=OUTDIR,
         )
-        torch.save(record_expected_values, 'RNN_best_forecasts.pt')
-        torch.save(y_pred_upper, 'RNN_best_upper_limits.pt')
-        torch.save(y_pred_lower, 'RNN_best_lower_limits.pt')
-        torch.save(record_targets, 'RNN_best_true_values.pt')
+        torch.save(record_expected_values, "RNN_best_forecasts.pt")
+        torch.save(y_pred_upper, "RNN_best_upper_limits.pt")
+        torch.save(y_pred_lower, "RNN_best_lower_limits.pt")
+        torch.save(record_targets, "RNN_best_true_values.pt")
     print("Done!!")

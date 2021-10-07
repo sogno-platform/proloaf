@@ -273,7 +273,7 @@ class ModelWrapper:
         return self
 
     @property
-    def loss_metric(self):
+    def loss_metric(self) -> metrics.Metric:
         return metrics.get_metric(self._loss, **self._loss_options)
 
     @loss_metric.setter
@@ -346,6 +346,7 @@ class ModelWrapper:
         return self
 
     def to(self, device):
+        self._device = device
         if self.model:
             self.model.to(device)
         return self
@@ -417,7 +418,8 @@ class ModelWrapper:
             A lower score is generally better
         TODO: update
         """
-
+        if self.model is None:
+            raise AttributeError("Model was not initialized")
         training_run = TrainingRun(
             self.model,
             id=trial_id,
@@ -430,6 +432,7 @@ class ModelWrapper:
             loss_function=self.loss_metric,
             max_epochs=self.max_epochs,
             log_tb=log_tb,
+            device=self._device,
         )
         training_run.train()
         # TODO readd rel_score
@@ -442,7 +445,9 @@ class ModelWrapper:
         self.last_training = training_run
         return self
 
-    def predict(self, inputs_enc: torch.Tensor, inputs_dec: torch.Tensor):
+    def predict(
+        self, inputs_enc: torch.Tensor, inputs_dec: torch.Tensor
+    ) -> List[torch.Tensor]:
         """
         Get the predictions for the given model and data
 
@@ -470,6 +475,8 @@ class ModelWrapper:
             )
         # TODO this returned array of numbers is not very readable, maybe a dict would be helpful
         val, _ = self.model(inputs_enc, inputs_dec)
+        # print(f"{len(val) = }")
+        # print(f"{val[0].size() = }")
         return val
 
     def add_scalers(self, scalers):
@@ -653,9 +660,10 @@ class ModelHandler:
         models: List[ModelWrapper],
         loss: metrics.Metric,
     ):
-        perf_df = self.benchmark(data, models, [loss])
+        perf_df = self.benchmark(data, models, [loss], total=True)
         print(f"Performance was:\n {perf_df}")
-        idx = perf_df.to_numpy().argmin()
+        # TODO when benchmark changes argmin() probably has to be done on different axis
+        idx = perf_df.iloc[0].to_numpy().argmin()
         self.model_wrap = models[idx]
         print(f"selected {self.model_wrap.name}")
         return self.model_wrap
@@ -665,27 +673,38 @@ class ModelHandler:
         data: utils.tensorloader.CustomTensorDataLoader,
         models: List[ModelWrapper],
         test_metrics: List[metrics.Metric],
+        total: bool = True,
     ):
         np.empty(shape=(len(data), len(test_metrics), len(models)), dtype=np.float)
-        for inputs_enc, inputs_dec, targets in data:
-            intervals = [
-                model.loss_metric.get_prediction_interval(
-                    model.predict(inputs_enc, inputs_dec)
+
+        with torch.no_grad():
+            # TODO currently only the first batch is used
+            bench = {}
+            for model in models:
+                for inputs_enc, inputs_dec, targets in data:
+                    upper, lower, expected = model.loss_metric.get_prediction_interval(
+                        model.predict(inputs_enc, inputs_dec)
+                    )
+
+                    performance = np.array(
+                        [
+                            metric.from_interval(
+                                targets, upper, lower, expected, total=total
+                            ).numpy()
+                            for metric in test_metrics
+                        ]
+                    ).T.reshape(-1, len(test_metrics))
+                    break
+                df = pd.DataFrame(
+                    data=performance, columns=[met.id for met in test_metrics]
                 )
-                for model in models
-            ]
-            scores = [
-                [
-                    metric.from_interval(targets, upper, lower, expected).item()
-                    for upper, lower, expected in intervals
-                ]
-                for metric in test_metrics
-            ]
-        return pd.DataFrame(
-            scores,
-            index=[met.id for met in test_metrics],
-            columns=[mod.name for mod in models],
-        )
+                name = model.name
+                i = 1
+                while name in bench:
+                    name = model.name + f"({i})"
+                    i = i + 1
+                bench[name] = df
+        return pd.concat(bench.values(), keys=bench.keys(), axis=1)
 
     # TODO Deprecated
     def run_training(
@@ -761,7 +780,7 @@ class ModelHandler:
         config.update(hparams)
         temp_model_wrap: ModelWrapper = (
             self.model_wrap.copy().update(**hparams).init_model()
-        )
+        ).to(self._device)
         # temp_model_wrap.init_model_from_config(config)
 
         tb = log_tensorboard(

@@ -123,6 +123,10 @@ class CustomTensorDataLoader:
         else:
             raise StopIteration
 
+    def __getitem__(self, index):
+        indices = self.permutation[self.batch_index]
+        return self.dataset[indices]
+
     def __len__(self):
         return len(self.dataset) // self.batch_size
 
