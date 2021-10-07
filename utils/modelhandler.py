@@ -346,6 +346,7 @@ class ModelWrapper:
         return self
 
     def to(self, device):
+        self._device = device
         if self.model:
             self.model.to(device)
         return self
@@ -417,7 +418,9 @@ class ModelWrapper:
             A lower score is generally better
         TODO: update
         """
-
+        if self.model is None:
+            raise AttributeError("Model was not initialized")
+        self.to(self._device)
         training_run = TrainingRun(
             self.model,
             id=trial_id,
@@ -777,7 +780,7 @@ class ModelHandler:
         config.update(hparams)
         temp_model_wrap: ModelWrapper = (
             self.model_wrap.copy().update(**hparams).init_model()
-        )
+        ).to(self._device)
         # temp_model_wrap.init_model_from_config(config)
 
         tb = log_tensorboard(
