@@ -41,6 +41,8 @@ class Metric(ABC):
         Number of parameters
     """
 
+    alpha = 0.05
+
     def __init__(self, **options):
         self.options: dict = options
         self.input_labels: List[str]
@@ -54,7 +56,11 @@ class Metric(ABC):
     ):
         return self.func(
             target=target, predictions=predictions, total=total, **self.options
-        )
+        ).squeeze()
+
+    @staticmethod
+    def set_global_default_alpha(alpha=0.05):
+        Metric.alpha = alpha
 
     # @abstractmethod
     def get_prediction_interval(self, predictions: List[torch.Tensor], **kwargs):
@@ -68,6 +74,7 @@ class Metric(ABC):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         exected_value: torch.Tensor,
+        total: bool,
         **kwargs,
     ):
         raise NotImplementedError(
@@ -82,7 +89,9 @@ class Metric(ABC):
 
 
 class NllGauss(Metric):
-    def __init__(self, alpha=0.05):
+    def __init__(self, alpha=None):
+        if alpha is None:
+            alpha = Metric.alpha
         super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
@@ -104,11 +113,15 @@ class NllGauss(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        alpha: float = 0.95,
+        total: bool = True,
+        alpha: float = None,
     ):
-        sigma = (upper_bound - lower_bound) / (2 * 1.96)
+        if alpha is None:
+            alpha = self.alpha
+        z = abs(NormalDist().inv_cdf((alpha) / 2.0))
+        sigma = (upper_bound - lower_bound) / (2 * z)
         log_var = 2 * sigma.log()
-        return self(target, [expected_value, log_var])
+        return self(target, [expected_value, log_var], total=total)
 
     @staticmethod
     def func(
@@ -162,14 +175,11 @@ class NllGauss(Metric):
 
 
 class PinnballLoss(Metric):
-    def __init__(self, quantiles: List[float]):
+    def __init__(self, quantiles: List[float] = None):
+        if quantiles is None:
+            quantiles = [1.0 - Metric.alpha, Metric.alpha]
         super().__init__(quantiles=quantiles)
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
-
-    def get_prediction_interval(self, predictions: List[torch.Tensor], **kwargs):
-        raise NotImplementedError(
-            f"get_prediciton is not available for {self.__class__}"
-        )
 
     def get_prediction_interval(self, predictions: List[torch.Tensor], **kwargs):
         raise NotImplementedError(
@@ -182,11 +192,10 @@ class PinnballLoss(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         exected_value: torch.Tensor,
+        total: bool = True,
         **kwargs,
     ):
-        raise NotImplementedError(
-            f"from_interval is not available for {self.__class__}"
-        )
+        return self(target, [upper_bound, lower_bound], total=total)
 
     @staticmethod
     def func(
@@ -242,27 +251,38 @@ class PinnballLoss(Metric):
 
 
 class QuantileScore(Metric):
-    def __init__(self, quantiles):
+    def __init__(self, quantiles: List[float] = None):
+        if quantiles is None:
+            quantiles = [1.0 - Metric.alpha / 2, Metric.alpha / 2, 0.5]
+        if 0.5 not in quantiles:
+            quantiles.append(0.5)
         super().__init__(quantiles=quantiles)
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
-    # def get_prediction_interval(self, predictions: List[torch.Tensor]):
-    #     y_pred_lower = predictions[:, :, 0:1]
-    #     y_pred_upper = predictions[:, :, 1:2]
-    #     expected_values = predictions[:, :, -1:]
-    #     return y_pred_upper, y_pred_lower, expected_values
+    def get_prediction_interval(
+        self, predictions: List[torch.Tensor], quantiles: List[float] = None
+    ):
+        #     print(f"{predictions = }")
+        #     print(f"{len(predictions) = }")
+        if quantiles is None:
+            quantiles = self.quantiles
+        max_index = quantiles.index(max(quantiles))
+        med_index = quantiles.index(0.5)
+        min_index = quantiles.index(min(quantiles))
+        return predictions[max_index], predictions[min_index], predictions[med_index]
 
-    # def from_interval(
-    #     self,
-    #     target: torch.Tensor,
-    #     upper_bound: torch.Tensor,
-    #     lower_bound: torch.Tensor,
-    #     expected_value: torch.Tensor,
-    #     alpha: float = 0.95,
-    # ):
-    #     sigma = (upper_bound - lower_bound) / (2 * 1.96)
-    #     log_var = 2 * sigma.log()
-    #     return self(target, [expected_value, log_var])
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+        alpha: float = 0.95,
+    ):
+        sigma = (upper_bound - lower_bound) / (2 * 1.96)
+        log_var = 2 * sigma.log()
+        return self(target, [expected_value, log_var], total=total)
 
     @staticmethod
     def func(
@@ -303,17 +323,40 @@ class QuantileScore(Metric):
 
 
 class CRPSGauss(Metric):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, alpha: float = None):
+        if alpha is None:
+            alpha = Metric.alpha
+        super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_interval(self, predictions: List[torch.Tensor], alpha: float):
-        expected_values = predictions[:, :, 0:1]  # expected_values:mu
-        sigma = torch.sqrt(predictions[:, :, -1:].exp())
-        # TODO: make 95% prediction interval changeable
-        y_pred_upper = expected_values + 1.96 * sigma
-        y_pred_lower = expected_values - 1.96 * sigma
+    def get_prediction_interval(self, predictions: List[torch.Tensor], alpha=None):
+        #     print(f"{predictions = }")
+        #     print(f"{len(predictions) = }")
+        if alpha is None:
+            alpha = self.options.get("alpha")
+        z = abs(NormalDist().inv_cdf((alpha) / 2.0))
+        # print(f"{z = }")
+        expected_values = predictions[0]  # expected_values:mu
+        sigma = torch.sqrt(predictions[1].exp())
+        y_pred_upper = expected_values + z * sigma
+        y_pred_lower = expected_values - z * sigma
         return y_pred_upper, y_pred_lower, expected_values
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+        alpha: float = None,
+    ):
+        if alpha is None:
+            alpha = self.alpha
+        z = abs(NormalDist().inv_cdf((alpha) / 2.0))
+        sigma = (upper_bound - lower_bound) / (2 * z)
+        log_var = 2 * sigma.log()
+        return self(target, [expected_value, log_var], total=total)
 
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
@@ -376,6 +419,16 @@ class Residuals(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [expected_value], total=total)
+
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
         """
@@ -421,11 +474,21 @@ class Mse(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def get_prediction_interval(self, predictions: List[torch.Tensor]):
+    def get_prediction_interval(self, predictions: List[torch.Tensor], alpha=None):
         expected_values = predictions
         y_pred_lower = 0
         y_pred_upper = 1
         return y_pred_upper, y_pred_lower, expected_values
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [expected_value], total=total)
 
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
@@ -489,6 +552,16 @@ class Rmse(Metric):
         y_pred_upper = expected_values + 2 * rmse
         return y_pred_upper, y_pred_lower, expected_values
 
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [expected_value], total=total)
+
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
         """
@@ -529,53 +602,20 @@ class Rmse(Metric):
             return torch.mean(squared_errors, dim=0).sqrt()
 
 
-class Mse(Metric):
-    def __init__(self):
-        super().__init__()
-        self.input_labels = ["expected_value"]
-
-    def get_prediction_interval(self, predictions: List[torch.Tensor]):
-        expected_values = predictions
-        y_pred_lower = 0
-        y_pred_upper = 1
-        return y_pred_upper, y_pred_lower, expected_values
-
-    @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
-        """
-        Calculate root mean absolute error (mean absolute percentage error in %)
-
-        Parameters
-        ----------
-        target : torch.Tensor
-            true values of the target variable
-        predictions :  List[torch.Tensor]
-            - predictions[0] = predicted expected values of the target variable (torch.Tensor)
-        total : bool, default = True
-            Used in other loss functions to specify whether to return overall loss or loss over
-            the horizon. This function only supports the former.
-
-        Returns
-        -------
-        torch.Tensor
-            A scalar with the mean absolute percentage error in % (lower the better)
-
-        Raises
-        ------
-        NotImplementedError
-            When 'total' is set to False, as MAPE does not support loss over the horizon
-        """
-
-        if not total:
-            raise NotImplementedError("MAPE does not support loss over the horizon")
-
-        return torch.mean(torch.abs((target - predictions[0]) / target)) * 100
-
-
 class Mase(Metric):
     def __init__(self, freq: int = 1, insample_target=None):
         super().__init__(freq=freq, insample_target=insample_target)
         self.input_labels = ["expected_value"]
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [expected_value], total=total)
 
     @staticmethod
     def func(
@@ -617,12 +657,12 @@ class Mase(Metric):
         NotImplementedError
             When 'total' is set to False, as MASE does not support loss over the horizon
         """
-
+        target = target.squeeze()
         if not total:
             raise NotImplementedError("mase does not support loss over the horizon")
 
-        y_hat_test = predictions[0]
-        if insample_target == None:
+        y_hat_test = predictions[0].squeeze()
+        if insample_target is None:
             y_hat_naive = torch.roll(
                 target, freq, 0
             )  # shift all values by frequency, so that at time t,
@@ -631,7 +671,6 @@ class Mase(Metric):
         # exclude all terms before freq
         else:
             y_hat_naive = insample_target
-
         masep = torch.mean(torch.abs(target[freq:] - y_hat_naive[freq:]))
         # denominator is the mean absolute error of the "seasonal naive forecast method"
         return torch.mean(torch.abs(target[freq:] - y_hat_test[freq:])) / masep
@@ -641,6 +680,16 @@ class Sharpness(Metric):
     def __init__(self):
         super().__init__()
         self.input_labels = ["upper_limit", "lower_limit"]
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [upper_bound, lower_bound], total=total)
 
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
@@ -678,6 +727,16 @@ class Picp(Metric):
     def __init__(self):
         super().__init__()
         self.input_labels = ["upper_limit", "lower_limit"]
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [upper_bound, lower_bound], total=total)
 
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
@@ -755,6 +814,16 @@ class Mis(Metric):
         super().__init__(alpha=alpha)
         self.input_labels = ["upper_limit", "lower_limit"]
 
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [upper_bound, lower_bound], total=total)
+
     @staticmethod
     def func(
         target: torch.Tensor,
@@ -826,6 +895,16 @@ class Rae(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [expected_value], total=total)
+
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
         """
@@ -870,6 +949,16 @@ class Mae(Metric):
     def __init__(self):
         super().__init__()
         self.input_labels = ["expected_value"]
+
+    def from_interval(
+        self,
+        target: torch.Tensor,
+        upper_bound: torch.Tensor,
+        lower_bound: torch.Tensor,
+        expected_value: torch.Tensor,
+        total: bool = True,
+    ):
+        return self(target, [expected_value], total=total)
 
     @staticmethod
     def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
