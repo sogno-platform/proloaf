@@ -86,10 +86,13 @@ def main(
 
         selected_features, scalers = dh.scale_all(df, **config)
 
-        tuning_config = read_config(
-            config_path=config["exploration_path"],
-            main_path=work_dir,
-        )
+        if config.get("exploration_path") is None:
+            tuning_config = None
+        else:
+            tuning_config = read_config(
+                config_path=config["exploration_path"],
+                main_path=work_dir,
+            )
 
         modelhandler = mh.ModelHandler(
             work_dir=work_dir,
@@ -119,7 +122,9 @@ def main(
             ref_model_1 = None
         if ref_model_1 is not None:
             modelhandler.select_model(
-                validation_dl, [ref_model_1, modelhandler.model_wrap], metrics.NllGauss()
+                validation_dl,
+                [ref_model_1, modelhandler.model_wrap],
+                metrics.NllGauss(),
             )
         modelhandler.save_current_model(
             os.path.join(
