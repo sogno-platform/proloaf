@@ -660,7 +660,7 @@ class ModelHandler:
         perf_df = self.benchmark(data, models, [loss], total=True)
         print(f"Performance was:\n {perf_df}")
         # TODO when benchmark changes argmin() probably has to be done on different axis
-        idx = perf_df.to_numpy().argmin(axis=1)
+        idx = perf_df.iloc[0].to_numpy().argmin()
         self.model_wrap = models[idx]
         print(f"selected {self.model_wrap.name}")
         return self.model_wrap
