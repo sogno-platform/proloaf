@@ -32,7 +32,7 @@ pip install -r requirements.txt --no-cache-dir
 ```
 might be necessary.
 
-ProLoaF supports Python 3.6 and higher. For further information see [Getting Started](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/getting-started/)
+ProLoaF supports Python 3.8 and higher. For further information see [Getting Started](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/getting-started/)
 
 
 ## Gettings started, Key Capabilities, Example Workflows & References 

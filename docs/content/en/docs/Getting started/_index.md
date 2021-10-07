@@ -10,7 +10,7 @@ These instructions will get you a copy of the project up and running on your loc
 
 ## Prerequisites
 
-To run this project you need to have python 3.6 or higher installed on your machine.
+To run this project you need to have python 3.8 or higher installed on your machine.
 
 First, clone this Repository and initialize the submodules:
 ```bash
