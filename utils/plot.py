@@ -25,15 +25,18 @@ import numpy as np
 import pandas as pd
 import utils.metrics as metrics
 
-def plot_timestep(target,
-                  pred,
-                  y_pred_upper,
-                  y_pred_lower,
-                  timestep,
-                  OUTPATH,
-                  limit,
-                  actual_time=None,
-                  draw_limit = False):
+
+def plot_timestep(
+    target,
+    pred,
+    y_pred_upper,
+    y_pred_lower,
+    timestep,
+    OUTPATH,
+    limit,
+    actual_time=None,
+    draw_limit=False,
+):
     """
     Create a matplotlib.pyplot.subplot to compare true and predicted values.
     Save the resulting plot at (OUTPATH + 'eval_hour{}'.format(timestep))
@@ -62,35 +65,53 @@ def plot_timestep(target,
     No return value
     """
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(target, '.-k', label="Truth")  # true values
-    ax.plot(pred, 'b', label='Predicted')
+    ax.plot(target, ".-k", label="Truth")  # true values
+    ax.plot(pred, "b", label="Predicted")
     # insert actual time, assuming the underlying data to be in hourly resolution
     try:
         ax.set_title(actual_time.iloc[0].strftime("%a, %Y-%m-%d"), fontsize=20)
         positions = range(0, len(pred), 2)
-        labels = actual_time.dt.hour.to_numpy()  # assuming hourly resolution in most of the evaluations
+        labels = (
+            actual_time.dt.hour.to_numpy()
+        )  # assuming hourly resolution in most of the evaluations
         new_labels = labels[positions]
         plt.xticks(positions, new_labels)
     except:
-        ax.set_title('Forecast along horizon', fontsize=22)
-    ax.fill_between(np.arange(pred.shape[0]), pred.squeeze(), y_pred_upper.squeeze(), alpha=0.1, color='g')
-    ax.fill_between(np.arange(pred.shape[0]), y_pred_lower.squeeze(), pred.squeeze(), alpha=0.1, color='g')
+        ax.set_title("Forecast along horizon", fontsize=22)
+    ax.fill_between(
+        np.arange(pred.shape[0]),
+        pred.squeeze(),
+        y_pred_upper.squeeze(),
+        alpha=0.1,
+        color="g",
+    )
+    ax.fill_between(
+        np.arange(pred.shape[0]),
+        y_pred_lower.squeeze(),
+        pred.squeeze(),
+        alpha=0.1,
+        color="g",
+    )
 
     ax.set_xlabel("Hour", fontsize=18)
     ax.set_ylabel("Scaled Residual Load (-1,1)", fontsize=20)
     ax.legend(fontsize=20)
-    ax.grid(b=True, linestyle='-')
-    if(limit and draw_limit):
-        plt.axhline(linewidth=2, color='r', y=limit)
+    ax.grid(b=True, linestyle="-")
+    if limit and draw_limit:
+        plt.axhline(linewidth=2, color="r", y=limit)
     ax.grid()
-    ax.set_xlabel("Time of Day", fontsize=20)# assuming hourly resolution in most of the evaluations
-    plt.autoscale(enable=True, axis='x', tight=True)
-    plt.savefig(OUTPATH + 'eval_hour{}'.format(timestep))
-    #plt.show(fig)
+    ax.set_xlabel(
+        "Time of Day", fontsize=20
+    )  # assuming hourly resolution in most of the evaluations
+    plt.autoscale(enable=True, axis="x", tight=True)
+    plt.savefig(OUTPATH + "eval_hour{}".format(timestep))
+    # plt.show(fig)
     plt.close(fig)
 
 
-def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title=""):
+def plot_metrics(
+    rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title=""
+):
     """
     Create a matplotlib.pyplot.figure with plots for the given metrics
     Save the resulting figure at (OUTPATH + 'metrics_plot')
@@ -116,64 +137,61 @@ def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon,
     No return value
     """
 
-    with plt.style.context('seaborn'):
+    with plt.style.context("seaborn"):
         fig = plt.figure(figsize=(16, 12))
         st = fig.suptitle(title, fontsize=25)
-        plt.rc('xtick', labelsize=15)
-        plt.rc('ytick', labelsize=15)
+        plt.rc("xtick", labelsize=15)
+        plt.rc("ytick", labelsize=15)
 
         ax_rmse = plt.subplot(2, 2, 1)
         ax_sharpness = plt.subplot(2, 2, 3)
         ax_PICP = plt.subplot(2, 2, 2)
         ax_MIS = plt.subplot(2, 2, 4)
-        
+
         for element in rmse_horizon:
-            ax_rmse.plot(rmse_horizon[element], label = element)
-        ax_rmse.set_title('RMSE along horizon', fontsize=22)
+            ax_rmse.plot(rmse_horizon[element], label=element)
+        ax_rmse.set_title("RMSE along horizon", fontsize=22)
         ax_rmse.set_xlabel("Hour", fontsize=18)
         ax_rmse.set_ylabel("RMSE", fontsize=20)
         ax_rmse.legend(fontsize=20)
-        ax_rmse.grid(b=True, linestyle='-')
+        ax_rmse.grid(b=True, linestyle="-")
 
         for element in sharpness_horizon:
-            ax_sharpness.plot(sharpness_horizon[element], label = element)
-        ax_sharpness.set_title('sharpness along horizon', fontsize=22)
+            ax_sharpness.plot(sharpness_horizon[element], label=element)
+        ax_sharpness.set_title("sharpness along horizon", fontsize=22)
         ax_sharpness.set_xlabel("Hour", fontsize=18)
         ax_sharpness.set_ylabel("sharpness", fontsize=20)
         ax_sharpness.legend(fontsize=20)
-        ax_sharpness.grid(b=True, linestyle='-')
+        ax_sharpness.grid(b=True, linestyle="-")
 
         for element in coverage_horizon:
-            ax_PICP.plot(coverage_horizon[element], label = element)
-        ax_PICP.set_title('coverage along horizon', fontsize=22)
+            ax_PICP.plot(coverage_horizon[element], label=element)
+        ax_PICP.set_title("coverage along horizon", fontsize=22)
         ax_PICP.set_xlabel("Hour", fontsize=18)
         ax_PICP.set_ylabel("coverage in %", fontsize=20)
         ax_PICP.legend(fontsize=20)
-        ax_PICP.grid(b=True, linestyle='-')
+        ax_PICP.grid(b=True, linestyle="-")
 
         for element in mis_horizon:
-            ax_MIS.plot(mis_horizon[element], label = element)
-        ax_MIS.set_title('Mean Interval score', fontsize=22)
+            ax_MIS.plot(mis_horizon[element], label=element)
+        ax_MIS.set_title("Mean Interval score", fontsize=22)
         ax_MIS.set_xlabel("Hour", fontsize=18)
         ax_MIS.set_ylabel("MIS", fontsize=20)
         ax_MIS.legend(fontsize=20)
-        ax_MIS.grid(b=True, linestyle='-')
+        ax_MIS.grid(b=True, linestyle="-")
 
         st.set_y(1.08)
         fig.subplots_adjust(top=0.95)
         plt.tight_layout()
-        plt.savefig(OUTPATH + title+'_metrics_plot')
+        plt.savefig(OUTPATH + title + "_metrics_plot")
         plt.show()
 
+
 def plot_boxplot(
-        targets,
-        expected_values,
-        y_pred_upper,
-        y_pred_lower,
-        analyzed_metrics=["mse"],
-        sample_frequency=1,
-        save_to_disc=False,
-        fig_title="boxplot"
+    metrics_per_sample: pd.DataFrame,
+    sample_frequency=1,
+    save_to_disc=False,
+    fig_title="boxplot",
 ):
     """
     Create a matplotlib.pyplot.figure with boxplots for the given metrics
@@ -191,106 +209,36 @@ def plot_boxplot(
     -------
     No return value
     """
-    mse_per_sample = [
-        metrics.mse(targets[i], [expected_values[i]])
-        for i, value in enumerate(targets)
-    ]
-    metrics_per_sample = pd.DataFrame(data=mse_per_sample, columns=['mse']).astype("float")
-    if "rmse" in analyzed_metrics:
-        rmse_per_sample = [
-            metrics.rmse(targets[i], [expected_values[i]])
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["rmse"] = pd.DataFrame(rmse_per_sample).astype("float")
-    if "sharpness" in analyzed_metrics:
-        sharpness_per_sample = [
-            metrics.sharpness([y_pred_upper[i], y_pred_lower[i]])
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["sharpness"] = pd.DataFrame(sharpness_per_sample).astype("float")
-    if "picp" in analyzed_metrics:
-        coverage_per_sample = [
-            metrics.picp(targets[i], [y_pred_upper[i], y_pred_lower[i]])
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["picp"] = pd.DataFrame(coverage_per_sample).astype("float")
-    if "rae" in analyzed_metrics:
-        rae_per_sample = [
-            metrics.rae(targets[i], [expected_values[i]])
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["rae"] = pd.DataFrame(rae_per_sample).astype("float")
-    if "mae" in analyzed_metrics:
-        mae_per_sample = [
-            metrics.mae(targets[i], [expected_values[i]])
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["mae"] = pd.DataFrame(mae_per_sample).astype("float")
-    if "mis" in analyzed_metrics:
-        mis_per_sample = [
-            metrics.mis(
-                targets[i], [y_pred_upper[i], y_pred_lower[i]], alpha=0.05
-            )
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["mis"] = pd.DataFrame(mis_per_sample).astype("float")
-    if "mase" in analyzed_metrics:
-        mase_per_sample = [
-            metrics.mase(
-                targets[i],
-                [expected_values[i]],
-                0,
-                insample_target=targets.roll(7 * 24, 0)[i],
-            )
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["mase"] = pd.DataFrame(mase_per_sample).astype("float")
-    if "residuals" in analyzed_metrics:
-        residuals_per_sample = [
-            metrics.residuals(targets[i], [expected_values[i]])
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["residuals"] = pd.DataFrame(residuals_per_sample).astype(
-            "float"
-        )
-    if "qs" in analyzed_metrics:
-        quantile_score_per_sample = [
-            metrics.pinball_loss(
-                targets[i], [y_pred_upper[i], y_pred_lower[i]], [0.025, 0.975]
-            )
-            for i, value in enumerate(targets)
-        ]
-        metrics_per_sample["qs"] = pd.DataFrame(
-            quantile_score_per_sample
-        ).astype("float")
-
     fig = plt.figure()  # plt.figure(figsize=(16, 12))
     ax1 = metrics_per_sample.iloc[::sample_frequency].boxplot(
-        column=analyzed_metrics,#list(metrics_per_sample.keys()),
+        # column=analyzed_metrics,  # list(metrics_per_sample.keys()),
         color=dict(boxes="k", whiskers="k", medians="k", caps="k"),
         # figsize=(8.5, 10),fontsize=24,
     )
-    ax1.set_xlabel("Mean error per sample with predefined sampling steps: " + str(sample_frequency) +" on prediction horizon",
-                   )# fontsize=24
-    ax1.set_ylabel("Error measure")#, fontsize=24
+    ax1.set_xlabel(
+        "Mean error per sample with predefined sampling steps: "
+        + str(sample_frequency)
+        + " on prediction horizon",
+    )  # fontsize=24
+    ax1.set_ylabel("Error measure")  # , fontsize=24
     # ymin, ymax = -0.01, 1.5
     # ax1.set_ylim([ymin, ymax])
     if save_to_disc:
-        plt.savefig(save_to_disc + fig_title + '.png')
+        plt.savefig(save_to_disc + fig_title + ".png")
     plt.show()
 
 
 def plot_hist(
-        targets,
-        expected_values,
-        y_pred_upper,
-        y_pred_lower,
-        analyzed_metrics=["mse"],
-        sample_frequency=1,
-        save_to_disc=False,
-        fig_title="Error Probability Distribution",
-        method="method",
-        bins=10,
+    targets,
+    expected_values,
+    y_pred_upper,
+    y_pred_lower,
+    analyzed_metrics=["mse"],
+    sample_frequency=1,
+    save_to_disc=False,
+    fig_title="Error Probability Distribution",
+    method="method",
+    bins=10,
 ):
     """
     Create a matplotlib.pyplot.figure with kde plots for the given metrics
@@ -314,45 +262,63 @@ def plot_hist(
             metrics.mse(targets[results][i], [expected_values[results][i]])
             for i, value in enumerate(targets[results])
         ]
-        metrics_per_sample[results] = pd.DataFrame(data=mse_per_sample, columns=['mse']).astype("float")
+        metrics_per_sample[results] = pd.DataFrame(
+            data=mse_per_sample, columns=["mse"]
+        ).astype("float")
         if "rmse" in analyzed_metrics:
             rmse_per_sample = [
                 metrics.rmse(targets[results][i], [expected_values[results][i]])
                 for i, value in enumerate(targets[results])
             ]
-            metrics_per_sample[results]["rmse"] = pd.DataFrame(rmse_per_sample).astype("float")
+            metrics_per_sample[results]["rmse"] = pd.DataFrame(rmse_per_sample).astype(
+                "float"
+            )
         if "sharpness" in analyzed_metrics:
             sharpness_per_sample = [
                 metrics.sharpness([y_pred_upper[results][i], y_pred_lower[results][i]])
                 for i, value in enumerate(targets[results])
             ]
-            metrics_per_sample[results]["sharpness"] = pd.DataFrame(sharpness_per_sample).astype("float")
+            metrics_per_sample[results]["sharpness"] = pd.DataFrame(
+                sharpness_per_sample
+            ).astype("float")
         if "picp" in analyzed_metrics:
             coverage_per_sample = [
-                metrics.picp(targets[i], [y_pred_upper[results][i], y_pred_lower[results][i]])
+                metrics.picp(
+                    targets[i], [y_pred_upper[results][i], y_pred_lower[results][i]]
+                )
                 for i, value in enumerate(targets[results])
             ]
-            metrics_per_sample[results]["picp"] = pd.DataFrame(coverage_per_sample).astype("float")
+            metrics_per_sample[results]["picp"] = pd.DataFrame(
+                coverage_per_sample
+            ).astype("float")
         if "rae" in analyzed_metrics:
             rae_per_sample = [
                 metrics.rae(targets[i], [expected_values[results][i]])
                 for i, value in enumerate(targets[results])
             ]
-            metrics_per_sample[results]["rae"] = pd.DataFrame(rae_per_sample).astype("float")
+            metrics_per_sample[results]["rae"] = pd.DataFrame(rae_per_sample).astype(
+                "float"
+            )
         if "mae" in analyzed_metrics:
             mae_per_sample = [
                 metrics.mae(targets[i], [expected_values[results][i]])
                 for i, value in enumerate(targets[results])
             ]
-            metrics_per_sample[results]["mae"] = pd.DataFrame(mae_per_sample).astype("float")
+            metrics_per_sample[results]["mae"] = pd.DataFrame(mae_per_sample).astype(
+                "float"
+            )
         if "mis" in analyzed_metrics:
             mis_per_sample = [
                 metrics.mis(
-                    targets[results][i], [y_pred_upper[results][i], y_pred_lower[results][i]], alpha=0.05
+                    targets[results][i],
+                    [y_pred_upper[results][i], y_pred_lower[results][i]],
+                    alpha=0.05,
                 )
                 for i, value in enumerate(targets[results])
             ]
-            metrics_per_sample[results]["mis"] = pd.DataFrame(mis_per_sample).astype("float")
+            metrics_per_sample[results]["mis"] = pd.DataFrame(mis_per_sample).astype(
+                "float"
+            )
         if "mase" in analyzed_metrics:
             mase_per_sample = [
                 metrics.mase(
@@ -363,19 +329,23 @@ def plot_hist(
                 )
                 for i, value in enumerate(targets[results])
             ]
-            metrics_per_sample[results]["mase"] = pd.DataFrame(mase_per_sample).astype("float")
+            metrics_per_sample[results]["mase"] = pd.DataFrame(mase_per_sample).astype(
+                "float"
+            )
         if "residuals" in analyzed_metrics:
             residuals_per_sample = [
                 metrics.residuals(targets[results][i], [expected_values[results][i]])
                 for i, value in enumerate(targets[results])
             ]
-            metrics_per_sample[results]["residuals"] = pd.DataFrame(residuals_per_sample).astype(
-                "float"
-            )
+            metrics_per_sample[results]["residuals"] = pd.DataFrame(
+                residuals_per_sample
+            ).astype("float")
         if "qs" in analyzed_metrics:
             quantile_score_per_sample = [
                 metrics.pinball_loss(
-                    targets[i], [y_pred_upper[results][i], y_pred_lower[results][i]], [0.025, 0.975]
+                    targets[i],
+                    [y_pred_upper[results][i], y_pred_lower[results][i]],
+                    [0.025, 0.975],
                 )
                 for i, value in enumerate(targets[results])
             ]
@@ -383,20 +353,23 @@ def plot_hist(
                 quantile_score_per_sample
             ).astype("float")
     all_results = pd.concat(
-        metrics_per_sample.values(),
-        keys=metrics_per_sample.keys(),
-        axis=1
+        metrics_per_sample.values(), keys=metrics_per_sample.keys(), axis=1
     )
-    with plt.style.context('seaborn'):
+    with plt.style.context("seaborn"):
         fig = plt.figure(figsize=(16, 12))  # plt.figure()
-        results = pd.DataFrame(data=all_results.xs('residuals', axis=1, level=1, drop_level=False).values, columns=method)
-        #print("Residuals DataFrame Head:",results.head())
+        results = pd.DataFrame(
+            data=all_results.xs("residuals", axis=1, level=1, drop_level=False).values,
+            columns=method,
+        )
+        # print("Residuals DataFrame Head:",results.head())
         for element in results:
-            ax1 = results[element].plot(kind='hist',bins=bins,alpha=0.5, label = element)
-            ax1.set_title('Histogram of Residuals', fontsize=22)
-            ax1.set_xlabel('Residuals', fontsize=18)
-            ax1.set_ylabel('Frequency', fontsize=20)
-            ax1.legend(fontsize=20, loc='upper center', fancybox=True)
+            ax1 = results[element].plot(
+                kind="hist", bins=bins, alpha=0.5, label=element
+            )
+            ax1.set_title("Histogram of Residuals", fontsize=22)
+            ax1.set_xlabel("Residuals", fontsize=18)
+            ax1.set_ylabel("Frequency", fontsize=20)
+            ax1.legend(fontsize=20, loc="upper center", fancybox=True)
         if save_to_disc:
-            plt.savefig(save_to_disc + fig_title + '.png')
+            plt.savefig(save_to_disc + fig_title + ".png")
         plt.show()
