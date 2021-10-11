@@ -184,7 +184,8 @@ class Decoder(nn.Module):
             exit()
         self.fc1 = nn.Linear(core_size, hidden_size)
         self.dropout = nn.Dropout(p=dropout_fc)
-        self.fc2 = nn.ModuleList([nn.Linear(hidden_size, 1) for i in range(out_size)])
+        self.fc2 = nn.Linear(hidden_size, out_size)
+        # self.fc2 = nn.ModuleList([nn.Linear(hidden_size, 1) for i in range(out_size)])
 
         self.relu_leak = relu_leak
 
@@ -213,8 +214,8 @@ class Decoder(nn.Module):
         # Here output_feature_size chosen as hidden size
         h = self.dropout(h)
         h = F.leaky_relu(h, negative_slope=self.relu_leak)
-        output = [fc(h) for fc in self.fc2]
-
+        output = self.fc2(h)
+        # output = torch.stack([fc(h).squeeze(dim=2) for fc in self.fc2], dim=2)
         return output, new_states
 
 
