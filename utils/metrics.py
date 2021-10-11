@@ -22,10 +22,9 @@ Provides implementations of different loss functions, as well as functions for e
 """
 import sys
 import numpy as np
-import pandas as pd
 import torch
 from abc import ABC, abstractstaticmethod
-from typing import List, Union
+from typing import List, Union, Literal
 import inspect
 from statistics import NormalDist
 
@@ -52,12 +51,12 @@ class Metric(ABC):
     def __call__(
         self,
         target: torch.Tensor,
-        predictions: List[torch.Tensor],
-        total: bool = True,
-    ):
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+    ) -> torch.Tensor:
         return self.func(
-            target=target, predictions=predictions, total=total, **self.options
-        ).squeeze()
+            target=target, predictions=predictions, avg_over=avg_over, **self.options
+        )
 
     @staticmethod
     def set_global_default_alpha(alpha=0.05):
@@ -75,7 +74,7 @@ class Metric(ABC):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         exected_value: torch.Tensor,
-        total: bool,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
     ):
         raise NotImplementedError(
@@ -84,7 +83,10 @@ class Metric(ABC):
 
     @abstractstaticmethod
     def func(
-        target: torch.Tensor, predictions: List[torch.Tensor], total: bool, **kwargs
+        target: torch.Tensor,
+        predictions: List[torch.Tensor],
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
+        **kwargs,
     ) -> torch.Tensor:
         pass
 
@@ -96,14 +98,12 @@ class NllGauss(Metric):
         super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_interval(self, predictions: List[torch.Tensor], alpha=None):
-        #     print(f"{predictions = }")
-        #     print(f"{len(predictions) = }")
+    def get_prediction_interval(self, predictions: torch.Tensor, alpha=None):
         alpha = alpha if alpha is not None else self.options.get("alpha")
         z = abs(NormalDist().inv_cdf((alpha) / 2.0))
-        # print(f"{z = }")
-        expected_values = predictions[0]  # expected_values:mu
-        sigma = torch.sqrt(predictions[1].exp())
+
+        expected_values = predictions[:, :, 0]  # expected_values:mu
+        sigma = torch.sqrt(predictions[:, :, 1].exp())
         y_pred_upper = expected_values + z * sigma
         y_pred_lower = expected_values - z * sigma
         return y_pred_upper, y_pred_lower, expected_values
@@ -114,7 +114,7 @@ class NllGauss(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         alpha: float = None,
     ):
         if alpha is None:
@@ -122,13 +122,15 @@ class NllGauss(Metric):
         z = abs(NormalDist().inv_cdf((alpha) / 2.0))
         sigma = (upper_bound - lower_bound) / (2 * z)
         log_var = 2 * sigma.log()
-        return self(target, [expected_value, log_var], total=total)
+        return self(
+            target, torch.stack([expected_value, log_var], dim=2), avg_over=avg_over
+        )
 
     @staticmethod
     def func(
         target: torch.Tensor,
-        predictions: List[torch.Tensor],
-        total: bool = True,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -153,11 +155,10 @@ class NllGauss(Metric):
             is either a scalar (overall loss) or 1d-array over the horizon, in which case it is
             expected to increase as we move along the horizon. Generally, lower is better.
         """
-
-        assert len(predictions) == 2
-        expected_value = predictions[0]
-        log_variance = predictions[1]
-
+        target = target.squeeze(dim=2)
+        assert predictions.size()[2] == 2
+        expected_value = predictions[:, :, 0]
+        log_variance = predictions[:, :, 1]
         # y, y_pred, var_pred must have the same shape
         assert (
             target.shape == expected_value.shape
@@ -165,13 +166,21 @@ class NllGauss(Metric):
         assert target.shape == log_variance.shape
 
         squared_errors = (target - expected_value) ** 2
-        if total:
+        if avg_over == "all":
             return torch.mean(
                 squared_errors / (2 * log_variance.exp()) + 0.5 * log_variance
             )
-        else:
+        elif avg_over == "sample":
             return torch.mean(
                 squared_errors / (2 * log_variance.exp()) + 0.5 * log_variance, dim=0
+            )
+        elif avg_over == "time":
+            return torch.mean(
+                squared_errors / (2 * log_variance.exp()) + 0.5 * log_variance, dim=1
+            )
+        else:
+            raise AttributeError(
+                f"avg_over hast to one of ('all', 'time', 'sample') but was '{avg_over}'"
             )
 
 
@@ -182,7 +191,7 @@ class PinnballLoss(Metric):
         super().__init__(quantiles=quantiles)
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
-    def get_prediction_interval(self, predictions: List[torch.Tensor], **kwargs):
+    def get_prediction_interval(self, predictions: torch.Tensor, **kwargs):
         raise NotImplementedError(
             f"get_prediciton is not available for {self.__class__}"
         )
@@ -193,17 +202,19 @@ class PinnballLoss(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         exected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **kwargs,
     ):
-        return self(target, [upper_bound, lower_bound], total=total)
+        return self(
+            target, torch.stack([upper_bound, lower_bound], dim=2), avg_over=avg_over
+        )
 
     @staticmethod
     def func(
         target: torch.Tensor,
-        predictions: List[torch.Tensor],
+        predictions: torch.Tensor,
         quantiles: List[float],
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
         """
         Calculates pinball loss or quantile loss against the specified quantiles
@@ -234,25 +245,30 @@ class PinnballLoss(Metric):
         # assert (len(predictions) == (len(quantiles) + 1))
         # quantiles = options
 
-        if not total:
+        if avg_over != "all":
             raise NotImplementedError(
-                "Pinball_loss does not support loss over the horizon"
+                "Pinball_loss does not support loss over the horizon or per sample."
             )
         loss = 0.0
-
+        target = target.squeeze(dim=2)
         # TODO doing this in a loop seems inefficient
-        for i, quantile in enumerate(quantiles):
-            assert 0 < quantile
-            assert quantile < 1
-            assert target.shape == predictions[i].shape
-            errors = target - predictions[i]
-            loss += torch.mean(torch.max(quantile * errors, (quantile - 1) * errors))
+        if avg_over == "all":
+            for i, quantile in enumerate(quantiles):
+                assert 0 < quantile
+                assert quantile < 1
+                assert target.shape == predictions[:, :, i].shape
+                errors = target - predictions[:, :, i]
+                loss += torch.mean(
+                    torch.max(quantile * errors, (quantile - 1) * errors)
+                )
 
         return loss
 
 
+# TODO
 class QuantileScore(Metric):
     def __init__(self, quantiles: List[float] = None):
+        raise NotImplementedError("This metric is under revision")
         if quantiles is None:
             quantiles = [1.0 - Metric.alpha / 2, Metric.alpha / 2, 0.5]
         if 0.5 not in quantiles:
@@ -261,16 +277,18 @@ class QuantileScore(Metric):
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
     def get_prediction_interval(
-        self, predictions: List[torch.Tensor], quantiles: List[float] = None
+        self, predictions: torch.Tensor, quantiles: List[float] = None
     ):
-        #     print(f"{predictions = }")
-        #     print(f"{len(predictions) = }")
         if quantiles is None:
             quantiles = self.quantiles
         max_index = quantiles.index(max(quantiles))
         med_index = quantiles.index(0.5)
         min_index = quantiles.index(min(quantiles))
-        return predictions[max_index], predictions[min_index], predictions[med_index]
+        return (
+            predictions[:, :, max_index],
+            predictions[:, :, min_index],
+            predictions[:, :, med_index],
+        )
 
     def from_interval(
         self,
@@ -278,19 +296,23 @@ class QuantileScore(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
-        alpha: float = 0.95,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        alpha: float = 0.05,
     ):
+        # TODO this is not correct
         sigma = (upper_bound - lower_bound) / (2 * 1.96)
         log_var = 2 * sigma.log()
-        return self(target, [expected_value, log_var], total=total)
+
+        return self(
+            target, torch.stack([expected_value, log_var], dim=2), avg_over=avg_over
+        )
 
     @staticmethod
     def func(
         target: torch.Tensor,
-        predictions: List[torch.Tensor],
+        predictions: torch.Tensor,
         quantiles: List[float],
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
         """
         Build upon the pinball loss, using the MSE to adjust the mean.
@@ -316,9 +338,9 @@ class QuantileScore(Metric):
         # the quantile score builds upon the pinball loss,
         # we use the MSE to adjust the mean. one could also use 0.5 as third quantile,
         # but further code adjustments would be necessary then
-        loss1 = PinnballLoss.func(target, predictions, quantiles, total)
+        loss1 = PinnballLoss.func(target, predictions, quantiles, avg_over)
         # loss2 = pinball_loss(target, [predictions[2]], [0.5], total)
-        loss2 = Rmse.func(target, [predictions[len(quantiles)]])
+        loss2 = Rmse.func(target, predictions[0:1])
 
         return loss1 + loss2
 
@@ -330,15 +352,13 @@ class CRPSGauss(Metric):
         super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_interval(self, predictions: List[torch.Tensor], alpha=None):
-        #     print(f"{predictions = }")
-        #     print(f"{len(predictions) = }")
+    def get_prediction_interval(self, predictions: torch.Tensor, alpha=None):
+
         if alpha is None:
             alpha = self.options.get("alpha")
         z = abs(NormalDist().inv_cdf((alpha) / 2.0))
-        # print(f"{z = }")
-        expected_values = predictions[0]  # expected_values:mu
-        sigma = torch.sqrt(predictions[1].exp())
+        expected_values = predictions[:, :, 0]  # expected_values:mu
+        sigma = torch.exp(predictions[:, :, 1] * 0.5)
         y_pred_upper = expected_values + z * sigma
         y_pred_lower = expected_values - z * sigma
         return y_pred_upper, y_pred_lower, expected_values
@@ -349,7 +369,7 @@ class CRPSGauss(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         alpha: float = None,
     ):
         if alpha is None:
@@ -357,10 +377,16 @@ class CRPSGauss(Metric):
         z = abs(NormalDist().inv_cdf((alpha) / 2.0))
         sigma = (upper_bound - lower_bound) / (2 * z)
         log_var = 2 * sigma.log()
-        return self(target, [expected_value, log_var], total=total)
+        return self(
+            target, torch.stack([expected_value, log_var], dim=2), avg_over=avg_over
+        )
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+    ):
         """
         Computes normalized CRPS (continuous ranked probability score) of observations x
         relative to normally distributed forecasts with mean, mu, and standard deviation, sig.
@@ -396,12 +422,12 @@ class CRPSGauss(Metric):
         """
 
         assert len(predictions) == 2
-        mu = predictions[0]
-        log_variance = predictions[1]
-
-        if not total:
+        mu = predictions[:, :, 0]
+        log_variance = predictions[:, :, 1]
+        target = target.squeeze(dim=2)
+        if avg_over != "all":
             raise NotImplementedError(
-                "crps_gaussian does not support loss over the horizon"
+                "crps_gaussian does not support loss over the horizon or per sample."
             )
         sig = torch.exp(log_variance * 0.5)
         norm_dist = torch.distributions.normal.Normal(0, 1)
@@ -426,12 +452,16 @@ class Residuals(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [expected_value], total=total)
+        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+    ):
         """
         Calculates the mean of the prediction error
 
@@ -458,16 +488,22 @@ class Residuals(Metric):
             When the dimensions of the predictions and target are not compatible
         """
 
-        if predictions[0].shape != target.shape:
+        if predictions.shape != target.shape:
             raise ValueError(
                 "dimensions of predictions and target need to be compatible"
             )
 
-        error = target - predictions[0]
-        if total:
+        error = target.squeeze(dim=2) - predictions[:, :, 0]
+        if avg_over == "all":
             return torch.mean(error)
-        else:
+        elif avg_over == "sample":
             return torch.mean(error, dim=0)
+        elif avg_over == "time":
+            return torch.mean(error, dim=1)
+        else:
+            raise AttributeError(
+                f"avg_over hast to one of ('all', 'time', 'sample') but was '{avg_over}'"
+            )
 
 
 class Mse(Metric):
@@ -475,7 +511,7 @@ class Mse(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def get_prediction_interval(self, predictions: List[torch.Tensor], alpha=None):
+    def get_prediction_interval(self, predictions: torch.Tensor, alpha=None):
         expected_values = predictions
         y_pred_lower = 0
         y_pred_upper = 1
@@ -487,12 +523,16 @@ class Mse(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [expected_value], total=total)
+        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+    ):
         """
         Calculate the mean squared error (MSE)
 
@@ -518,12 +558,12 @@ class Mse(Metric):
         ValueError
             When the dimensions of the predictions and target are not compatible
         """
-        if predictions[0].shape != target.shape:
+        if predictions.shape != target.shape:
             raise ValueError(
                 "dimensions of predictions and target need to be compatible"
             )
 
-        squared_errors = (target - predictions[0]) ** 2
+        squared_errors = (target - predictions) ** 2
         # TODO: Implement multiple target MSE calculation
         # num_targets = [int(x) for x in target.shape][-1]
         # for i in range(num_targets):
@@ -531,10 +571,16 @@ class Mse(Metric):
         #        raise ValueError('dimensions of predictions and target need to be compatible')
         #    squared_errors = (target.unsqueeze_(-1) - predictions) ** 2
 
-        if total:
+        if avg_over == "all":
             return torch.mean(squared_errors)
+        elif avg_over == "sample":
+            return torch.mean(squared_errors.squeeze(dim=2), dim=0)
+        elif avg_over == "time":
+            return torch.mean(squared_errors.squeeze(dim=2), dim=1)
         else:
-            return torch.mean(squared_errors, dim=0)
+            raise AttributeError(
+                f"avg_over hast to one of ('all', 'time', 'sample') but was '{avg_over}'"
+            )
 
 
 class Rmse(Metric):
@@ -559,12 +605,16 @@ class Rmse(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [expected_value], total=total)
+        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+    ):
         """
         Calculate the root mean squared error
 
@@ -590,17 +640,18 @@ class Rmse(Metric):
         ValueError
             When the dimensions of the predictions and target are not compatible
         """
-
-        if predictions[0].shape != target.shape:
+        if predictions.shape != target.shape:
             raise ValueError(
                 "dimensions of predictions and target need to be compatible"
             )
 
-        squared_errors = (target - predictions[0]) ** 2
-        if total:
+        squared_errors = (target - predictions) ** 2
+        if avg_over == "all":
             return torch.mean(squared_errors).sqrt()
-        else:
-            return torch.mean(squared_errors, dim=0).sqrt()
+        elif avg_over == "sample":
+            return torch.mean(squared_errors.squeeze(dim=2), dim=0).sqrt()
+        elif avg_over == "time":
+            return torch.mean(squared_errors.squeeze(dim=2), dim=1).sqrt()
 
 
 class Mase(Metric):
@@ -614,16 +665,16 @@ class Mase(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [expected_value], total=total)
+        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
 
     @staticmethod
     def func(
         target: torch.Tensor,
         predictions: List[torch.Tensor],
         freq=1,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         insample_target=None,
     ):
         """
@@ -658,23 +709,25 @@ class Mase(Metric):
         NotImplementedError
             When 'total' is set to False, as MASE does not support loss over the horizon
         """
-        target = target.squeeze()
-        if not total:
-            raise NotImplementedError("mase does not support loss over the horizon")
+        target = target.squeeze(dim=2)
+        if avg_over != "all":
+            raise NotImplementedError(
+                "mase does not support loss over the horizon or per sample."
+            )
 
-        y_hat_test = predictions[0].squeeze()
+        y_hat_test = predictions[:, :, 0]
         if insample_target is None:
             y_hat_naive = torch.roll(
-                target, freq, 0
+                target, freq, 1
             )  # shift all values by frequency, so that at time t,
         # y_hat_naive returns the value of insample [t-freq], as the first values are 0-freq = negative,
         # all values at the beginning are filled with values of the end of the tensor. So to not falsify the evaluation,
         # exclude all terms before freq
         else:
             y_hat_naive = insample_target
-        masep = torch.mean(torch.abs(target[freq:] - y_hat_naive[freq:]))
+        masep = torch.mean(torch.abs(target[:, freq:] - y_hat_naive[:, freq:]))
         # denominator is the mean absolute error of the "seasonal naive forecast method"
-        return torch.mean(torch.abs(target[freq:] - y_hat_test[freq:])) / masep
+        return torch.mean(torch.abs(target[:, freq:] - y_hat_test[:, freq:])) / masep
 
 
 class Sharpness(Metric):
@@ -688,12 +741,18 @@ class Sharpness(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [upper_bound, lower_bound], total=total)
+        return self(
+            target, torch.stack([upper_bound, lower_bound], dim=2), avg_over=avg_over
+        )
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+    ):
         """
         Calculate the mean size of the intervals, called the sharpness (lower the better)
 
@@ -715,13 +774,15 @@ class Sharpness(Metric):
 
         """
 
-        assert len(predictions) == 2
-        y_pred_upper = predictions[0]
-        y_pred_lower = predictions[1]
-        if total:
+        assert predictions.size()[2] == 2
+        y_pred_upper = predictions[:, :, 0]
+        y_pred_lower = predictions[:, :, 1]
+        if avg_over == "all":
             return torch.mean(y_pred_upper - y_pred_lower)
-        else:
+        elif avg_over == "sample":
             return torch.mean(y_pred_upper - y_pred_lower, dim=0)
+        elif avg_over == "time":
+            return torch.mean(y_pred_upper - y_pred_lower, dim=1)
 
 
 class Picp(Metric):
@@ -735,12 +796,18 @@ class Picp(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [upper_bound, lower_bound], total=total)
+        return self(
+            target, torch.stack([upper_bound, lower_bound], dim=2), avg_over=avg_over
+        )
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["sample"], Literal["all"]] = "all",
+    ):
         """
         Calculate PICP (prediction interval coverage probability) or simply the % of true
         values in the predicted intervals
@@ -770,21 +837,26 @@ class Picp(Metric):
         #     # for each step in forecast horizon, calcualte the % of true values in the predicted interval
         #     coverage_horizon[i] = (torch.sum((target[:, i] > y_pred_lower[:, i]) &
         #                             (target[:, i] <= y_pred_upper[:, i])) / target.shape[0]) * 100
-        assert len(predictions) == 2
-        # torch.set_printoptions(precision=5)
-        y_pred_upper = predictions[0]
-        y_pred_lower = predictions[1]
+        assert predictions.size()[2] == 2
+        target = target.squeeze(dim=2)
+
+        y_pred_upper = predictions[:, :, 0]
+        y_pred_lower = predictions[:, :, 1]
+        # TODO test if this can be done with torch.mean (conversion to float might not work)
+        # in_interval = (target > y_pred_lower) & (target <= y_pred_upper)
+
         coverage_horizon = (
             100.0
             * (torch.sum((target > y_pred_lower) & (target <= y_pred_upper), dim=0))
             / target.shape[0]
         )
-
         coverage_total = torch.sum(coverage_horizon) / target.shape[1]
-        if total:
+        if avg_over == "all":
             return coverage_total
-        else:
+        elif avg_over == "sample":
             return coverage_horizon
+        elif avg_over == "time":
+            raise AttributeError("PCIP does not support avg. over time.")
 
 
 # TODO not very nice, if needed think about a different approach to the "reward" vs "loss" problem
@@ -821,16 +893,18 @@ class Mis(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [upper_bound, lower_bound], total=total)
+        return self(
+            target, torch.stack([upper_bound, lower_bound], dim=2), avg_over=avg_over
+        )
 
     @staticmethod
     def func(
         target: torch.Tensor,
-        predictions: List[torch.Tensor],
+        predictions: torch.Tensor,
         alpha=0.05,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
         """
         Calculate MIS (mean interval score) without scaling by seasonal difference
@@ -860,12 +934,13 @@ class Mis(Metric):
 
         """
 
-        assert len(predictions) == 2
-        y_pred_upper = predictions[0]
-        y_pred_lower = predictions[1]
-
+        assert predictions.size()[2] == 2
+        y_pred_upper = predictions[:, :, 0]
+        y_pred_lower = predictions[:, :, 1]
+        target = target.squeeze(dim=2)
         mis_horizon = torch.zeros(target.shape[1])
 
+        # TODO I can't imagine doing this in a loop is efficient.
         for i in range(target.shape[1]):
             # calculate penalty for large prediction interval
             large_PI_penalty = torch.sum(y_pred_upper[:, i] - y_pred_lower[:, i])
@@ -885,10 +960,12 @@ class Mis(Metric):
 
         mis_total = torch.sum(mis_horizon) / target.shape[1]
 
-        if total:
+        if avg_over == "all":
             return mis_total
-        else:
+        elif avg_over == "sample":
             return mis_horizon
+        elif avg_over == "time":
+            raise AttributeError("PCIP does not support avg. over time.")
 
 
 class Rae(Metric):
@@ -902,12 +979,16 @@ class Rae(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [expected_value], total=total)
+        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+    ):
         """
         Calculate the RAE (Relative Absolute Error) compared to a naive forecast that only
         assumes that the future will produce the average of the past observations
@@ -933,11 +1014,13 @@ class Rae(Metric):
             When 'total' is set to False, as rae does not support loss over the horizon
         """
 
-        y_hat_test = predictions[0]
+        y_hat_test = predictions
         y_hat_naive = torch.mean(target)
 
-        if not total:
-            raise NotImplementedError("rae does not support loss over the horizon")
+        if avg_over != "all":
+            raise NotImplementedError(
+                "rae does not support loss over the horizon or per sample."
+            )
 
         # denominator is the mean absolute error of the preidicity dependent "naive forecast method"
         # on the test set -->outsample
@@ -957,12 +1040,16 @@ class Mae(Metric):
         upper_bound: torch.Tensor,
         lower_bound: torch.Tensor,
         expected_value: torch.Tensor,
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
-        return self(target, [expected_value], total=total)
+        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
 
     @staticmethod
-    def func(target: torch.Tensor, predictions: List[torch.Tensor], total: bool = True):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+    ):
         """
         Calculates mean absolute error
         MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
@@ -988,10 +1075,12 @@ class Mae(Metric):
             When 'total' is set to False, as mae does not support loss over the horizon
         """
 
-        if not total:
-            raise NotImplementedError("mae does not support loss over the horizon")
+        if avg_over != "all":
+            raise NotImplementedError(
+                "mae does not support loss over the horizon or per sample"
+            )
 
-        y_hat_test = predictions[0]
+        y_hat_test = predictions
 
         return torch.mean(torch.abs(target - y_hat_test))
 
@@ -1051,78 +1140,3 @@ def results_table(models: Union[None, List[str]], results, save_to_disc: bool = 
         results.to_csv(save_path + ".csv", sep=";", index=True)
 
     return results
-
-
-# def fetch_metrics(
-#     target,
-#     expected_values,
-#     y_pred_upper,
-#     y_pred_lower,
-#     analyzed_metrics=["mse"],
-#     total=True,
-# ):
-#     # Note:
-#     # if total = False, the metric is returned averaged over the test period per prediction time step
-#     # else (if total = True), the metric is returned averaged over the test period and every prediction step
-#     # (=forecast horizon)
-#     # calculate the metrics
-#     mse_result = mse(target, [expected_values], total=total).detach().numpy()
-#     try:
-#         results = pd.DataFrame(mse_result, columns=["mse"])
-#     except:
-#         results = pd.DataFrame([mse_result], columns=["mse"])
-#     if "rmse" in analyzed_metrics:
-#         rmse_result = rmse(target, [expected_values], total=total).detach().numpy()
-#         results["rmse"] = rmse_result
-#     if "sharpness" in analyzed_metrics:
-#         sharpness_result = (
-#             sharpness([y_pred_upper, y_pred_lower], total=total).detach().numpy()
-#         )
-#         results["sharpness"] = sharpness_result
-#     if "picp" in analyzed_metrics:
-#         coverage_result = (
-#             picp(target, [y_pred_upper, y_pred_lower], total=total).detach().numpy()
-#         )
-#         results["picp"] = coverage_result
-#     if "mis" in analyzed_metrics:
-#         mis_result = (
-#             mis(target, [y_pred_upper, y_pred_lower], total=total).detach().numpy()
-#         )
-#         results["mis"] = mis_result
-#     if "residuals" in analyzed_metrics:
-#         residuals_result= residuals(
-#             targets,
-#             [expected_values],
-#             total=total
-#         ).detach().numpy()
-#         results["residuals"] = residuals_result
-
-#     if total:
-#         # only add these metrics if total is true as the performance per time_step is not implemented yet
-#         if "mase" in analyzed_metrics:
-#             mase_result = (
-#                 mase(target, [expected_values], freq=7 * 24, total=total)
-#                 .detach()
-#                 .numpy()
-#             )
-#             results["mase"] = mase_result
-#         if "rae" in analyzed_metrics:
-#             rae_result = rae(target, [expected_values], total=total).detach().numpy()
-#             results["rae"] = rae_result
-#         if "mae" in analyzed_metrics:
-#             mae_result = mae(target, [expected_values], total=total).detach().numpy()
-#             results["mae"] = mae_result
-#         if "qs" in analyzed_metrics:
-#             qs_result = (
-#                 pinball_loss(
-#                     target,
-#                     [y_pred_upper, y_pred_lower],
-#                     [0.025, 0.975],  # equals a 95% prediction interval
-#                     total=total,
-#                 )
-#                 .detach()
-#                 .numpy()
-#             )
-#             results["qs"] = qs_result
-#         # TODO: implement this case in each of the metric functions
-#     return results
