@@ -125,6 +125,7 @@ if __name__ == "__main__":
             metrics.Picp(),
             metrics.Mis(),
         ]
+        test_metrics_sample = [metrics.Mse(), metrics.Rmse()]
         test_metrics_total = [
             metrics.NllGauss(),
             metrics.Mse(),
@@ -140,19 +141,24 @@ if __name__ == "__main__":
         ]
         results_total_per_forecast = (
             mh.ModelHandler.benchmark(
-                test_data_loader, [net], test_metrics=test_metrics_total, total=True
+                test_data_loader, [net], test_metrics=test_metrics_total, avg_over="all"
             )
             .iloc[0]
             .unstack()
+        )
+        results_per_sample_per_forecast = mh.ModelHandler.benchmark(
+            test_data_loader,
+            [net],
+            test_metrics=test_metrics_sample,
+            avg_over="time",
         )
         results_per_timestep_per_forecast = mh.ModelHandler.benchmark(
             test_data_loader,
             [net],
             test_metrics=test_metrics_timesteps,
-            total=False,
+            avg_over="sample",
         )
         results_per_timestep_per_forecast.head()
-
         # XXX why is this different from the rest?
         rmse_values = pd.DataFrame(
             data=results_per_timestep_per_forecast.xs(
@@ -195,9 +201,9 @@ if __name__ == "__main__":
             df.loc[PAR["history_horizon"] + split_index :, "Time"]
         )
         for i in testhours:
-            inputs_enc, inputs_dec, targets = test_data_loader[i]
-
-            prediction = net.predict(inputs_enc, inputs_dec)
+            inputs_enc, inputs_dec, targets = test_data_loader.get_sample(i)
+            print(f"{inputs_enc.size()}")
+            prediction = net.predict(inputs_enc.unsqueeze(0), inputs_dec.unsqueeze(0))
             (
                 y_pred_upper,
                 y_pred_lower,
@@ -219,19 +225,21 @@ if __name__ == "__main__":
             os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
         )
         print(results_total_per_forecast)
-        exit()
+        inputs_enc, inputs_dec, targets = test_data_loader[0]
+        predictions = net.predict(inputs_enc, inputs_dec)
+        (
+            y_pred_upper,
+            y_pred_lower,
+            y_pred_expected_values,
+        ) = net.loss_metric.get_prediction_interval(predictions)
         # BOXPLOTS
         plot.plot_boxplot(
-            targets=record_targets,
-            expected_values=record_expected_values,
-            y_pred_upper=y_pred_upper,
-            y_pred_lower=y_pred_lower,
-            analyzed_metrics=["mse", "rmse"],
+            metrics_per_sample=results_per_sample_per_forecast[net.name],
             sample_frequency=24,
             save_to_disc=OUTDIR,
         )
-        torch.save(record_expected_values, "RNN_best_forecasts.pt")
+        torch.save(y_pred_expected_values, "RNN_best_forecasts.pt")
         torch.save(y_pred_upper, "RNN_best_upper_limits.pt")
         torch.save(y_pred_lower, "RNN_best_lower_limits.pt")
-        torch.save(record_targets, "RNN_best_true_values.pt")
+        torch.save(targets, "RNN_best_true_values.pt")
     print("Done!!")
