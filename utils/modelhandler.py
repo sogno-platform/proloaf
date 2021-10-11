@@ -30,7 +30,7 @@ import sys
 import tempfile
 import optuna
 import torch
-from typing import Any, Callable, Union, List, Dict
+from typing import Any, Callable, Union, List, Dict, Literal
 from copy import deepcopy
 import utils
 
@@ -660,7 +660,7 @@ class ModelHandler:
         models: List[ModelWrapper],
         loss: metrics.Metric,
     ):
-        perf_df = self.benchmark(data, models, [loss], total=True)
+        perf_df = self.benchmark(data, models, [loss], avg_over="all")
         print(f"Performance was:\n {perf_df}")
         # TODO when benchmark changes argmin() probably has to be done on different axis
         idx = perf_df.iloc[0].to_numpy().argmin()
@@ -673,7 +673,7 @@ class ModelHandler:
         data: utils.tensorloader.CustomTensorDataLoader,
         models: List[ModelWrapper],
         test_metrics: List[metrics.Metric],
-        total: bool = True,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
         np.empty(shape=(len(data), len(test_metrics), len(models)), dtype=np.float)
 
@@ -681,6 +681,7 @@ class ModelHandler:
             # TODO currently only the first batch is used
             bench = {}
             for model in models:
+                print(f"benchmarking {model.name}")
                 for inputs_enc, inputs_dec, targets in data:
                     upper, lower, expected = model.loss_metric.get_prediction_interval(
                         model.predict(inputs_enc, inputs_dec)
@@ -689,11 +690,16 @@ class ModelHandler:
                     performance = np.array(
                         [
                             metric.from_interval(
-                                targets, upper, lower, expected, total=total
+                                targets, upper, lower, expected, avg_over=avg_over
                             ).numpy()
                             for metric in test_metrics
                         ]
-                    ).T.reshape(-1, len(test_metrics))
+                    )  # .reshape(-1, len(test_metrics))
+                    # performance = performance.reshape(-1, len(test_metrics))
+                    if len(performance.shape) == 1:
+                        performance = performance[np.newaxis, ...]
+                    else:
+                        performance = performance.T
                     break
                 df = pd.DataFrame(
                     data=performance, columns=[met.id for met in test_metrics]

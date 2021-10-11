@@ -124,8 +124,14 @@ class CustomTensorDataLoader:
             raise StopIteration
 
     def __getitem__(self, index):
-        indices = self.permutation[self.batch_index]
+        indices = self.permutation[index]
         return self.dataset[indices]
+
+    def get_sample(self, index):
+        batch_num = index // self.batch_size
+        item_num = index % self.batch_size
+        index = self.permutation[batch_num][item_num]
+        return self.dataset[index]
 
     def __len__(self):
         return len(self.dataset) // self.batch_size
@@ -170,11 +176,11 @@ def make_dataloader(
     decoder_features,
     history_horizon,
     forecast_horizon,
-    batch_size=1,
+    batch_size=None,
     shuffle=True,
     drop_last=True,
     anchor_key=0,
-    **_
+    **_,
 ):
     """
     Store the given data in a CustomTensorDataLoader
@@ -224,6 +230,8 @@ def make_dataloader(
         x_dec = x_dec[1:]
         y = y[1:]
     custom_tensor_data = CustomTensorData(x_enc, x_dec, y)
+    if batch_size is None:
+        batch_size = len(custom_tensor_data)
     return CustomTensorDataLoader(
         custom_tensor_data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last
     )
