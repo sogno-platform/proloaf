@@ -82,7 +82,7 @@ def main(
     try:
         df = pd.read_csv(infile, sep=";", index_col=0)
 
-        dh.fill_if_missing(df, periodicity=24)
+        df = dh.fill_if_missing(df, periodicity=24)
 
         selected_features, scalers = dh.scale_all(df, **config)
 
