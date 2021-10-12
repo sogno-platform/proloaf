@@ -33,6 +33,7 @@ from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
+
 def load_raw_data_xlsx(files, path):
     """
     Load data from an xlsx file
@@ -196,6 +197,7 @@ def load_raw_data_csv(files, path):
     #    frame.rename(columns={date_column: 'Time'}, inplace=True)
     return individual_files
 
+
 def add_cyclical_features(df):
     """
     Generates and adds trionemetric values to the DataFrame in respect to the index 'Time'.
@@ -217,6 +219,7 @@ def add_cyclical_features(df):
     df["mnth_sin"] = np.sin((df.index.month - 1) * (2.0 * np.pi / 12))
     df["mnth_cos"] = np.cos((df.index.month - 1) * (2.0 * np.pi / 12))
     return df
+
 
 def add_onehot_features(df):
     """
@@ -246,6 +249,7 @@ def add_onehot_features(df):
     df = pd.concat([df, hours, month, weekday], axis=1)
     return df
 
+
 def check_continuity(df):
     """
     Raises value error upon violation of continuity constraint of the timeseries data.
@@ -266,6 +270,7 @@ def check_continuity(df):
     ):
         raise ValueError("DateTime index is not continuous")
     return
+
 
 def check_nans(df):
     """
@@ -289,6 +294,7 @@ def check_nans(df):
 
     return
 
+
 def set_to_hours(df):
     """
     Sets the index of the DataFrame to 'Time' and the frequency to hours.
@@ -310,6 +316,7 @@ def set_to_hours(df):
     df = df.asfreq(freq="H")
     return df
 
+
 def load_dataframe(data_path):
     """
     Load the excel file at the given path into a pandas.DataFrame
@@ -329,6 +336,7 @@ def load_dataframe(data_path):
     pandas.DataFrame
         A DataFrame containing the loaded data
     """
+
     def parser(x):
         return pd.datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
 
@@ -364,7 +372,7 @@ def ranges(nums):
     return list(zip(edges, edges))
 
 
-def custom_interpolate(df, periodicity = 1):
+def custom_interpolate(df, periodicity=1):
     """
     Interpolate the features with missing values in a time series data frame
 
@@ -406,13 +414,13 @@ def custom_interpolate(df, periodicity = 1):
             ):  # if single point, take average of the nearby ones
                 t = start
                 df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
-            elif (
-                start == end and (end + 1 > df.shape[0] or start - 1 <= 0)
+            elif start == end and (
+                end + 1 > df.shape[0] or start - 1 <= 0
             ):  # if single point, but the single point is at the beginning or end of the series, take the nearby one
                 t = start
-                if (start - 1 <= 0):
+                if start - 1 <= 0:
                     df.iloc[t, col] = df.iloc[t + 1, col]
-                if (end + 1 > df.shape[0]):
+                if end + 1 > df.shape[0]:
                     df.iloc[t, col] = df.iloc[t - 1, col]
             else:
                 # now we are dealing with a range
@@ -443,7 +451,7 @@ def custom_interpolate(df, periodicity = 1):
     return df
 
 
-def fill_if_missing(df, periodicity = 1):
+def fill_if_missing(df, periodicity=1):
     """
     If the given pandas.DataFrame has any NaN values, they are replaced with interpolated values
 
@@ -462,7 +470,7 @@ def fill_if_missing(df, periodicity = 1):
     """
     if df.isnull().values.any():
         print("Some values are NaN. They are being filled...")
-        df=custom_interpolate(df, periodicity)
+        df = custom_interpolate(df, periodicity)
         print("...interpolation finished! No missing data left.")
     else:
         print("No missing data \n")
@@ -584,9 +592,9 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     list
         The expected values (for prob.: prediction intervals of the forecast, after rescaling, in form of output list)
     """
-    #TODO: isn't this also in a function of datatuner
-    #TODO: finish documentation
-    #get parameters 'scale' and 'center'
+    # TODO: isn't this also in a function of datatuner
+    # TODO: finish documentation
+    # get parameters 'scale' and 'center'
     for group in PAR["feature_groups"]:
         if group["features"] is not None and PAR["target_id"] in group["features"]:
             scaler_name = group["name"]
@@ -616,19 +624,19 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
         data_min = scaler.data_min_.take(target_position)
         scale = (data_max - data_min) / (range_max - range_min)
         center = data_min - range_min * scale
-    #TODO: else options
-    
+    # TODO: else options
+
     # rescale
     loss_type = net.criterion  # check the name here
     targets_rescaled = (targets * scale) + center
     output_rescaled = output
     if loss_type == "pinball":
-        output_rescaled[1] = (output[1] * scale) + center # expected value
-        output_rescaled[0] = (output[0] * scale) + center #quantile
+        output_rescaled[1] = (output[1] * scale) + center  # expected value
+        output_rescaled[0] = (output[0] * scale) + center  # quantile
     elif loss_type == "nll_gauss" or loss_type == "crps":
-        output_rescaled[1] = (output[0] * scale) + center # expected value
-        output_rescaled[0] = output[1] * (scale ** 2) #variance
-    else: # case: rmse, case, mse, case rae etc.
+        output_rescaled[1] = (output[0] * scale) + center  # expected value
+        output_rescaled[0] = output[1] * (scale ** 2)  # variance
+    else:  # case: rmse, case, mse, case rae etc.
         output_rescaled = (output * scale) + center
     # TODO: else options
 
@@ -790,18 +798,19 @@ def constructDf(
         )
     return train, test
 
+
 def transform(
-        df: pd.DataFrame,
-        encoder_features,
-        decoder_features,
-        batch_size,
-        history_horizon,
-        forecast_horizon,
-        target_id,
-        train_split=0.7,
-        validation_split=0.85,
-        device='cpu',
-        **_,
+    df: pd.DataFrame,
+    encoder_features,
+    decoder_features,
+    batch_size,
+    history_horizon,
+    forecast_horizon,
+    target_id,
+    train_split=0.7,
+    validation_split=0.85,
+    device="cpu",
+    **_,
 ):
     """
     Construct tensor-data-loader transformed for encoderdecoder model input
@@ -849,32 +858,41 @@ def transform(
     print("Size validation set: \t{}".format(df_val.shape[0]))
 
     # shape input data that is measured in the Past and can be fetched from UDW/LDW
-    train_data_loader = tl.make_dataloader(
-        df_train,
-        target_id,
-        encoder_features,
-        decoder_features,
-        history_horizon=history_horizon,
-        forecast_horizon=forecast_horizon,
-        batch_size=batch_size,
-    ).to(device)
-    validation_data_loader = tl.make_dataloader(
-        df_val,
-        target_id,
-        encoder_features,
-        decoder_features,
-        history_horizon=history_horizon,
-        forecast_horizon=forecast_horizon,
-        batch_size=batch_size,
-    ).to(device)
-    test_data_loader = tl.make_dataloader(
-        df_test,
-        target_id,
-        encoder_features,
-        decoder_features,
-        history_horizon=history_horizon,
-        forecast_horizon=forecast_horizon,
-        batch_size=1,
-    ).to(device)
+    if 0 in df_train.shape:
+        train_data_loader = None
+    else:
+        train_data_loader = tl.make_dataloader(
+            df_train,
+            target_id,
+            encoder_features,
+            decoder_features,
+            history_horizon=history_horizon,
+            forecast_horizon=forecast_horizon,
+            batch_size=batch_size,
+        ).to(device)
+    if 0 in df_val.shape:
+        validation_data_loader = None
+    else:
+        validation_data_loader = tl.make_dataloader(
+            df_val,
+            target_id,
+            encoder_features,
+            decoder_features,
+            history_horizon=history_horizon,
+            forecast_horizon=forecast_horizon,
+            batch_size=batch_size,
+        ).to(device)
+    if 0 in df_test.shape:
+        test_data_loader = None
+    else:
+        test_data_loader = tl.make_dataloader(
+            df_test,
+            target_id,
+            encoder_features,
+            decoder_features,
+            history_horizon=history_horizon,
+            forecast_horizon=forecast_horizon,
+            batch_size=1,
+        ).to(device)
 
     return train_data_loader, validation_data_loader, test_data_loader
