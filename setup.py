@@ -29,11 +29,11 @@ from setuptools import find_packages
 
 if __name__ == '__main__':
     setup(
-        name='utils',
-        version='0.2.0',
-        packages=['utils'],
+        name='proloaf/utils',
+        version='0.1',
+        packages=['proloaf-utils'],
         license='Apache License 2.0',
-        url='https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/tree/develop/utils',
+        url='https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/tree/72-implement-openstf-interface/utils',
         install_requires = [
             'numpy',
             'pandas',
