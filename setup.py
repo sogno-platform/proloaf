@@ -29,7 +29,7 @@ from setuptools import find_packages
 
 if __name__ == '__main__':
     setup(
-        name='proloaf/utils',
+        name='proloaf-utils',
         version='0.1',
         packages=['proloaf-utils'],
         license='Apache License 2.0',
