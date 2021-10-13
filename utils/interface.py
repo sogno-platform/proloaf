@@ -20,7 +20,7 @@ class OpenstfProloafRegressor(ModelWrapper):
         rel_core_hidden_size: float = 1.0,
         dropout_fc: float = 0.4,
         dropout_core: float = 0.3,
-        training_metric: str = None,
+        training_metric: str = "nllgaus",
         metric_options: Dict[str, Any] = {},
         optimizer_name: str = "adam",
         early_stopping_patience: int = 7,
@@ -83,3 +83,13 @@ class OpenstfProloafRegressor(ModelWrapper):
         )
         self.to(device)
         return self.run_training(train_dl, validation_dl)
+
+    def get_params(self):
+        model_params = self.get_model_config()
+        training_params = self.get_training_config()
+        return {**model_params,**training_params}
+
+    def set_params(self,**params):
+        self.update(**params)
+        return self
+        

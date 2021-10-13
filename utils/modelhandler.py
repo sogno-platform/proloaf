@@ -153,7 +153,7 @@ class ModelWrapper:
         self.dropout_fc = 0.4
         self.dropout_core = 0.3
         self.scalers = (
-            None  # TODO make custom wrapper for scaler that know what data goes where?
+            None
         )
         self.set_loss(loss="nllgauss", loss_options={})
 
@@ -473,7 +473,7 @@ class ModelWrapper:
             raise RuntimeError(
                 "The model has not been initialized. Use .init_model() to do that"
             )
-        # TODO this returned array of numbers is not very readable, maybe a dict would be helpful
+        # XXX this returned array of numbers is not very readable, maybe a dict would be helpful
         val, _ = self.model(inputs_enc, inputs_dec)
         # print(f"{len(val) = }")
         # print(f"{val[0].size() = }")
