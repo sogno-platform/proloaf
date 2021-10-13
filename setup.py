@@ -29,9 +29,9 @@ from setuptools import find_packages
 
 if __name__ == '__main__':
     setup(
-        name='proloaf-utils',
+        name='proloaf_utils',
         version='0.1',
-        packages=['proloaf-utils'],
+        packages=['utils'],
         license='Apache License 2.0',
         url='https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/tree/72-implement-openstf-interface/utils',
         install_requires = [
