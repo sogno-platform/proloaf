@@ -24,21 +24,22 @@ import sys
 import numpy as np
 import torch
 from abc import ABC, abstractstaticmethod
-from typing import List, Union, Literal
+from typing import List, Tuple, Union, Literal
 import inspect
 from statistics import NormalDist
 
 
 class Metric(ABC):
     """
-    Stores loss functions and how many parameters they have.
+    Base class for prediciton evaluation metrics, defining the function itself,
+    saving all metric specific parameters in per instance and providing some methods to convieniently use metrics.
 
     Parameters
     ----------
     func : callable
         A callable loss function
-    num_params : int
-        Number of parameters
+    **options
+        Any parameters that belong to the metric, like quantiles etc.
     """
 
     alpha = 0.05
@@ -54,16 +55,58 @@ class Metric(ABC):
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ) -> torch.Tensor:
+        """
+        Calculates the value of this metric using the options set in '__init__()'
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
+        avg_over: str
+            One of "time", "sample", "all", averages the the results over the coresponding axis.
+
+        Returns
+        -------
+        torch.Tensor
+            The gaussian negative log likelihood loss, which depending on the value of 'avg_over'
+            is either a scalar (overall loss) or 1d-array over the horizon or the sample.
+        """
         return self.func(
             target=target, predictions=predictions, avg_over=avg_over, **self.options
         )
 
     @staticmethod
     def set_global_default_alpha(alpha=0.05):
+        """
+        Set default alpha (probability for type 1 Error) for all further metrics.
+        This might be more consitent than making sure all metrics use the same value.
+
+        Parameters
+        ----------
+        alpha : float, default = 0.05
+            Probability for type 1 Error
+        """
         Metric.alpha = alpha
 
     # @abstractmethod
-    def get_prediction_interval(self, predictions: List[torch.Tensor], **kwargs):
+    def get_prediction_interval(
+        self, predictions: torch.Tensor, **kwargs
+    ) -> torch.Tensor:
+        """
+        Calculates the an interval and expectation value for the metric.
+        For metrics using the normal distribution this will correspond to the confidence interval.
+        Parameters
+        ----------
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
+
+        Returns
+        -------
+        (torch.Tensor, torch.Tensor, torch.Tensor)
+            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        """
         raise NotImplementedError(
             f"get_prediciton is not available for {self.__class__}"
         )
@@ -76,7 +119,29 @@ class Metric(ABC):
         exected_value: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
-    ):
+    ) -> torch.Tensor:
+        """
+        Calculates the value of the metric based on interval and expectation value over the timeframe.
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        upper_bound: torch.Tensor
+            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
+        lower_bound: torch.Tensor
+            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
+        expected_value: torch.Tensor
+            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+        avg_over: str
+            One of "time", "sample", "all", averages the the results over the coresponding axis.
+
+        Returns
+        -------
+        torch.Tensor
+            Value of the metric, which depending on the value of 'avg_over'
+            is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
+        """
         raise NotImplementedError(
             f"from_interval is not available for {self.__class__}"
         )
@@ -84,21 +149,69 @@ class Metric(ABC):
     @abstractstaticmethod
     def func(
         target: torch.Tensor,
-        predictions: List[torch.Tensor],
+        predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
     ) -> torch.Tensor:
+        """
+        Calcualtion of the metrics value. Direct use is not recommended, instead create an object and call it to keep parameters consistent throughout its use.
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
+        avg_over: str
+            One of "time", "sample", "all", averages the the results over the coresponding axis.
+        **kwargs
+            Additional metric specific parameters, these can be set when initializing an object and are then used when calling the object.
+
+        Returns
+        -------
+        torch.Tensor
+            Negative-log-Likelihood, which depending on the value of 'avg_over'
+            is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
+        """
         pass
 
 
 class NllGauss(Metric):
+
+    """
+    Gaussion-negativ-log-likelihood.
+
+    Parameters
+    -------
+    alpha : float, default = global default (0.05 if not otherwise specified)
+            Predicted probability of violating the bound of the prediction interval. For information on the global default see 'Metrics.set_global_default(...)'
+    """
+
     def __init__(self, alpha=None):
         if alpha is None:
             alpha = Metric.alpha
         super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_interval(self, predictions: torch.Tensor, alpha=None):
+    def get_prediction_interval(
+        self, predictions: torch.Tensor, alpha=None
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Calculates the an interval and expectation value for the metric.
+        For metrics using the normal distribution this will correspond to the confidence interval.
+
+        Parameters
+        ----------
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
+        alpha : float, default = None
+            Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
+
+        Returns
+        -------
+        (torch.Tensor, torch.Tensor, torch.Tensor)
+            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        """
         alpha = alpha if alpha is not None else self.options.get("alpha")
         z = abs(NormalDist().inv_cdf((alpha) / 2.0))
 
@@ -116,7 +229,32 @@ class NllGauss(Metric):
         expected_value: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         alpha: float = None,
-    ):
+    ) -> torch.Tensor:
+        """
+        Calculates the value of the metric based on interval and expectation value over the timeframe.
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        upper_bound: torch.Tensor
+            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
+        lower_bound: torch.Tensor
+            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
+        expected_value: torch.Tensor
+            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+        avg_over: str
+            One of "time", "sample", "all", averages the the results over the coresponding axis.
+        alpha : float, default = None
+            Predicted probability of violating the bound of the prediction interval.
+            If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
+
+        Returns
+        -------
+        torch.Tensor
+            Value of the metric, which depending on the value of 'avg_over'
+            is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
+        """
         if alpha is None:
             alpha = self.alpha
         z = abs(NormalDist().inv_cdf((alpha) / 2.0))
@@ -132,28 +270,26 @@ class NllGauss(Metric):
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
-    ):
+    ) -> torch.Tensor:
         """
-        Calculates gaussian negative log likelihood score
+        Calculates gaussian negative log likelihood score.
 
         Parameters
         ----------
         target : torch.Tensor
-            The true values of the target variable
-        predictions :  List[torch.Tensor]
-            - predictions[0] = expected_value, a torch.Tensor containing predicted expected values
+            The true values of the target variable, dimensions are (sample number, timestep, 1).
+        predictions :  torch.Tensor
+            - predictions[:,:,0] = expected_value, a torch.Tensor containing predicted expected values
             of the target variable
-            - predictions[1] = log_variance, approx. equal to log(2*pi*sigma^2)
-        total : bool, default = True
-            - When total is set to True, return overall gaussian negative log likelihood loss
-            - When total is set to False, return gaussian negative log likelihood loss along the horizon
+            - predictions[:,:,1] = log_variance, approx. equal to log(2*pi*sigma^2)
+        avg_over: str, default = "all"
+            One of "time", "sample", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
         torch.Tensor
-            The gaussian negative log likelihood loss, which depending on the value of 'total'
-            is either a scalar (overall loss) or 1d-array over the horizon, in which case it is
-            expected to increase as we move along the horizon. Generally, lower is better.
+            The gaussian negative log likelihood loss, which depending on the value of 'avg_over'
+            is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
         target = target.squeeze(dim=2)
         assert predictions.size()[2] == 2
