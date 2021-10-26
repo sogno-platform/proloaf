@@ -29,10 +29,10 @@ from setuptools import find_packages
 
 if __name__ == "__main__":
     setup(
-        name="proloaf-utils",
+        name="proloafutils",
         version="0.2.0",
-        packages=["proloaf_utils"],
-        package_dir={"proloaf_utils": "utils"},
+        packages=["proloafutils"],
+        package_dir={"proloafutils": "utils"},
         license="Apache License 2.0",
         url="https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/tree/develop/utils",
         install_requires=[
