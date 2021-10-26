@@ -35,6 +35,7 @@ from copy import deepcopy
 import utils
 
 from time import perf_counter
+from utils.tensorloader import CustomTensorDataLoader
 from utils import models
 from utils import metrics
 from utils.loghandler import (
@@ -592,8 +593,8 @@ class ModelHandler:
 
     def tune_hyperparameters(
         self,
-        train_data_loader: utils.tensorloader.CustomTensorDataLoader,
-        validation_data_loader: utils.tensorloader.CustomTensorDataLoader,
+        train_data_loader: CustomTensorDataLoader,
+        validation_data_loader: CustomTensorDataLoader,
     ):
         """
         TODO: description
