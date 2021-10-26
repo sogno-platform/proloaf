@@ -690,7 +690,7 @@ class ModelHandler:
                     performance = np.array(
                         [
                             metric.from_interval(
-                                targets, upper, lower, expected, avg_over=avg_over
+                                targets = targets, upper_bound = upper, lower_bound=lower, expected_value=expected, avg_over=avg_over
                             ).numpy()
                             for metric in test_metrics
                         ]
