@@ -344,7 +344,7 @@ class PinnballLoss(Metric):
         lower_bound: torch.Tensor,
         # exected_value: torch.Tensor = None,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-        alpha: float = None,
+        # alpha: float = None,
         **kwargs,
     ):
         """
@@ -371,14 +371,14 @@ class PinnballLoss(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        if alpha is not None:
-            quantiles = [1 - alpha, alpha]
-        else:
-            quantiles = None
+        # if alpha is not None:
+        #     quantiles = [1 - alpha, alpha]
+        # else:
+        #     quantiles = None
         return self(
             target,
             torch.stack([upper_bound, lower_bound], dim=2),
-            quantiles=quantiles,
+            # quantiles=quantiles,
             avg_over=avg_over,
         )
 
