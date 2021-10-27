@@ -1,0 +1,915 @@
+{
+    "openapi": "3.0.2",
+    "info": { "title": "ForecastingAPI", "version": "0.1.0" },
+    "paths": {
+        "/prediction/": {
+            "get": {
+                "tags": ["prediction"],
+                "summary": "All Models",
+                "description": "Get a list with all available prediction results.",
+                "operationId": "all_models_prediction__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "title": "Response All Models Prediction  Get",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": ["prediction"],
+                "summary": "Request Prediction",
+                "description": "Request a new prediction.",
+                "operationId": "request_prediction_prediction__post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PredictionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "title": "Response Request Prediction Prediction  Post",
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prediction/{prediction_id}": {
+            "get": {
+                "tags": ["prediction"],
+                "summary": "Get Prediction",
+                "operationId": "get_prediction_prediction__prediction_id__get",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Prediction Id",
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "name": "prediction_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Data"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": ["prediction"],
+                "summary": "Delete Prediction",
+                "description": "Delete a prediction.",
+                "operationId": "delete_prediction_prediction__prediction_id__delete",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Prediction Id",
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "name": "prediction_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Data"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/training/": {
+            "get": {
+                "tags": ["training"],
+                "summary": "All Trainings",
+                "description": "Get a list with all available Training results.",
+                "operationId": "all_trainings_training__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "title": "Response All Trainings Training  Get",
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Training"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": ["training"],
+                "summary": "Request Training",
+                "description": "Request a new prediction.",
+                "operationId": "request_training_training__post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TrainingRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "title": "Response Request Training Training  Post",
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/training/{training_id}": {
+            "get": {
+                "tags": ["training"],
+                "summary": "Get Training",
+                "operationId": "get_training_training__training_id__get",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Training Id",
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "name": "training_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Data"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": ["training"],
+                "summary": "Delete Training",
+                "description": "Request a new prediction.",
+                "operationId": "delete_training_training__training_id__delete",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Training Id",
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "name": "training_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "title": "Response Delete Training Training  Training Id  Delete",
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/": {
+            "get": {
+                "tags": ["benchmark"],
+                "summary": "All Bechmarks",
+                "description": "Get a list with all available prediction results.",
+                "operationId": "all_bechmarks_benchmark__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "title": "Response All Bechmarks Benchmark  Get",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": ["benchmark"],
+                "summary": "Request Prediction",
+                "description": "Request a new prediction.",
+                "operationId": "request_prediction_benchmark__post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Benchmark"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "title": "Response Request Prediction Benchmark  Post",
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/{benchmark_id}": {
+            "get": {
+                "tags": ["benchmark"],
+                "summary": "Get Benchmark",
+                "operationId": "get_benchmark_benchmark__benchmark_id__get",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Benchmark Id",
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "name": "benchmark_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Data"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": ["benchmark"],
+                "summary": "Delete Prediction",
+                "description": "Delete a prediction.",
+                "operationId": "delete_prediction_benchmark__benchmark_id__delete",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Benchmark Id",
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "name": "benchmark_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Data"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/model/": {
+            "get": {
+                "tags": ["model"],
+                "summary": "All Models",
+                "description": "Get a list with all available model results.",
+                "operationId": "all_models_model__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "title": "Response All Models Model  Get",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": ["model"],
+                "summary": "Create Model",
+                "description": "Request a new model.",
+                "operationId": "create_model_model__post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ModelBase"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Model"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/model/{model_id}": {
+            "get": {
+                "tags": ["model"],
+                "summary": "Get Model",
+                "operationId": "get_model_model__model_id__get",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Model Id",
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "name": "model_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Data"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": ["model"],
+                "summary": "Delete Model",
+                "description": "Delete a model.",
+                "operationId": "delete_model_model__model_id__delete",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Model Id",
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "name": "model_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Data"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Benchmark": {
+                "title": "Benchmark",
+                "required": ["data", "metrics", "average", "model_id"],
+                "type": "object",
+                "properties": {
+                    "data": { "$ref": "#/components/schemas/Data" },
+                    "metrics": {
+                        "title": "Metrics",
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "average": { "title": "Average", "type": "boolean" },
+                    "model_id": {
+                        "title": "Model Id",
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                }
+            },
+            "Data": {
+                "title": "Data",
+                "required": ["columns"],
+                "type": "object",
+                "properties": {
+                    "index_column": {
+                        "title": "Index Column",
+                        "type": "string"
+                    },
+                    "columns": {
+                        "title": "Columns",
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": { "type": "integer" }
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": { "type": "number" }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "example": {
+                    "index_column": "time",
+                    "columns": {
+                        "time": ["2020-02-01T00:10:12", "2020-02-01T00:11:12"],
+                        "load": [1.3, 1.6]
+                    }
+                }
+            },
+            "HTTPValidationError": {
+                "title": "HTTPValidationError",
+                "type": "object",
+                "properties": {
+                    "detail": {
+                        "title": "Detail",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        }
+                    }
+                }
+            },
+            "Model": {
+                "title": "Model",
+                "required": [
+                    "target_id",
+                    "encoder_features",
+                    "decoder_features",
+                    "id"
+                ],
+                "type": "object",
+                "properties": {
+                    "name": { "title": "Name", "type": "string" },
+                    "target_id": {
+                        "title": "Target Id",
+                        "anyOf": [{ "type": "string" }, { "type": "integer" }]
+                    },
+                    "core_net": { "title": "Core Net", "type": "string" },
+                    "relu_leak": { "title": "Relu Leak", "type": "number" },
+                    "encoder_features": {
+                        "title": "Encoder Features",
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "decoder_features": {
+                        "title": "Decoder Features",
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "core_layers": {
+                        "title": "Core Layers",
+                        "type": "integer"
+                    },
+                    "rel_linear_hidden_size": {
+                        "title": "Rel Linear Hidden Size",
+                        "type": "number"
+                    },
+                    "rel_core_hidden_size": {
+                        "title": "Rel Core Hidden Size",
+                        "type": "number"
+                    },
+                    "dropout_fc": { "title": "Dropout Fc", "type": "number" },
+                    "dropout_core": {
+                        "title": "Dropout Core",
+                        "type": "number"
+                    },
+                    "training_metric": {
+                        "title": "Training Metric",
+                        "type": "string"
+                    },
+                    "metric_options": {
+                        "title": "Metric Options",
+                        "type": "object"
+                    },
+                    "optimizer_name": {
+                        "title": "Optimizer Name",
+                        "type": "string"
+                    },
+                    "early_stopping_patience": {
+                        "title": "Early Stopping Patience",
+                        "type": "integer"
+                    },
+                    "early_stopping_margin": {
+                        "title": "Early Stopping Margin",
+                        "type": "number"
+                    },
+                    "learning_rate": {
+                        "title": "Learning Rate",
+                        "type": "number"
+                    },
+                    "max_epochs": { "title": "Max Epochs", "type": "integer" },
+                    "id": { "title": "Id", "type": "string", "format": "uuid" }
+                }
+            },
+            "ModelBase": {
+                "title": "ModelBase",
+                "required": [
+                    "target_id",
+                    "encoder_features",
+                    "decoder_features"
+                ],
+                "type": "object",
+                "properties": {
+                    "name": { "title": "Name", "type": "string" },
+                    "target_id": {
+                        "title": "Target Id",
+                        "anyOf": [{ "type": "string" }, { "type": "integer" }]
+                    },
+                    "core_net": { "title": "Core Net", "type": "string" },
+                    "relu_leak": { "title": "Relu Leak", "type": "number" },
+                    "encoder_features": {
+                        "title": "Encoder Features",
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "decoder_features": {
+                        "title": "Decoder Features",
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "core_layers": {
+                        "title": "Core Layers",
+                        "type": "integer"
+                    },
+                    "rel_linear_hidden_size": {
+                        "title": "Rel Linear Hidden Size",
+                        "type": "number"
+                    },
+                    "rel_core_hidden_size": {
+                        "title": "Rel Core Hidden Size",
+                        "type": "number"
+                    },
+                    "dropout_fc": { "title": "Dropout Fc", "type": "number" },
+                    "dropout_core": {
+                        "title": "Dropout Core",
+                        "type": "number"
+                    },
+                    "training_metric": {
+                        "title": "Training Metric",
+                        "type": "string"
+                    },
+                    "metric_options": {
+                        "title": "Metric Options",
+                        "type": "object"
+                    },
+                    "optimizer_name": {
+                        "title": "Optimizer Name",
+                        "type": "string"
+                    },
+                    "early_stopping_patience": {
+                        "title": "Early Stopping Patience",
+                        "type": "integer"
+                    },
+                    "early_stopping_margin": {
+                        "title": "Early Stopping Margin",
+                        "type": "number"
+                    },
+                    "learning_rate": {
+                        "title": "Learning Rate",
+                        "type": "number"
+                    },
+                    "max_epochs": { "title": "Max Epochs", "type": "integer" }
+                }
+            },
+            "PredictionRequest": {
+                "title": "PredictionRequest",
+                "required": ["encoder_input", "decoder_input", "model_id"],
+                "type": "object",
+                "properties": {
+                    "encoder_input": { "$ref": "#/components/schemas/Data" },
+                    "decoder_input": { "$ref": "#/components/schemas/Data" },
+                    "model_id": {
+                        "title": "Model Id",
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                }
+            },
+            "Training": {
+                "title": "Training",
+                "required": ["id", "config", "model_id"],
+                "type": "object",
+                "properties": {
+                    "id": { "title": "Id", "type": "string", "format": "uuid" },
+                    "config": { "$ref": "#/components/schemas/TrainingConfig" },
+                    "validation_loss": {
+                        "title": "Validation Loss",
+                        "type": "number"
+                    },
+                    "training_loss": {
+                        "title": "Training Loss",
+                        "type": "number"
+                    },
+                    "model_id": {
+                        "title": "Model Id",
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                }
+            },
+            "TrainingConfig": {
+                "title": "TrainingConfig",
+                "required": [
+                    "optimizer_name",
+                    "learning_rate",
+                    "loss",
+                    "max_epochs"
+                ],
+                "type": "object",
+                "properties": {
+                    "optimizer_name": {
+                        "title": "Optimizer Name",
+                        "type": "string"
+                    },
+                    "learning_rate": {
+                        "title": "Learning Rate",
+                        "type": "number"
+                    },
+                    "loss": { "title": "Loss", "type": "string" },
+                    "max_epochs": { "title": "Max Epochs", "type": "integer" },
+                    "early_stopping_patience": {
+                        "title": "Early Stopping Patience",
+                        "type": "integer"
+                    },
+                    "early_stopping_margin": {
+                        "title": "Early Stopping Margin",
+                        "type": "number"
+                    },
+                    "device": { "title": "Device", "type": "string" }
+                }
+            },
+            "TrainingRequest": {
+                "title": "TrainingRequest",
+                "required": ["data", "config", "validation_split", "model"],
+                "type": "object",
+                "properties": {
+                    "data": { "$ref": "#/components/schemas/Data" },
+                    "config": { "$ref": "#/components/schemas/TrainingConfig" },
+                    "validation_split": {
+                        "title": "Validation Split",
+                        "type": "number"
+                    },
+                    "model": {
+                        "title": "Model",
+                        "anyOf": [
+                            { "type": "string", "format": "uuid" },
+                            { "$ref": "#/components/schemas/ModelBase" }
+                        ]
+                    }
+                }
+            },
+            "ValidationError": {
+                "title": "ValidationError",
+                "required": ["loc", "msg", "type"],
+                "type": "object",
+                "properties": {
+                    "loc": {
+                        "title": "Location",
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "msg": { "title": "Message", "type": "string" },
+                    "type": { "title": "Error Type", "type": "string" }
+                }
+            }
+        }
+    }
+}
