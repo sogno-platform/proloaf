@@ -153,9 +153,7 @@ class ModelWrapper:
         self.rel_core_hidden_size = 1.0
         self.dropout_fc = 0.4
         self.dropout_core = 0.3
-        self.scalers = (
-            None
-        )
+        self.scalers = None
         self.set_loss(loss="nllgauss", loss_options={})
 
         self.optimizer_name = "adam"
@@ -822,6 +820,7 @@ class ModelHandler:
     ):
         if exploration is None:
             exploration = self.config.get("exploration", False)
+        print(f"{exploration = }")
         if exploration:
             if not self.tuning_config:
                 raise AttributeError(
@@ -864,7 +863,7 @@ class ModelHandler:
         return self.model_wrap.predict(inputs_enc, inputs_dec)
 
     @staticmethod
-    def load_model(path: str = None):
+    def load_model(path: str = None) -> ModelWrapper:
         # if path is None:
         #     path = os.path.join(
         #         self.work_dir,
