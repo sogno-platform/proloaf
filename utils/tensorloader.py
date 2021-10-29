@@ -104,6 +104,12 @@ class CustomTensorDataLoader:
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
+        n = self.batch_size * (len(self.dataset) // self.batch_size)
+        if self.shuffle:
+            permutation = np.random.permutation(len(self.dataset))[:n]
+        else:
+            permutation = np.arange(n)
+        self.permutation = np.reshape(permutation, (len(self), self.batch_size))
 
     def __iter__(self):
         n = self.batch_size * (len(self.dataset) // self.batch_size)
