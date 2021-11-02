@@ -42,5 +42,6 @@ if __name__ == "__main__":
             "torch",
             "scikit-learn",
             "datetime",
+            "pyparsing>=2.2.1,<3",
         ],
     )
