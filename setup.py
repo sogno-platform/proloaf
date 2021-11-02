@@ -40,7 +40,7 @@ if __name__ == "__main__":
             "pandas",
             "matplotlib",
             "torch",
-            "sklearn",
+            "scikit-learn",
             "datetime",
         ],
     )
