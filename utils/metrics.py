@@ -24,9 +24,21 @@ import sys
 import numpy as np
 import torch
 from abc import ABC, abstractstaticmethod
-from typing import List, Tuple, Union, Literal
+from typing import List, Tuple, Union, Literal, Optional, NamedTuple
 import inspect
 from statistics import NormalDist
+
+
+class IntervalPrediciton(NamedTuple):
+    """
+    Common prediction format.
+    """
+
+    values: torch.Tensor
+    quantiles: Tuple[float]
+
+    def get_quantile(self, quantile: float):
+        return self.values[:, :, self.quantiles.index(quantile)]
 
 
 class Metric(ABC):
@@ -92,8 +104,8 @@ class Metric(ABC):
 
     # @abstractmethod
     def get_prediction_interval(
-        self, predictions: torch.Tensor, **kwargs
-    ) -> torch.Tensor:
+        self, predictions: torch.Tensor, quantiles: Optional[List[float]], **kwargs
+    ) -> IntervalPrediciton:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -114,9 +126,8 @@ class Metric(ABC):
     def from_interval(
         self,
         target: torch.Tensor,
-        upper_bound: torch.Tensor,
-        lower_bound: torch.Tensor,
-        exected_value: torch.Tensor,
+        interval_prediciton: IntervalPrediciton,
+        # quantiles: Optional[List[float]],
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
     ) -> torch.Tensor:
@@ -194,8 +205,8 @@ class NllGauss(Metric):
         self.input_labels = ["expected_value", "log_variance"]
 
     def get_prediction_interval(
-        self, predictions: torch.Tensor, alpha=None
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, predictions: torch.Tensor, quantiles: Optional[Tuple[float]] = None
+    ) -> IntervalPrediciton:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -212,23 +223,29 @@ class NllGauss(Metric):
         (torch.Tensor, torch.Tensor, torch.Tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
-        alpha = alpha if alpha is not None else self.options.get("alpha")
-        z = abs(NormalDist().inv_cdf((alpha) / 2.0))
-
-        expected_values = predictions[:, :, 0]  # expected_values:mu
-        sigma = torch.sqrt(predictions[:, :, 1].exp())
-        y_pred_upper = expected_values + z * sigma
-        y_pred_lower = expected_values - z * sigma
-        return y_pred_upper, y_pred_lower, expected_values
+        if quantiles is None:
+            alpha_half = self.options.get("alpha") / 2.0
+            z = abs(NormalDist().inv_cdf(alpha_half))
+            quantiles = (1 - alpha_half, alpha_half, 0.5)
+            z_values = torch.Tensor((z, -z, 0))
+        else:
+            z_values = torch.Tensor(
+                [NormalDist().inv_cdf(quant) for quant in quantiles]
+            )
+        print(f"{z_values = }")
+        # expected_values = predictions[:, :, 0]  # expected_values:mu
+        sigma = torch.sqrt(predictions[:, :, 1:2].exp())
+        # y_pred_upper = expected_values + z * sigma
+        # y_pred_lower = expected_values - z * sigma
+        values = predictions[:, :, 0:1] + z_values[None, None, :] * sigma
+        print(f"{values = }")
+        return IntervalPrediciton(values, quantiles)
 
     def from_interval(
         self,
         target: torch.Tensor,
-        upper_bound: torch.Tensor,
-        lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        interval_prediction: IntervalPrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-        alpha: float = None,
     ) -> torch.Tensor:
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
@@ -255,13 +272,27 @@ class NllGauss(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        if alpha is None:
-            alpha = self.alpha
-        z = abs(NormalDist().inv_cdf((alpha) / 2.0))
-        sigma = (upper_bound - lower_bound) / (2 * z)
-        log_var = 2 * sigma.log()
+
+        assert 0.5 in interval_prediction.quantiles
+
+        z_values = torch.Tensor(
+            [NormalDist().inv_cdf(quant) for quant in interval_prediction.quantiles]
+        )
+
+        # Assume median is expectation value (which is true assuming gaussian distribution)
+        residuals = interval_prediction.values - interval_prediction.get_quantile(
+            0.5
+        ).unsqueeze(2)
+        # calculate std-deviation for each quantile
+        # should be the same for each quantile (but not timestep and sample) assuming perfectly normal distributed predicitons
+        sigma = residuals / z_values[None, None, :]
+
+        # TODO replace torch.nansum/size with torch.nanmean once that makes it into official pytorch
+        log_var = 2 * torch.log(torch.nansum(sigma, dim=2) / (sigma.size()[2] - 1))
         return self(
-            target, torch.stack([expected_value, log_var], dim=2), avg_over=avg_over
+            target,
+            torch.stack([interval_prediction.get_quantile(0.5), log_var], dim=2),
+            avg_over=avg_over,
         )
 
     @staticmethod

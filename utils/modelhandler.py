@@ -682,7 +682,7 @@ class ModelHandler:
             for model in models:
                 print(f"benchmarking {model.name}")
                 for inputs_enc, inputs_dec, targets in data:
-                    upper, lower, expected = model.loss_metric.get_prediction_interval(
+                    interval = model.loss_metric.get_prediction_interval(
                         model.predict(inputs_enc, inputs_dec)
                     )
 
@@ -690,9 +690,7 @@ class ModelHandler:
                         [
                             metric.from_interval(
                                 target=targets,
-                                upper_bound=upper,
-                                lower_bound=lower,
-                                expected_value=expected,
+                                interval_prediction=interval,
                                 avg_over=avg_over,
                             ).numpy()
                             for metric in test_metrics
