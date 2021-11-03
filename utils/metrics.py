@@ -20,25 +20,137 @@
 """
 Provides implementations of different loss functions, as well as functions for evaluating model performance
 """
+from __future__ import annotations
 import sys
 import numpy as np
 import torch
 from abc import ABC, abstractstaticmethod
-from typing import List, Tuple, Union, Literal, Optional, NamedTuple
+from typing import List, Tuple, Union, Literal, Optional, NamedTuple, Iterable
 import inspect
 from statistics import NormalDist
 
 
-class IntervalPrediciton(NamedTuple):
+class QuantilePrediciton:
     """
     Common prediction format.
+
+    Parameters
+    ----------
+    values: torch.Tensor
+        3D-Tensor (sample,timestep,quantile) representing the predicted values for each quantile.
+    quantiles: Iterable[float]:
+        List of the quantiles in the same order as the predictions.
     """
 
-    values: torch.Tensor
-    quantiles: Tuple[float]
+    def __init__(self, values: torch.Tensor, quantiles: Iterable[float]):
+        self.values = values
+        self.quantiles = list(quantiles)
 
-    def get_quantile(self, quantile: float):
+    def get_gauss_params(self) -> torch.Tensor:
+        """
+        Estimate expectation value and std. deviation from quantile prediction.
+
+        Note: Currently the estimation median = mean is used
+
+        Returns
+        -------
+        torch.Tensor
+            3D Tensor (sample, timestep, valuetype), [:,:,0] corresponds to the predicted mean, while [:,:,1] corresponds to the std. deviation.
+
+        Raises
+        ------
+        ValueError
+            If the median (quantile 0.5) is not in the predicted quantiles.
+        """
+        mean = self.get_quantile(0.5)
+        intervals = self.select_quantiles(
+            [quant for quant in self.quantiles if quant != 0.5]
+        ).values
+
+        z_values = torch.Tensor(
+            [NormalDist().inv_cdf(quant) for quant in self.quantiles if quant != 0.5]
+        )
+
+        # Assume median is expectation value (which is true assuming gaussian distribution)
+        # calculate std-deviation for each quantile
+        # should be the same for each quantile (but not timestep and sample) assuming perfectly normal distributed predicitons
+        sigma = (intervals - mean.unsqueeze(2)) / z_values[None, None, :]
+
+        # TODO replace torch.nansum/size with torch.nanmean once that makes it into official pytorch
+        sigma = torch.nansum(sigma, dim=2) / (sigma.size()[2])
+        return torch.stack((mean, sigma), dim=2)
+
+    @staticmethod
+    def from_gauss_params(
+        values: torch.Tensor, quantiles: Iterable[float]
+    ) -> QuantilePrediciton:
+        """
+        Estimate expectation value and std. deviation from quantile prediction.
+
+        Note: Currently the estimation median = mean is used
+
+        Parameters
+        -------
+        values : torch.Tensor
+            3D Tensor (sample, timestep, valuetype), [:,:,0] corresponds to the predicted mean, while [:,:,1] corresponds to the std. deviation.
+
+        quantiles : Iterable[float]
+            Quantiles to be included in the QuantilePrediciton.
+        """
+        quantiles = list(quantiles)
+        z_values = torch.Tensor([NormalDist().inv_cdf(quant) for quant in quantiles])
+        return QuantilePrediciton(
+            values[:, :, 0:1] + z_values[None, None, :] * values[:, :, 1:2], quantiles
+        )
+
+    def get_quantile(self, quantile: float) -> torch.Tensor:
+        """
+        Get a specific quantile prediciton from this IntervalPrediction.
+
+        Parameters
+        ----------
+        quantile: float,
+            Quantile you want to select.
+
+        Returns
+        -------
+        torch.Tensor:
+            The selected quantile as 2D Tensor (sample,timestep)
+
+        Raises:
+            ValueError if the requested quantile is not among the predicted ones.
+        """
         return self.values[:, :, self.quantiles.index(quantile)]
+
+    def select_quantiles(
+        self, quantiles: Iterable[float], inplace=False
+    ) -> QuantilePrediciton:
+        """
+        Get a narrow the prediciton down to the selected quantiles.
+
+        Parameters
+        ----------
+        quantiles: List[float],
+            Quantiles you want to select.
+        inplace:
+            If False a new IntervalPrediciton will be created and return, if True the existing IntervalPrediciton will be modified.
+
+        Returns
+        -------
+        torch.Tensor:
+            The selected quantile as 3D Tensor (sample,timestep,quantile)
+
+        Raises:
+            ValueError if one of the requested quantiles is not among the predicted ones.
+        """
+        quantiles = list(quantiles)
+        indices = [self.quantiles.index(quant) for quant in quantiles]
+        if inplace:
+            self.values = self.values[:, :, indices]
+            self.quantiles = quantiles
+            return self
+        else:
+            return QuantilePrediciton(self.values[:, :, indices], quantiles)
 
 
 class Metric(ABC):
@@ -105,7 +217,7 @@ class Metric(ABC):
     # @abstractmethod
     def get_prediction_interval(
         self, predictions: torch.Tensor, quantiles: Optional[List[float]], **kwargs
-    ) -> IntervalPrediciton:
+    ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -126,7 +238,7 @@ class Metric(ABC):
     def from_interval(
         self,
         target: torch.Tensor,
-        interval_prediciton: IntervalPrediciton,
+        interval_prediciton: QuantilePrediciton,
         # quantiles: Optional[List[float]],
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
@@ -205,8 +317,8 @@ class NllGauss(Metric):
         self.input_labels = ["expected_value", "log_variance"]
 
     def get_prediction_interval(
-        self, predictions: torch.Tensor, quantiles: Optional[Tuple[float]] = None
-    ) -> IntervalPrediciton:
+        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
+    ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -225,26 +337,17 @@ class NllGauss(Metric):
         """
         if quantiles is None:
             alpha_half = self.options.get("alpha") / 2.0
-            z = abs(NormalDist().inv_cdf(alpha_half))
             quantiles = (1 - alpha_half, alpha_half, 0.5)
-            z_values = torch.Tensor((z, -z, 0))
-        else:
-            z_values = torch.Tensor(
-                [NormalDist().inv_cdf(quant) for quant in quantiles]
-            )
-        print(f"{z_values = }")
-        # expected_values = predictions[:, :, 0]  # expected_values:mu
-        sigma = torch.sqrt(predictions[:, :, 1:2].exp())
-        # y_pred_upper = expected_values + z * sigma
-        # y_pred_lower = expected_values - z * sigma
-        values = predictions[:, :, 0:1] + z_values[None, None, :] * sigma
-        print(f"{values = }")
-        return IntervalPrediciton(values, quantiles)
+
+        sigma = (0.5 * predictions[:, :, 1]).exp()
+        return QuantilePrediciton.from_gauss_params(
+            torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
+        )
 
     def from_interval(
         self,
         target: torch.Tensor,
-        interval_prediction: IntervalPrediciton,
+        interval_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ) -> torch.Tensor:
         """
@@ -273,25 +376,11 @@ class NllGauss(Metric):
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
 
-        assert 0.5 in interval_prediction.quantiles
-
-        z_values = torch.Tensor(
-            [NormalDist().inv_cdf(quant) for quant in interval_prediction.quantiles]
-        )
-
-        # Assume median is expectation value (which is true assuming gaussian distribution)
-        residuals = interval_prediction.values - interval_prediction.get_quantile(
-            0.5
-        ).unsqueeze(2)
-        # calculate std-deviation for each quantile
-        # should be the same for each quantile (but not timestep and sample) assuming perfectly normal distributed predicitons
-        sigma = residuals / z_values[None, None, :]
-
-        # TODO replace torch.nansum/size with torch.nanmean once that makes it into official pytorch
-        log_var = 2 * torch.log(torch.nansum(sigma, dim=2) / (sigma.size()[2] - 1))
+        gauss_params = interval_prediction.get_gauss_params()
+        gauss_params[:, :, 1] = gauss_params[:, :, 1].log() * 2
         return self(
             target,
-            torch.stack([interval_prediction.get_quantile(0.5), log_var], dim=2),
+            gauss_params,
             avg_over=avg_over,
         )
 
@@ -364,18 +453,25 @@ class PinnballLoss(Metric):
 
     def __init__(self, quantiles: List[float] = None):
         if quantiles is None:
-            quantiles = [1.0 - Metric.alpha, Metric.alpha]
+            quantiles = [1.0 - Metric.alpha / 2, Metric.alpha / 2, 0.5]
         super().__init__(quantiles=quantiles)
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
+
+    def get_prediction_interval(
+        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
+    ) -> QuantilePrediciton:
+        if quantiles is None:
+            return QuantilePrediciton(predictions, self.options.get("quantiles"))
+        else:
+            return QuantilePrediciton(
+                predictions, self.options.get("quantiles")
+            ).select_quantiles(quantiles, inplace=True)
 
     def from_interval(
         self,
         target: torch.Tensor,
-        upper_bound: torch.Tensor,
-        lower_bound: torch.Tensor,
-        # exected_value: torch.Tensor = None,
+        interval_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-        # alpha: float = None,
         **kwargs,
     ):
         """
@@ -408,8 +504,8 @@ class PinnballLoss(Metric):
         #     quantiles = None
         return self(
             target,
-            torch.stack([upper_bound, lower_bound], dim=2),
-            # quantiles=quantiles,
+            interval_prediction.values,
+            quantiles=interval_prediction.quantiles,
             avg_over=avg_over,
         )
 
@@ -481,43 +577,22 @@ class QuantileScore(Metric):
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
     def get_prediction_interval(
-        self, predictions: torch.Tensor, quantiles: List[float] = None
-    ):
-        """
-        Calculates the an interval and expectation value for the metric.
-        For metrics using the normal distribution this will correspond to the confidence interval.
-        Parameters
-        ----------
-        predictions: torch.Tensor
-            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
-        quantiles : List[float]
-            Quantiles that we are estimating for.
-
-        Returns
-        -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
-        """
+        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
+    ) -> QuantilePrediciton:
         if quantiles is None:
-            quantiles = self.quantiles
-        max_index = quantiles.index(max(quantiles))
-        med_index = quantiles.index(0.5)
-        min_index = quantiles.index(min(quantiles))
-        return (
-            predictions[:, :, max_index],
-            predictions[:, :, min_index],
-            predictions[:, :, med_index],
-        )
+            return QuantilePrediciton(predictions, self.options.get("quantiles"))
+        else:
+            return QuantilePrediciton(
+                predictions, self.options.get("quantiles")
+            ).select_quantiles(quantiles, inplace=True)
 
     def from_interval(
         self,
         target: torch.Tensor,
-        upper_bound: torch.Tensor,
-        lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        interval_prediciton: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         alpha: float = 0.05,
-    ):
+    ) -> torch.Tensor:
         # TODO this is not correct
         sigma = (upper_bound - lower_bound) / (2 * 1.96)
         log_var = 2 * sigma.log()
@@ -532,7 +607,7 @@ class QuantileScore(Metric):
         predictions: torch.Tensor,
         quantiles: List[float],
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-    ):
+    ) -> torch.Tensor:
         """
         Calcualtion of the metrics value. Direct use is not recommended, instead create an object and call it to keep parameters consistent throughout its use.
 
