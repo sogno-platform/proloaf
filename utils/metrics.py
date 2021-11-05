@@ -178,6 +178,7 @@ class Metric(ABC):
         target: torch.Tensor,
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **kwargs,
     ) -> torch.Tensor:
         """
         Calculates the value of this metric using the options set in '__init__()'
@@ -198,7 +199,10 @@ class Metric(ABC):
             is either a scalar (overall loss) or 1d-array over the horizon or the sample.
         """
         return self.func(
-            target=target, predictions=predictions, avg_over=avg_over, **self.options
+            target=target,
+            predictions=predictions,
+            avg_over=avg_over,
+            **self.options ** kwargs,
         )
 
     @staticmethod
@@ -215,7 +219,7 @@ class Metric(ABC):
         Metric.alpha = alpha
 
     # @abstractmethod
-    def get_prediction_interval(
+    def get_quantile_prediction(
         self, predictions: torch.Tensor, quantiles: Optional[List[float]], **kwargs
     ) -> QuantilePrediciton:
         """
@@ -238,8 +242,7 @@ class Metric(ABC):
     def from_interval(
         self,
         target: torch.Tensor,
-        interval_prediciton: QuantilePrediciton,
-        # quantiles: Optional[List[float]],
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
     ) -> torch.Tensor:
@@ -250,12 +253,9 @@ class Metric(ABC):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        upper_bound: torch.Tensor
-            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        lower_bound: torch.Tensor
-            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        expected_value: torch.Tensor
-            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles.
+            Some of the metrics have additional requirements, like a predicted median or atleast one symetric interval in the quantiles.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
@@ -316,7 +316,7 @@ class NllGauss(Metric):
         super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_interval(
+    def get_quantile_prediction(
         self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
     ) -> QuantilePrediciton:
         """
@@ -347,7 +347,7 @@ class NllGauss(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        interval_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ) -> torch.Tensor:
         """
@@ -357,12 +357,9 @@ class NllGauss(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        upper_bound: torch.Tensor
-            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        lower_bound: torch.Tensor
-            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        expected_value: torch.Tensor
-            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
         alpha : float, default = None
@@ -376,7 +373,7 @@ class NllGauss(Metric):
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
 
-        gauss_params = interval_prediction.get_gauss_params()
+        gauss_params = quantile_prediction.get_gauss_params()
         gauss_params[:, :, 1] = gauss_params[:, :, 1].log() * 2
         return self(
             target,
@@ -457,7 +454,7 @@ class PinnballLoss(Metric):
         super().__init__(quantiles=quantiles)
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
-    def get_prediction_interval(
+    def get_quantile_prediction(
         self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
     ) -> QuantilePrediciton:
         if quantiles is None:
@@ -470,7 +467,7 @@ class PinnballLoss(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        interval_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **kwargs,
     ):
@@ -481,17 +478,8 @@ class PinnballLoss(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        upper_bound: torch.Tensor
-            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        lower_bound: torch.Tensor
-            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
-        alpha : float, default = None
-            Predicted probability of violating the bound of the prediction interval.
-            If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
-
-
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles.
         Returns
         -------
         torch.Tensor
@@ -504,8 +492,8 @@ class PinnballLoss(Metric):
         #     quantiles = None
         return self(
             target,
-            interval_prediction.values,
-            quantiles=interval_prediction.quantiles,
+            quantile_prediction.values,
+            quantiles=quantile_prediction.quantiles,
             avg_over=avg_over,
         )
 
@@ -552,6 +540,7 @@ class PinnballLoss(Metric):
         # TODO doing this in a loop seems inefficient
         if avg_over == "all":
             for i, quantile in enumerate(quantiles):
+                # TODO move assertions, do this with tensore algebra
                 assert 0 < quantile
                 assert quantile < 1
                 assert target.shape == predictions[:, :, i].shape
@@ -563,7 +552,7 @@ class PinnballLoss(Metric):
         return loss
 
 
-# TODO
+# TODO Is this not basically Pinnball loss?
 class QuantileScore(Metric):
     """Build upon the pinball loss, using the MSE to adjust the mean."""
 
@@ -576,7 +565,7 @@ class QuantileScore(Metric):
         super().__init__(quantiles=quantiles)
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
-    def get_prediction_interval(
+    def get_quantile_prediction(
         self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
     ) -> QuantilePrediciton:
         if quantiles is None:
@@ -589,9 +578,8 @@ class QuantileScore(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        interval_prediciton: QuantilePrediciton,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-        alpha: float = 0.05,
     ) -> torch.Tensor:
         # TODO this is not correct
         sigma = (upper_bound - lower_bound) / (2 * 1.96)
@@ -678,7 +666,7 @@ class CRPSGauss(Metric):
         super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_prediction_interval(self, predictions: torch.Tensor, alpha=None):
+    def get_quantile_prediction(self, predictions: torch.Tensor, alpha=None):
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -697,21 +685,17 @@ class CRPSGauss(Metric):
         """
         if alpha is None:
             alpha = self.options.get("alpha")
-        z = abs(NormalDist().inv_cdf((alpha) / 2.0))
         expected_values = predictions[:, :, 0]  # expected_values:mu
         sigma = torch.exp(predictions[:, :, 1] * 0.5)
-        y_pred_upper = expected_values + z * sigma
-        y_pred_lower = expected_values - z * sigma
-        return y_pred_upper, y_pred_lower, expected_values
+        return QuantilePrediciton.from_gauss_params(
+            torch.stack((expected_values, sigma)), [1 - alpha / 2.0, alpha / 2.0, 0.5]
+        )
 
     def from_interval(
         self,
         target: torch.Tensor,
-        upper_bound: torch.Tensor,
-        lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-        alpha: float = None,
     ):
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
@@ -720,17 +704,9 @@ class CRPSGauss(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        upper_bound: torch.Tensor
-            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        lower_bound: torch.Tensor
-            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        expected_value: torch.Tensor
-            Predicted values over samples and time. Dimension have to be (sample number, timestep).
-        avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
-        alpha : float, default = None
-            Predicted probability of violating the bound of the prediction interval.
-            If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
 
         Returns
         -------
@@ -738,14 +714,9 @@ class CRPSGauss(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        if alpha is None:
-            alpha = self.alpha
-        z = abs(NormalDist().inv_cdf((alpha) / 2.0))
-        sigma = (upper_bound - lower_bound) / (2 * z)
-        log_var = 2 * sigma.log()
-        return self(
-            target, torch.stack([expected_value, log_var], dim=2), avg_over=avg_over
-        )
+        gauss_params = quantile_prediction.get_gauss_params()
+        gauss_params[:, :, 1] = gauss_params[:, :, 1].log() * 2
+        return self(target, gauss_params, avg_over=avg_over)
 
     @staticmethod
     def func(
@@ -818,9 +789,7 @@ class Residuals(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        # upper_bound: torch.Tensor,
-        # lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.Tensor:
@@ -831,13 +800,11 @@ class Residuals(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        upper_bound: torch.Tensor
-            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast the median prediction.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
-        alpha : float, default = None
-            Predicted probability of violating the bound of the prediction interval.
-            If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
 
         Returns
         -------
@@ -845,7 +812,9 @@ class Residuals(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
+        return self(
+            target, quantile_prediction.get_gauss_params()[:, :, 0:1], avg_over=avg_over
+        )
 
     @staticmethod
     def func(
@@ -902,18 +871,14 @@ class Mse(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def get_prediction_interval(self, predictions: torch.Tensor, alpha=None):
-        expected_values = predictions
-        y_pred_lower = 0
-        y_pred_upper = 1
-        return y_pred_upper, y_pred_lower, expected_values
+    def get_quantile_prediction(self, predictions: torch.Tensor):
+        # TODO We probably want some measure for std deviation here, use variation of the prediciton (over the samples? Over time?), maybe use rmse (then we need the targets here)?
+        return QuantilePrediciton(predictions, [0.5])
 
     def from_interval(
         self,
         target: torch.Tensor,
-        # upper_bound: torch.Tensor,
-        # lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.Tensor:
@@ -924,8 +889,9 @@ class Mse(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        expected_value: torch.Tensor
-            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast the median prediction.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
         alpha : float, default = None
@@ -938,7 +904,9 @@ class Mse(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
+        return self(
+            target, quantile_prediction.get_gauss_params()[:, :, 0:1], avg_over=avg_over
+        )
 
     @staticmethod
     def func(
@@ -1000,23 +968,14 @@ class Rmse(Metric):
         super().__init__(**options)
         self.input_labels = ["expected_value"]
 
-    def get_prediction_interval(
-        self, predictions: List[torch.Tensor], target: torch.Tensor
-    ):
-        expected_values = predictions
-        rmse = self(target, expected_values.unsqueeze(0))
-        # In order to produce an interval covering roughly 95% of the error magnitudes,
-        # the prediction interval is usually calculated using the model output ± 2 × RMSE.
-        y_pred_lower = expected_values - 2 * rmse
-        y_pred_upper = expected_values + 2 * rmse
-        return y_pred_upper, y_pred_lower, expected_values
+    def get_quantile_prediction(self, predictions: torch.Tensor):
+        # TODO We probably want some measure for std deviation here, use variation of the prediciton (over the samples? Over time?), maybe use rmse (then we need the targets here)?
+        return QuantilePrediciton(predictions, [0.5])
 
     def from_interval(
         self,
         target: torch.Tensor,
-        # upper_bound: torch.Tensor,
-        # lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.Tensor:
@@ -1027,10 +986,14 @@ class Rmse(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        expected_value: torch.Tensor
-            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast the median prediction.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
+        alpha : float, default = None
+            Predicted probability of violating the bound of the prediction interval.
+            If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
 
         Returns
         -------
@@ -1038,7 +1001,9 @@ class Rmse(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
+        return self(
+            target, quantile_prediction.get_gauss_params()[:, :, 0:1], avg_over=avg_over
+        )
 
     @staticmethod
     def func(
@@ -1093,10 +1058,9 @@ class Mase(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        # upper_bound: torch.Tensor,
-        # lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        freq=None,
         **_,
     ) -> torch.Tensor:
         """
@@ -1106,8 +1070,9 @@ class Mase(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        expected_value: torch.Tensor
-            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast the median prediction.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
@@ -1117,12 +1082,19 @@ class Mase(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
+        if freq is None:
+            freq = self.options.get("freq", 1)
+        return self(
+            target,
+            quantile_prediction.get_gauss_params()[:, :, 0],
+            avg_over=avg_over,
+            freq=freq,
+        )
 
     @staticmethod
     def func(
         target: torch.Tensor,
-        predictions: List[torch.Tensor],
+        predictions: torch.Tensor,
         freq=1,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         insample_target=None,
@@ -1139,7 +1111,7 @@ class Mase(Metric):
         ----------
         target : torch.Tensor
             The true values of the target variable
-        predictions :  List[torch.Tensor]
+        predictions :  torch.Tensor
             predictions[:,:,0] = y_hat_test, predicted expected values of the target variable (torch.Tensor).
             Dimensions are (sample number, timestep, 1).
         freq : int scalar
@@ -1188,9 +1160,7 @@ class Sharpness(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        upper_bound: torch.Tensor,
-        lower_bound: torch.Tensor,
-        # expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.Tensor:
@@ -1201,10 +1171,8 @@ class Sharpness(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        upper_bound: torch.Tensor
-            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        lower_bound: torch.Tensor
-            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast 2 quantile predictions, if more are provided highest and lowest quantile are used.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
@@ -1214,8 +1182,14 @@ class Sharpness(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
+        # TODO constraints on the quantile prediction?
+        idx_lower = np.argmin(quantile_prediction.quantiles)
+        idx_upper = np.argmax(quantile_prediction.quantiles)
+
         return self(
-            target, torch.stack([upper_bound, lower_bound], dim=2), avg_over=avg_over
+            target,
+            quantile_prediction.select_quantiles((idx_upper, idx_lower)),
+            avg_over=avg_over,
         )
 
     @staticmethod
@@ -1244,7 +1218,7 @@ class Sharpness(Metric):
             along the horizon. Generally, lower is better.
 
         """
-
+        # XXX Seems weird to me that quantiles do not contribute here, since obviously a [0.05,0.95] interval is wider than [0.2,0.8]
         assert predictions.size()[2] == 2
         y_pred_upper = predictions[:, :, 0]
         y_pred_lower = predictions[:, :, 1]
@@ -1264,9 +1238,7 @@ class Picp(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        upper_bound: torch.Tensor,
-        lower_bound: torch.Tensor,
-        # expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1277,10 +1249,8 @@ class Picp(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        upper_bound: torch.Tensor
-            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        lower_bound: torch.Tensor
-            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast 2 quantile predictions, if more are provided highest and lowest quantile are used.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
@@ -1290,8 +1260,13 @@ class Picp(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
+        idx_lower = np.argmin(quantile_prediction.quantiles)
+        idx_upper = np.argmax(quantile_prediction.quantiles)
+
         return self(
-            target, torch.stack([upper_bound, lower_bound], dim=2), avg_over=avg_over
+            target,
+            quantile_prediction.select_quantiles((idx_upper, idx_lower)),
+            avg_over=avg_over,
         )
 
     @staticmethod
@@ -1373,16 +1348,16 @@ class Picp(Metric):
 #     """
 #     return 1 - picp(target: torch.Tensor, predictions, total)
 class Mis(Metric):
-    def __init__(self, alpha=0.05):
+    def __init__(self, alpha=None):
+        if alpha is None:
+            alpha = Metric.alpha
         super().__init__(alpha=alpha)
         self.input_labels = ["upper_limit", "lower_limit"]
 
     def from_interval(
         self,
         target: torch.Tensor,
-        upper_bound: torch.Tensor,
-        lower_bound: torch.Tensor,
-        # expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1393,10 +1368,10 @@ class Mis(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        upper_bound: torch.Tensor
-            Upper bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
-        lower_bound: torch.Tensor
-            Lower bound of the confidence interval of predicted values over samples and time. Dimension have to be (sample number, timestep).
+
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast 2 quantile predictions of symetric quantiles (e.g (0.95,0.05)).
+            If more are provided greatest symetric interval is used.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
@@ -1406,15 +1381,28 @@ class Mis(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
+        alpha = None
+        for quant in quantile_prediction.quantiles:
+            if 1 - quant in quantile_prediction.quantiles:
+                alpha = min(quant, 1 - quant) * 2
+                break
+        if not alpha:
+            raise ValueError(
+                "Mean Interval Score is only available for symetric intervals"
+            )
+
         return self(
-            target, torch.stack([upper_bound, lower_bound], dim=2), avg_over=avg_over
+            target,
+            quantile_prediction.select_quantiles((1 - alpha / 2, alpha / 2)),
+            alpha=alpha,
+            avg_over=avg_over,
         )
 
     @staticmethod
     def func(
         target: torch.Tensor,
         predictions: torch.Tensor,
-        alpha=None,
+        alpha: float = None,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
         """
@@ -1487,9 +1475,7 @@ class Rae(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        # upper_bound: torch.Tensor,
-        # lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1500,8 +1486,9 @@ class Rae(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        expected_value: torch.Tensor
-            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+        quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast the median prediction.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
         alpha : float, default = None
@@ -1514,7 +1501,9 @@ class Rae(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
+        return self(
+            target, quantile_prediction.get_gauss_params()[:, :, 0:1], avg_over=avg_over
+        )
 
     @staticmethod
     def func(
@@ -1570,9 +1559,7 @@ class Mae(Metric):
     def from_interval(
         self,
         target: torch.Tensor,
-        # upper_bound: torch.Tensor,
-        # lower_bound: torch.Tensor,
-        expected_value: torch.Tensor,
+        quantile_prediction: QuantilePrediciton,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1583,8 +1570,9 @@ class Mae(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        expected_value: torch.Tensor
-            Predicted values over samples and time. Dimension have to be (sample number, timestep).
+         quantile_prediction: QuantilePrediciton
+            A prediction for several quantiles. Has to contain atleast the median prediction.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
@@ -1594,7 +1582,9 @@ class Mae(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(target, expected_value.unsqueeze(dim=2), avg_over=avg_over)
+        return self(
+            target, quantile_prediction.get_gauss_params()[:, :, 0:1], avg_over=avg_over
+        )
 
     @staticmethod
     def func(
