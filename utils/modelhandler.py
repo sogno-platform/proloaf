@@ -682,15 +682,15 @@ class ModelHandler:
             for model in models:
                 print(f"benchmarking {model.name}")
                 for inputs_enc, inputs_dec, targets in data:
-                    interval = model.loss_metric.get_quantile_prediction(
+                    quantiles = model.loss_metric.get_quantile_prediction(
                         model.predict(inputs_enc, inputs_dec)
                     )
 
                     performance = np.array(
                         [
-                            metric.from_interval(
+                            metric.from_quantiles(
                                 target=targets,
-                                interval_prediction=interval,
+                                quantile_prediction=quantiles,
                                 avg_over=avg_over,
                             ).numpy()
                             for metric in test_metrics

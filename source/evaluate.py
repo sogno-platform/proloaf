@@ -141,7 +141,10 @@ if __name__ == "__main__":
         ]
         results_total_per_forecast = (
             mh.ModelHandler.benchmark(
-                test_data_loader, [net], test_metrics=test_metrics_total, avg_over="all"
+                test_data_loader,
+                [net],
+                test_metrics=test_metrics_total,
+                avg_over="all",
             )
             .iloc[0]
             .unstack()
@@ -204,17 +207,20 @@ if __name__ == "__main__":
             inputs_enc, inputs_dec, targets = test_data_loader.get_sample(i)
             print(f"{inputs_enc.size()}")
             prediction = net.predict(inputs_enc.unsqueeze(0), inputs_dec.unsqueeze(0))
-            (
-                y_pred_upper,
-                y_pred_lower,
-                expected_values,
-            ) = net.loss_metric.get_prediction_interval(prediction)
+            quantile_prediction = net.loss_metric.get_quantile_prediction(prediction)
+            expected_values = quantile_prediction.get_quantile(0.5)
+            y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(
+                dim=2
+            )
+            y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(
+                dim=2
+            )
             actuals = actual_time.iloc[i : i + FORECAST_HORIZON]
             plot.plot_timestep(
                 targets.detach().squeeze().numpy(),
-                expected_values.detach().squeeze().numpy(),
-                y_pred_upper.detach().squeeze().numpy(),
-                y_pred_lower.detach().squeeze().numpy(),
+                expected_values.detach().numpy(),
+                y_pred_upper.detach().numpy(),
+                y_pred_lower.detach().numpy(),
                 i,
                 OUTDIR,
                 PAR["cap_limit"],
@@ -226,19 +232,17 @@ if __name__ == "__main__":
         )
         print(results_total_per_forecast)
         inputs_enc, inputs_dec, targets = test_data_loader[0]
-        predictions = net.predict(inputs_enc, inputs_dec)
-        (
-            y_pred_upper,
-            y_pred_lower,
-            y_pred_expected_values,
-        ) = net.loss_metric.get_prediction_interval(predictions)
+        quantile_prediction = net.loss_metric.get_quantile_prediction(prediction)
+        expected_values = quantile_prediction.get_quantile(0.5)
+        y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=2)
+        y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(dim=2)
         # BOXPLOTS
         plot.plot_boxplot(
             metrics_per_sample=results_per_sample_per_forecast[net.name],
             sample_frequency=24,
             save_to_disc=OUTDIR,
         )
-        torch.save(y_pred_expected_values, "RNN_best_forecasts.pt")
+        torch.save(expected_values, "RNN_best_forecasts.pt")
         torch.save(y_pred_upper, "RNN_best_upper_limits.pt")
         torch.save(y_pred_lower, "RNN_best_lower_limits.pt")
         torch.save(targets, "RNN_best_true_values.pt")

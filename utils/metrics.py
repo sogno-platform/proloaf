@@ -133,7 +133,7 @@ class QuantilePrediciton:
         quantiles: List[float],
             Quantiles you want to select.
         inplace:
-            If False a new IntervalPrediciton will be created and return, if True the existing IntervalPrediciton will be modified.
+            If False a new QuantilePrediciton will be created and return, if True the existing QuantilePrediciton will be modified.
 
         Returns
         -------
@@ -151,6 +151,40 @@ class QuantilePrediciton:
             return self
         else:
             return QuantilePrediciton(self.values[:, :, indices], quantiles)
+
+    def select_upper_bound(self, inplace=False) -> QuantilePrediciton:
+        """
+        Generates QuantilePrediciton only containing the greatest quantile.
+
+        Parameters
+        ----------
+        inplace:
+            If False a new QuantilePrediciton will be created and return, if True the existing QuantilePrediciton will be modified.
+
+        Returns
+        -------
+        QuantilePrediction
+            contains the greatest quantile.
+        """
+        upper_quantile = max(self.quantiles)
+        return self.select_quantiles((upper_quantile,), inplace=inplace)
+
+    def select_lower_bound(self, inplace=False) -> QuantilePrediciton:
+        """
+        Generates QuantilePrediciton only containing the lowest quantile.
+
+        Parameters
+        ----------
+        inplace:
+            If False a new QuantilePrediciton will be created and return, if True the existing QuantilePrediciton will be modified.
+
+        Returns
+        -------
+        QuantilePrediction
+            contains the lowest quantile.
+        """
+        lower_quantile = min(self.quantiles)
+        return self.select_quantiles((lower_quantile,), inplace=inplace)
 
 
 class Metric(ABC):
@@ -202,7 +236,10 @@ class Metric(ABC):
             target=target,
             predictions=predictions,
             avg_over=avg_over,
-            **self.options ** kwargs,
+            **{
+                **self.options,  # Combine preset and acute parameters perfering the acute ones
+                **kwargs,
+            },
         )
 
     @staticmethod
@@ -239,7 +276,7 @@ class Metric(ABC):
             f"get_prediciton is not available for {self.__class__}"
         )
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -266,7 +303,7 @@ class Metric(ABC):
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
         raise NotImplementedError(
-            f"from_interval is not available for {self.__class__}"
+            f"from_quantiles is not available for {self.__class__}"
         )
 
     @abstractstaticmethod
@@ -344,7 +381,7 @@ class NllGauss(Metric):
             torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
         )
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -464,7 +501,7 @@ class PinnballLoss(Metric):
                 predictions, self.options.get("quantiles")
             ).select_quantiles(quantiles, inplace=True)
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -553,98 +590,98 @@ class PinnballLoss(Metric):
 
 
 # TODO Is this not basically Pinnball loss?
-class QuantileScore(Metric):
-    """Build upon the pinball loss, using the MSE to adjust the mean."""
+# class QuantileScore(Metric):
+#     """Build upon the pinball loss, using the MSE to adjust the mean."""
 
-    def __init__(self, quantiles: List[float] = None):
-        raise NotImplementedError("This metric is under revision")
-        if quantiles is None:
-            quantiles = [1.0 - Metric.alpha / 2, Metric.alpha / 2, 0.5]
-        if 0.5 not in quantiles:
-            quantiles.append(0.5)
-        super().__init__(quantiles=quantiles)
-        self.input_labels = [f"quant[{quant}]" for quant in quantiles]
+#     def __init__(self, quantiles: List[float] = None):
+#         raise NotImplementedError("This metric is under revision")
+#         if quantiles is None:
+#             quantiles = [1.0 - Metric.alpha / 2, Metric.alpha / 2, 0.5]
+#         if 0.5 not in quantiles:
+#             quantiles.append(0.5)
+#         super().__init__(quantiles=quantiles)
+#         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
-    def get_quantile_prediction(
-        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
-    ) -> QuantilePrediciton:
-        if quantiles is None:
-            return QuantilePrediciton(predictions, self.options.get("quantiles"))
-        else:
-            return QuantilePrediciton(
-                predictions, self.options.get("quantiles")
-            ).select_quantiles(quantiles, inplace=True)
+#     def get_quantile_prediction(
+#         self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
+#     ) -> QuantilePrediciton:
+#         if quantiles is None:
+#             return QuantilePrediciton(predictions, self.options.get("quantiles"))
+#         else:
+#             return QuantilePrediciton(
+#                 predictions, self.options.get("quantiles")
+#             ).select_quantiles(quantiles, inplace=True)
 
-    def from_interval(
-        self,
-        target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-    ) -> torch.Tensor:
-        # TODO this is not correct
-        sigma = (upper_bound - lower_bound) / (2 * 1.96)
-        log_var = 2 * sigma.log()
+#     def from_quantiles(
+#         self,
+#         target: torch.Tensor,
+#         quantile_prediction: QuantilePrediciton,
+#         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+#     ) -> torch.Tensor:
+#         # TODO this is not correct
+#         sigma = (upper_bound - lower_bound) / (2 * 1.96)
+#         log_var = 2 * sigma.log()
 
-        return self(
-            target, torch.stack([expected_value, log_var], dim=2), avg_over=avg_over
-        )
+#         return self(
+#             target, torch.stack([expected_value, log_var], dim=2), avg_over=avg_over
+#         )
 
-    @staticmethod
-    def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
-        quantiles: List[float],
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-    ) -> torch.Tensor:
-        """
-        Calcualtion of the metrics value. Direct use is not recommended, instead create an object and call it to keep parameters consistent throughout its use.
+#     @staticmethod
+#     def func(
+#         target: torch.Tensor,
+#         predictions: torch.Tensor,
+#         quantiles: List[float],
+#         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+#     ) -> torch.Tensor:
+#         """
+#         Calcualtion of the metrics value. Direct use is not recommended, instead create an object and call it to keep parameters consistent throughout its use.
 
-        Parameters
-        ----------
-        target: torch.Tensor
-            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        predictions: torch.Tensor
-            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
-        avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
-        **kwargs
-            Additional metric specific parameters, these can be set when initializing an object and are then used when calling the object.
+#         Parameters
+#         ----------
+#         target: torch.Tensor
+#             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+#         predictions: torch.Tensor
+#             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
+#         avg_over: str
+#             One of "time", "sample", "all", averages the the results over the coresponding axis.
+#         **kwargs
+#             Additional metric specific parameters, these can be set when initializing an object and are then used when calling the object.
 
-        Returns
-        -------
-        torch.Tensor
-            Negative-log-Likelihood, which depending on the value of 'avg_over'
-            is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
-        """
-        """
-        Build upon the pinball loss, using the MSE to adjust the mean.
+#         Returns
+#         -------
+#         torch.Tensor
+#             Negative-log-Likelihood, which depending on the value of 'avg_over'
+#             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
+#         """
+#         """
+#         Build upon the pinball loss, using the MSE to adjust the mean.
 
-        Parameters
-        ----------
-        target : torch.Tensor
-            True values of the target variable
-        predictions : List[torch.Tensor]
-            The predicted expected values of the target variable
-        quantiles : List[float]
-            Quantiles that we are estimating for
-        total : bool, default = True
-            Used in other loss functions to specify whether to return overall loss or loss over
-            the horizon. Quantile_score (as an extension of pinball_loss) only supports the former.
+#         Parameters
+#         ----------
+#         target : torch.Tensor
+#             True values of the target variable
+#         predictions : List[torch.Tensor]
+#             The predicted expected values of the target variable
+#         quantiles : List[float]
+#             Quantiles that we are estimating for
+#         total : bool, default = True
+#             Used in other loss functions to specify whether to return overall loss or loss over
+#             the horizon. Quantile_score (as an extension of pinball_loss) only supports the former.
 
-        Returns
-        -------
-        float
-            The total pinball loss + the rmse loss
-        """
+#         Returns
+#         -------
+#         float
+#             The total pinball loss + the rmse loss
+#         """
 
-        # the quantile score builds upon the pinball loss,
-        # we use the MSE to adjust the mean. one could also use 0.5 as third quantile,
-        # but further code adjustments would be necessary then
-        loss1 = PinnballLoss.func(target, predictions, quantiles, avg_over)
-        # loss2 = pinball_loss(target, [predictions[2]], [0.5], total)
-        loss2 = Rmse.func(target, predictions[0:1])
+#         # the quantile score builds upon the pinball loss,
+#         # we use the MSE to adjust the mean. one could also use 0.5 as third quantile,
+#         # but further code adjustments would be necessary then
+#         loss1 = PinnballLoss.func(target, predictions, quantiles, avg_over)
+#         # loss2 = pinball_loss(target, [predictions[2]], [0.5], total)
+#         loss2 = Rmse.func(target, predictions[0:1])
 
-        return loss1 + loss2
+#         return loss1 + loss2
 
 
 class CRPSGauss(Metric):
@@ -691,7 +728,7 @@ class CRPSGauss(Metric):
             torch.stack((expected_values, sigma)), [1 - alpha / 2.0, alpha / 2.0, 0.5]
         )
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -786,7 +823,7 @@ class Residuals(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -875,7 +912,7 @@ class Mse(Metric):
         # TODO We probably want some measure for std deviation here, use variation of the prediciton (over the samples? Over time?), maybe use rmse (then we need the targets here)?
         return QuantilePrediciton(predictions, [0.5])
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -972,7 +1009,7 @@ class Rmse(Metric):
         # TODO We probably want some measure for std deviation here, use variation of the prediciton (over the samples? Over time?), maybe use rmse (then we need the targets here)?
         return QuantilePrediciton(predictions, [0.5])
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -1055,7 +1092,7 @@ class Mase(Metric):
         super().__init__(freq=freq, insample_target=insample_target)
         self.input_labels = ["expected_value"]
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -1086,7 +1123,7 @@ class Mase(Metric):
             freq = self.options.get("freq", 1)
         return self(
             target,
-            quantile_prediction.get_gauss_params()[:, :, 0],
+            quantile_prediction.get_gauss_params()[:, :, 0:1],
             avg_over=avg_over,
             freq=freq,
         )
@@ -1157,7 +1194,7 @@ class Sharpness(Metric):
         super().__init__()
         self.input_labels = ["upper_limit", "lower_limit"]
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -1188,7 +1225,7 @@ class Sharpness(Metric):
 
         return self(
             target,
-            quantile_prediction.select_quantiles((idx_upper, idx_lower)),
+            quantile_prediction.values[:, :, (idx_upper, idx_lower)],
             avg_over=avg_over,
         )
 
@@ -1235,7 +1272,7 @@ class Picp(Metric):
         super().__init__()
         self.input_labels = ["upper_limit", "lower_limit"]
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -1265,7 +1302,7 @@ class Picp(Metric):
 
         return self(
             target,
-            quantile_prediction.select_quantiles((idx_upper, idx_lower)),
+            quantile_prediction.values[:, :, (idx_upper, idx_lower)],
             avg_over=avg_over,
         )
 
@@ -1354,7 +1391,7 @@ class Mis(Metric):
         super().__init__(alpha=alpha)
         self.input_labels = ["upper_limit", "lower_limit"]
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -1393,7 +1430,7 @@ class Mis(Metric):
 
         return self(
             target,
-            quantile_prediction.select_quantiles((1 - alpha / 2, alpha / 2)),
+            quantile_prediction.select_quantiles((1 - alpha / 2, alpha / 2)).values,
             alpha=alpha,
             avg_over=avg_over,
         )
@@ -1472,7 +1509,7 @@ class Rae(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
@@ -1556,7 +1593,7 @@ class Mae(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def from_interval(
+    def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediciton,
