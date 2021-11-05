@@ -682,7 +682,7 @@ class ModelHandler:
             for model in models:
                 print(f"benchmarking {model.name}")
                 for inputs_enc, inputs_dec, targets in data:
-                    interval = model.loss_metric.get_prediction_interval(
+                    interval = model.loss_metric.get_quantile_prediction(
                         model.predict(inputs_enc, inputs_dec)
                     )
 
