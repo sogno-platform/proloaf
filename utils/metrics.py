@@ -760,6 +760,7 @@ class CRPSGauss(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **_,
     ):
         """
         Computes normalized CRPS (continuous ranked probability score) of observations x
@@ -793,10 +794,10 @@ class CRPSGauss(Metric):
         Raises
         ------
         NotImplementedError
-            When 'total' is set to False, as crps_gaussian does not support loss over the horizon
+            When 'avg_over' is set to anything but "all", as crps_gaussian does not support loss over the horizon or sample.
         """
 
-        assert len(predictions) == 2
+        assert predictions.size()[2] == 2
         mu = predictions[:, :, 0]
         log_variance = predictions[:, :, 1]
         target = target.squeeze(dim=2)
@@ -1663,11 +1664,12 @@ class Mae(Metric):
         return torch.mean(torch.abs(target - y_hat_test))
 
 
+_EXCLUDED = ["Metric", "QuantilePrediciton"]
 # dict {class_name:class}
 _all_dict = {
     cls[0].lower(): cls[1]
     for cls in inspect.getmembers(sys.modules[__name__], inspect.isclass)
-    if cls[1].__module__ == __name__
+    if (cls[1].__module__ == __name__ and cls[0] not in _EXCLUDED)
 }
 
 
