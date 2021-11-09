@@ -371,7 +371,7 @@ class NllGauss(Metric):
         self.input_labels = ["expected_value", "log_variance"]
 
     def get_quantile_prediction(
-        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
+        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None, **_
     ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
@@ -509,7 +509,7 @@ class PinnballLoss(Metric):
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
     def get_quantile_prediction(
-        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
+        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None, **_
     ) -> QuantilePrediciton:
         if quantiles is None:
             return QuantilePrediciton(predictions, self.options.get("quantiles"))
@@ -557,6 +557,7 @@ class PinnballLoss(Metric):
         predictions: torch.Tensor,
         quantiles: List[float],
         avg_over: Literal["all"] = "all",
+        **_,
     ):
         """
         Calculates pinball loss or quantile loss against the specified quantiles
@@ -721,7 +722,7 @@ class CRPSGauss(Metric):
         self.input_labels = ["expected_value", "log_variance"]
 
     def get_quantile_prediction(
-        self, predictions: torch.Tensor, alpha=None
+        self, predictions: torch.Tensor, alpha=None, **_
     ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
@@ -848,6 +849,7 @@ class Residuals(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
+        **_,
     ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
@@ -911,6 +913,7 @@ class Residuals(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **_,
     ):
 
         """
@@ -957,8 +960,10 @@ class Residuals(Metric):
 
 
 class Mse(Metric):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, alpha=None):
+        if alpha is None:
+            alpha = Metric.alpha
+        super().__init__(alpha=alpha)
         self.input_labels = ["expected_value"]
 
     def get_quantile_prediction(
@@ -966,6 +971,7 @@ class Mse(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
+        **_,
     ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
@@ -1032,6 +1038,7 @@ class Mse(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **_,
     ):
         """
         Calculate the mean squared error (MSE)
@@ -1092,6 +1099,7 @@ class Rmse(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
+        **_,
     ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
@@ -1158,6 +1166,7 @@ class Rmse(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **_,
     ):
         """
         Calculate the root mean squared error
@@ -1186,7 +1195,7 @@ class Rmse(Metric):
         """
         if predictions.shape != target.shape:
             raise ValueError(
-                "dimensions of predictions and target need to be compatible"
+                f"dimensions of predictions {predictions.shape} and target {target.shape} need to be compatible"
             )
 
         squared_errors = (target - predictions) ** 2
@@ -1208,6 +1217,7 @@ class Mase(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
+        **_,
     ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
@@ -1279,6 +1289,7 @@ class Mase(Metric):
         freq=1,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         insample_target=None,
+        **_,
     ):
         """
         Calculate the mean absolute scaled error (MASE)
@@ -1345,6 +1356,7 @@ class Sharpness(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
+        **_,
     ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
@@ -1489,6 +1501,7 @@ class Picp(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         avg_over: Union[Literal["sample"], Literal["all"]] = "all",
+        **_,
     ):
         """
         Calculate PICP (prediction interval coverage probability) or simply the % of true
@@ -1629,6 +1642,7 @@ class Mis(Metric):
         predictions: torch.Tensor,
         alpha: float = None,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **_,
     ):
         """
         Calculate MIS (mean interval score) without scaling by seasonal difference
@@ -1735,6 +1749,7 @@ class Rae(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **_,
     ):
         """
         Calculate the RAE (Relative Absolute Error) compared to a naive forecast that only
@@ -1816,6 +1831,7 @@ class Mae(Metric):
         target: torch.Tensor,
         predictions: torch.Tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **_,
     ):
         """
         Calculates mean absolute error
