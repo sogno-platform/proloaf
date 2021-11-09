@@ -703,7 +703,9 @@ class CRPSGauss(Metric):
         super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_quantile_prediction(self, predictions: torch.Tensor, alpha=None):
+    def get_quantile_prediction(
+        self, predictions: torch.Tensor, alpha=None
+    ) -> QuantilePrediciton:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -824,6 +826,39 @@ class Residuals(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
+    def get_quantile_prediction(
+        self,
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        quantiles: Optional[List[float]] = None,
+    ) -> QuantilePrediciton:
+        """
+        Calculates the an interval and expectation value for the metric.
+        For metrics using the normal distribution this will correspond to the confidence interval.
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
+        alpha : float, default = None
+            Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
+
+        Returns
+        -------
+        (torch.Tensor, torch.Tensor, torch.Tensor)
+            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        """
+        if quantiles is None:
+            alpha_half = self.options.get("alpha") / 2.0
+            quantiles = (1 - alpha_half, alpha_half, 0.5)
+        rmse = Rmse.func(target, predictions, avg_over="all")
+        sigma = torch.full_like(predictions[:, :, 0], rmse.item())
+        return QuantilePrediciton.from_gauss_params(
+            torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
+        )
+
     def from_quantiles(
         self,
         target: torch.Tensor,
@@ -909,9 +944,38 @@ class Mse(Metric):
         super().__init__()
         self.input_labels = ["expected_value"]
 
-    def get_quantile_prediction(self, predictions: torch.Tensor):
-        # TODO We probably want some measure for std deviation here, use variation of the prediciton (over the samples? Over time?), maybe use rmse (then we need the targets here)?
-        return QuantilePrediciton(predictions, [0.5])
+    def get_quantile_prediction(
+        self,
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        quantiles: Optional[List[float]] = None,
+    ) -> QuantilePrediciton:
+        """
+        Calculates the an interval and expectation value for the metric.
+        For metrics using the normal distribution this will correspond to the confidence interval.
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
+        alpha : float, default = None
+            Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
+
+        Returns
+        -------
+        (torch.Tensor, torch.Tensor, torch.Tensor)
+            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        """
+        if quantiles is None:
+            alpha_half = self.options.get("alpha") / 2.0
+            quantiles = (1 - alpha_half, alpha_half, 0.5)
+        rmse = Rmse.func(target, predictions, avg_over="all")
+        sigma = torch.full_like(predictions[:, :, 0], rmse.item())
+        return QuantilePrediciton.from_gauss_params(
+            torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
+        )
 
     def from_quantiles(
         self,
@@ -1006,9 +1070,38 @@ class Rmse(Metric):
         super().__init__(**options)
         self.input_labels = ["expected_value"]
 
-    def get_quantile_prediction(self, predictions: torch.Tensor):
-        # TODO We probably want some measure for std deviation here, use variation of the prediciton (over the samples? Over time?), maybe use rmse (then we need the targets here)?
-        return QuantilePrediciton(predictions, [0.5])
+    def get_quantile_prediction(
+        self,
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        quantiles: Optional[List[float]] = None,
+    ) -> QuantilePrediciton:
+        """
+        Calculates the an interval and expectation value for the metric.
+        For metrics using the normal distribution this will correspond to the confidence interval.
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
+        alpha : float, default = None
+            Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
+
+        Returns
+        -------
+        (torch.Tensor, torch.Tensor, torch.Tensor)
+            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        """
+        if quantiles is None:
+            alpha_half = self.options.get("alpha") / 2.0
+            quantiles = (1 - alpha_half, alpha_half, 0.5)
+        rmse = Rmse.func(target, predictions, avg_over="all")
+        sigma = torch.full_like(predictions[:, :, 0], rmse.item())
+        return QuantilePrediciton.from_gauss_params(
+            torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
+        )
 
     def from_quantiles(
         self,
@@ -1092,6 +1185,39 @@ class Mase(Metric):
     def __init__(self, freq: int = 1, insample_target=None):
         super().__init__(freq=freq, insample_target=insample_target)
         self.input_labels = ["expected_value"]
+
+    def get_quantile_prediction(
+        self,
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        quantiles: Optional[List[float]] = None,
+    ) -> QuantilePrediciton:
+        """
+        Calculates the an interval and expectation value for the metric.
+        For metrics using the normal distribution this will correspond to the confidence interval.
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
+        quantiles : List[float], default = None
+            quantiles to be estimated from the original prediction. Defaults to (1-alpha/2, alpha/2, 0.5)
+
+        Returns
+        -------
+        (torch.Tensor, torch.Tensor, torch.Tensor)
+            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        """
+        if quantiles is None:
+            alpha_half = self.options.get("alpha") / 2.0
+            quantiles = (1 - alpha_half, alpha_half, 0.5)
+        rmse = Rmse.func(target, predictions, avg_over="all")
+        sigma = torch.full_like(predictions[:, :, 0], rmse.item())
+        return QuantilePrediciton.from_gauss_params(
+            torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
+        )
 
     def from_quantiles(
         self,
@@ -1191,9 +1317,43 @@ class Mase(Metric):
 
 
 class Sharpness(Metric):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, quantiles: Iterable[float] = None):
+        if quantiles is None:
+            quantiles = (1 - Metric.alpha / 2, Metric.alpha / 2)
+        super().__init__(quantiles=quantiles)
         self.input_labels = ["upper_limit", "lower_limit"]
+
+    def get_quantile_prediction(
+        self,
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        quantiles: Optional[List[float]] = None,
+    ) -> QuantilePrediciton:
+        """
+        Calculates the an interval and expectation value for the metric.
+        For metrics using the normal distribution this will correspond to the confidence interval.
+
+        Parameters
+        ----------
+        target: torch.Tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        predictions: torch.Tensor
+            Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
+        quantiles : List[float], default = None
+            quantiles to be estimated from the original prediction. Defaults to (1-alpha/2, alpha/2, 0.5)
+
+        Returns
+        -------
+        (torch.Tensor, torch.Tensor, torch.Tensor)
+            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        """
+        if quantiles is None:
+            quantiles = self.options.get("quantiles")
+        rmse = Rmse.func(target, predictions, avg_over="all")
+        sigma = torch.full_like(predictions[:, :, 0], rmse.item())
+        return QuantilePrediciton.from_gauss_params(
+            torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
+        )
 
     def from_quantiles(
         self,
@@ -1360,6 +1520,15 @@ class Picp(Metric):
             return coverage_horizon
         elif avg_over == "time":
             raise AttributeError("PCIP does not support avg. over time.")
+
+
+class PicpLoss(Picp):
+    def func(
+        target: torch.Tensor,
+        predictions: torch.Tensor,
+        avg_over: Union[Literal["sample"], Literal["all"]] = "all",
+    ):
+        return 1 - Picp.func(target, predictions, avg_over)
 
 
 # TODO not very nice, if needed think about a different approach to the "reward" vs "loss" problem
