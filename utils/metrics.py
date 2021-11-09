@@ -1523,6 +1523,7 @@ class Picp(Metric):
 
 
 class PicpLoss(Picp):
+    @staticmethod
     def func(
         target: torch.Tensor,
         predictions: torch.Tensor,
