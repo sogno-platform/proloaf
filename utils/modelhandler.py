@@ -446,7 +446,7 @@ class ModelWrapper:
 
     def predict(
         self, inputs_enc: torch.Tensor, inputs_dec: torch.Tensor
-    ) -> List[torch.Tensor]:
+    ) -> torch.Tensor:
         """
         Get the predictions for the given model and data
 
@@ -464,9 +464,9 @@ class ModelWrapper:
         Returns
         -------
         torch.Tensor
-            The targets (actual values)
-        torch.Tensor
-            The predictions from the given model
+            Results of the prediction, 3D-Tensor of shape (batch_size, timesteps, predicted features)
+
+
         """
         if not self.initialzed:
             raise RuntimeError(
@@ -498,6 +498,7 @@ class ModelHandler:
         Minimum change in the monitored quantity to qualify as an improvement.
     model : utils.models.EncoderDecoder
         The model which is to be used for forecasting, if one was perpared separately. It is however recommended to initialize and train the model using the modelhandler.
+
     Notes
     -----
     Reference: https://scikit-learn.org/stable/developers/develop.html
@@ -683,7 +684,8 @@ class ModelHandler:
                 print(f"benchmarking {model.name}")
                 for inputs_enc, inputs_dec, targets in data:
                     quantiles = model.loss_metric.get_quantile_prediction(
-                        model.predict(inputs_enc, inputs_dec)
+                        predictions=model.predict(inputs_enc, inputs_dec),
+                        target=targets,
                     )
 
                     performance = np.array(
