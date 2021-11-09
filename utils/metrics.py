@@ -49,8 +49,9 @@ class QuantilePrediciton:
     def get_gauss_params(self) -> torch.Tensor:
         """
         Estimate expectation value and std. deviation from quantile prediction.
+        This is approximation, for the mean the pdf is treated as a histogram.
+        For the std. dev, (quantile_value - mean)/quantile_z is averaged over the quantiles.
 
-        Note: Currently the estimation median = mean is used
 
         Returns
         -------
@@ -62,7 +63,10 @@ class QuantilePrediciton:
         ValueError
             If the median (quantile 0.5) is not in the predicted quantiles.
         """
-        mean = self.get_quantile(0.5)
+        mean = self.get_mean()  # self.get_quantile(0.5)
+        # compare_to_get_mean = torch.max(torch.abs(self.get_mean() - mean))
+        # print(f"{mean =}")
+        # print(f"{compare_to_get_mean = }")
         intervals = self.select_quantiles(
             [quant for quant in self.quantiles if quant != 0.5]
         ).values
@@ -101,6 +105,19 @@ class QuantilePrediciton:
         z_values = torch.Tensor([NormalDist().inv_cdf(quant) for quant in quantiles])
         return QuantilePrediciton(
             values[:, :, 0:1] + z_values[None, None, :] * values[:, :, 1:2], quantiles
+        )
+
+    def get_mean(self) -> torch.Tensor:
+
+        quantiles = np.array(self.quantiles)
+        sorted_idx = np.argsort(quantiles)
+        quantiles = quantiles[sorted_idx]
+        intervals = torch.Tensor(quantiles[1:] - quantiles[:-1])
+        values = self.values[:, :, sorted_idx]
+        center_values = (values[:, :, 1:] + values[:, :, :-1]) / 2
+        # weighted sum over the intervals
+        return torch.sum((intervals[None, None, :] * center_values), dim=2) / (
+            quantiles[-1] - quantiles[0]
         )
 
     def get_quantile(self, quantile: float) -> torch.Tensor:
