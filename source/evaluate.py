@@ -205,7 +205,6 @@ if __name__ == "__main__":
         )
         for i in testhours:
             inputs_enc, inputs_dec, targets = test_data_loader.get_sample(i)
-            print(f"{inputs_enc.size()}")
             prediction = net.predict(inputs_enc.unsqueeze(0), inputs_dec.unsqueeze(0))
             quantile_prediction = net.loss_metric.get_quantile_prediction(prediction)
             expected_values = quantile_prediction.get_quantile(0.5)
