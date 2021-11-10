@@ -29,12 +29,12 @@ from setuptools import find_packages
 
 if __name__ == "__main__":
     setup(
-        name="proloafutils",
+        name="proloaf",
         version="0.2.0",
-        packages=["proloafutils"],
-        package_dir={"proloafutils": "utils"},
+        packages=["proloaf"],
+        package_dir={"proloaf": "proloaf"},
         license="Apache License 2.0",
-        url="https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/tree/develop/utils",
+        url="https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/tree/develop/proloaf",
         install_requires=[
             "numpy",
             "pandas",

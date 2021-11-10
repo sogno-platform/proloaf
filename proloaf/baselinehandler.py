@@ -23,7 +23,7 @@ and generate various baseline forecasts.
 """
 
 import os
-import utils.metrics as metrics
+import proloaf.metrics as metrics
 import torch
 import copy
 import numpy as np
@@ -46,7 +46,7 @@ from pmdarima.arima import auto_arima
 # =======================================
 # save baseline model
 # =============================================================================
-from utils import plot
+from proloaf import plot
 
 def test_stationarity(timeseries,maxlag):
     # source: https://towardsdatascience.com/end-to-end-time-series-analysis-and-forecasting-a-trio-of-sarimax-lstm-and-prophet-part-1-306367e57db8

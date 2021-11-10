@@ -330,6 +330,7 @@ bca5ab56f6baa9a60c62f3b2b38832993c5bb15e Trying to finish ci
 df4bb02552a35ade8d60435806505ab22096961d Delete featured-background.jpg
 5fade994cd95edc29126d4604a600deb4343b295 Revert "Update .gitlab-ci.yml"
 909c1b521099fee33ea13790f559b0ddbdab50ac Update .gitlab-ci.yml
+942d8768feabd42fb3e2b6b9e96c11749a85758d Merge branch "70-complete-metrics" of https://git.rwth-aachen.de/acs/public/automation/plf/proloaf into 70-complete-metrics
 
 I, Florian Opermann hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: mmirz@eonerc.rwth-aachen.de
 

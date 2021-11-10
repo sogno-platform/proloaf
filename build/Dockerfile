@@ -1,7 +1,7 @@
 FROM python:3
 WORKDIR /usr/src/app
 COPY ./requirements.txt ./
-COPY ./utils ./utils/
+COPY ./proloaf ./proloaf/
 COPY ./setup.py ./
 RUN ls
 RUN python3 setup.py build

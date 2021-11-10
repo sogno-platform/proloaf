@@ -28,7 +28,7 @@ useful for testing or future applications.
 
 import numpy as np
 import pandas as pd
-import utils.tensorloader as tl
+import proloaf.tensorloader as tl
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
@@ -574,7 +574,7 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
 
     Parameters
     ----------
-    net : utils.models.EncoderDecoder
+    net : proloaf.models.EncoderDecoder
         The model that was used to generate the predictions.
     output : list
         A list containing predicted values. Each entry in the list is a set of predictions
@@ -839,11 +839,11 @@ def transform(
 
     Returns
     -------
-    utils.tensorloader.CustomTensorDataLoader
+    proloaf.tensorloader.CustomTensorDataLoader
         The training data loader
-    utils.tensorloader.CustomTensorDataLoader
+    proloaf.tensorloader.CustomTensorDataLoader
         The validation data loader
-    utils.tensorloader.CustomTensorDataLoader
+    proloaf.tensorloader.CustomTensorDataLoader
         The test data loader
     """
 

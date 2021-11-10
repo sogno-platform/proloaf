@@ -16,16 +16,16 @@ sys.path.append("../")
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
-import utils.datahandler as dh
-import utils.tensorloader as dl
-from utils.confighandler import read_config, write_config
-from utils.cli import parse_basic, parse_with_loss, query_true_false
+import proloaf.datahandler as dh
+import proloaf.tensorloader as dl
+from proloaf.confighandler import read_config, write_config
+from proloaf.cli import parse_basic, parse_with_loss, query_true_false
 import json
 from random import gauss
 from random import seed
 from pandas.plotting import autocorrelation_plot
-import utils.modelhandler as mh
-import utils.metrics as metrics
+import proloaf.modelhandler as mh
+import proloaf.metrics as metrics
 import itertools
 import torch.nn as nn
 import optuna

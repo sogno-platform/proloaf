@@ -24,7 +24,7 @@ import numpy as np
 import torch
 import sklearn
 
-import utils.datahandler as dh
+import proloaf.datahandler as dh
 
 
 class CustomTensorData:

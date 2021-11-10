@@ -32,20 +32,20 @@ import optuna
 import torch
 from typing import Any, Callable, Union, List, Dict, Literal
 from copy import deepcopy
-import utils
+import proloaf
 
 from time import perf_counter
-from utils.tensorloader import CustomTensorDataLoader
-from utils import models
-from utils import metrics
-from utils.loghandler import (
+from proloaf.tensorloader import CustomTensorDataLoader
+from proloaf import models
+from proloaf import metrics
+from proloaf.loghandler import (
     log_data,
     log_tensorboard,
     add_tb_element,
     end_tensorboard,
 )
-from utils.cli import query_true_false
-from utils.confighandler import write_config
+from proloaf.cli import query_true_false
+from proloaf.confighandler import write_config
 
 
 class EarlyStopping:
@@ -102,8 +102,8 @@ class EarlyStopping:
         Parameters
         ----------
         val_loss : float
-            The validation loss, as calculated by one of the metrics in utils.metrics
-        model : utils.models.EncoderDecoder
+            The validation loss, as calculated by one of the metrics in proloaf.metrics
+        model : proloaf.models.EncoderDecoder
             The model being trained
         """
         if self.verbose:
@@ -366,13 +366,13 @@ class ModelWrapper:
 
         Parameters
         ----------
-        train_data_loader : utils.tensorloader.CustomTensorDataLoader
+        train_data_loader : proloaf.tensorloader.CustomTensorDataLoader
             The training data loader
-        validation_data_loader : utils.tensorloader.CustomTensorDataLoader
+        validation_data_loader : proloaf.tensorloader.CustomTensorDataLoader
             The validation data loader
-        test_data_loader : utils.tensorloader.CustomTensorDataLoader
+        test_data_loader : proloaf.tensorloader.CustomTensorDataLoader
             The test data loader
-        net : utils.models.EncoderDecoder
+        net : proloaf.models.EncoderDecoder
             The model to be trained
         learning_rate : float, optional
             The specified optimizer's learning rate
@@ -405,7 +405,7 @@ class ModelWrapper:
             dict of model configurations
         Returns
         -------
-        utils.models.EncoderDecoder
+        proloaf.models.EncoderDecoder
             The trained model
         pandas.DataFrame
             A DataFrame in which the results and parameters of the training have been logged
@@ -452,9 +452,9 @@ class ModelWrapper:
 
         Parameters
         ----------
-        net : utils.models.EncoderDecoder
+        net : proloaf.models.EncoderDecoder
             The model with which to calculate the predictions
-        data_loader : utils.tensorloader.CustomTensorDataLoader
+        data_loader : proloaf.tensorloader.CustomTensorDataLoader
             Contains the input data and targets
         horizon : int
             The horizon for the prediction
@@ -496,7 +496,7 @@ class ModelHandler:
         If True, prints a message for each validation loss improvement.
     delta : float, default = 0.0
         Minimum change in the monitored quantity to qualify as an improvement.
-    model : utils.models.EncoderDecoder
+    model : proloaf.models.EncoderDecoder
         The model which is to be used for forecasting, if one was perpared separately. It is however recommended to initialize and train the model using the modelhandler.
 
     Notes
@@ -656,7 +656,7 @@ class ModelHandler:
 
     def select_model(
         self,
-        data: utils.tensorloader.CustomTensorDataLoader,
+        data: proloaf.tensorloader.CustomTensorDataLoader,
         models: List[ModelWrapper],
         loss: metrics.Metric,
     ):
@@ -670,7 +670,7 @@ class ModelHandler:
 
     @staticmethod
     def benchmark(
-        data: utils.tensorloader.CustomTensorDataLoader,
+        data: proloaf.tensorloader.CustomTensorDataLoader,
         models: List[ModelWrapper],
         test_metrics: List[metrics.Metric],
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
@@ -732,13 +732,13 @@ class ModelHandler:
 
         Parameters
         ----------
-        train_data_loader : utils.tensorloader.CustomTensorDataLoader
+        train_data_loader : proloaf.tensorloader.CustomTensorDataLoader
             The training data loader
-        validation_data_loader : utils.tensorloader.CustomTensorDataLoader
+        validation_data_loader : proloaf.tensorloader.CustomTensorDataLoader
             The validation data loader
-        test_data_loader : utils.tensorloader.CustomTensorDataLoader
+        test_data_loader : proloaf.tensorloader.CustomTensorDataLoader
             The test data loader
-        net : utils.models.EncoderDecoder
+        net : proloaf.models.EncoderDecoder
             The model to be trained
         learning_rate : float, optional
             The specified optimizer's learning rate
@@ -771,7 +771,7 @@ class ModelHandler:
             dict of model configurations
         Returns
         -------
-        utils.models.EncoderDecoder
+        proloaf.models.EncoderDecoder
             The trained model
         pandas.DataFrame
             A DataFrame in which the results and parameters of the training have been logged
@@ -814,8 +814,8 @@ class ModelHandler:
     # TODO dataformat currently includes targets and features which differs from sklearn
     def fit(
         self,
-        train_data_loader: utils.tensorloader.CustomTensorDataLoader,
-        validation_data_loader: utils.tensorloader.CustomTensorDataLoader,
+        train_data_loader: proloaf.tensorloader.CustomTensorDataLoader,
+        validation_data_loader: proloaf.tensorloader.CustomTensorDataLoader,
         exploration: bool = None,
     ):
         if exploration is None:
@@ -841,9 +841,9 @@ class ModelHandler:
 
         Parameters
         ----------
-        net : utils.models.EncoderDecoder
+        net : proloaf.models.EncoderDecoder
             The model with which to calculate the predictions
-        data_loader : utils.tensorloader.CustomTensorDataLoader
+        data_loader : proloaf.tensorloader.CustomTensorDataLoader
             Contains the input data and targets
         horizon : int
             The horizon for the prediction
@@ -1006,12 +1006,12 @@ class TrainingRun:
         max_epochs: int,
         early_stopping_patience: int,
         early_stopping_margin: float,
-        train_data_loader: utils.tensorloader.CustomTensorDataLoader = None,
-        validation_data_loader: utils.tensorloader.CustomTensorDataLoader = None,
+        train_data_loader: proloaf.tensorloader.CustomTensorDataLoader = None,
+        validation_data_loader: proloaf.tensorloader.CustomTensorDataLoader = None,
         id: Union[str, int] = None,
         device: str = "cpu",
         log_df: pd.DataFrame = None,
-        log_tb: torch.utils.tensorboard.SummaryWriter = None,
+        log_tb: torch.proloaf.tensorboard.SummaryWriter = None,
     ):
         if id is None:
             self.id = TrainingRun._next_id
@@ -1116,7 +1116,7 @@ class TrainingRun:
             self.optimizer.zero_grad()
             loss = self.loss_function(targets, prediction)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+            torch.nn.proloaf.clip_grad_norm_(self.model.parameters(), 1)
             self.optimizer.step()
             self.step_counter += 1
             self.training_loss += loss.item() / len(self.train_dl)

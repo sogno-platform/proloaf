@@ -40,7 +40,7 @@ import argparse
 
 import pandas as pd
 import torch
-import utils.plot as plot
+import proloaf.plot as plot
 
 torch.set_printoptions(linewidth=120) # Display option for output
 torch.set_grad_enabled(True)
@@ -48,12 +48,12 @@ torch.set_grad_enabled(True)
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-import utils.datahandler as dh
-import utils.metrics as metrics
-import utils.baselinehandler as baselines
+import proloaf.datahandler as dh
+import proloaf.metrics as metrics
+import proloaf.baselinehandler as baselines
 
-from utils.confighandler import read_config
-from utils.cli import parse_with_loss
+from proloaf.confighandler import read_config
+from proloaf.cli import parse_with_loss
 
 class flag_and_store(argparse._StoreAction):
     def __init__(self, option_strings, dest, dest_const, const,

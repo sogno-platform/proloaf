@@ -44,13 +44,13 @@ MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 warnings.filterwarnings("ignore")
 
-from utils.confighandler import read_config
-from utils.cli import parse_basic
-import utils.datahandler as dh
-import utils.tensorloader as tl
-import utils.metrics as metrics
-import utils.plot as plot
-import utils.modelhandler as mh
+from proloaf.confighandler import read_config
+from proloaf.cli import parse_basic
+import proloaf.datahandler as dh
+import proloaf.tensorloader as tl
+import proloaf.metrics as metrics
+import proloaf.plot as plot
+import proloaf.modelhandler as mh
 
 
 if __name__ == "__main__":

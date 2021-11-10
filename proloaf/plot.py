@@ -23,7 +23,7 @@ Provides handy plot functions to visualize predictions and performancec over sel
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import utils.metrics as metrics
+import proloaf.metrics as metrics
 
 
 def plot_timestep(

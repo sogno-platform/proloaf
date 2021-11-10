@@ -40,10 +40,10 @@ import os
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-from utils.confighandler import read_config
-from utils.cli import parse_basic
+from proloaf.confighandler import read_config
+from proloaf.cli import parse_basic
 
-import utils.datahandler as dh
+import proloaf.datahandler as dh
 
 if __name__ == "__main__":
 

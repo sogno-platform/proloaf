@@ -24,9 +24,9 @@ Provides functions for logging training results and reading and writing those lo
 import pandas as pd
 import shutil
 from datetime import datetime
-from torch.utils.tensorboard import SummaryWriter
+from torch.proloaf.tensorboard import SummaryWriter
 
-from utils.confighandler import *
+from proloaf.confighandler import *
 
 # Loads a logfile if one exists, else creates a pd dataframe (create log)
 def create_log(log_path=None, station_path=None) -> pd.DataFrame:

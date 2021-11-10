@@ -39,7 +39,7 @@ import warnings
 from copy import deepcopy
 
 import pandas as pd
-from sklearn.utils import validation
+from sklearn.proloaf import validation
 import torch
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -47,16 +47,16 @@ print(MAIN_PATH)
 sys.path.append(MAIN_PATH)
 
 # Do relative imports below this
-from utils import metrics
-import utils.loghandler as log
-import utils.confighandler as ch
-import utils.datahandler as dh
-import utils.modelhandler as mh
-import utils
+from proloaf import metrics
+import proloaf.loghandler as log
+import proloaf.confighandler as ch
+import proloaf.datahandler as dh
+import proloaf.modelhandler as mh
+import proloaf
 
 # TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
-from utils.confighandler import read_config, get_existing_score
-from utils.cli import parse_with_loss
+from proloaf.confighandler import read_config, get_existing_score
+from proloaf.cli import parse_with_loss
 
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)

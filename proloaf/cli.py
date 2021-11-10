@@ -23,7 +23,7 @@ Provides various functions to run command line interface.
 
 import sys
 import argparse
-import utils.metrics as metrics
+import proloaf.metrics as metrics
 
 
 class flag_and_store(argparse._StoreAction):
@@ -119,7 +119,7 @@ def parse_with_loss(args=sys.argv[1:]):
         - num_pred : An int with the number of predictions
         - quantiles : A list of floats, if '--quantiles' was used, otherwise None
         - alpha : A float, if '--mis' was used, otherwise None
-        - loss : The specified callable loss function from utils.models.py
+        - loss : The specified callable loss function from proloaf.models.py
     dict
         Contains extra options if the loss functions mis or quantile score are used.
 

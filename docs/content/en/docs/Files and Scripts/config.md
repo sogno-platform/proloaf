@@ -55,7 +55,7 @@ The flag ``-s`` allows us to specify the station name (=target directory) throug
 i.e. *gefcom2017/nh_data*. The 'train' script will expect and parse the config.json given in the target directory.
 <!---
 ```sh
-from utils.cli import read_config, parse_with_loss
+from proloaf.cli import read_config, parse_with_loss
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
