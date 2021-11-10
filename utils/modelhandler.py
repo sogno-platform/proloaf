@@ -694,7 +694,7 @@ class ModelHandler:
                                 target=targets,
                                 quantile_prediction=quantiles,
                                 avg_over=avg_over,
-                            ).numpy()
+                            ).cpu().numpy()
                             for metric in test_metrics
                         ]
                     )  # .reshape(-1, len(test_metrics))

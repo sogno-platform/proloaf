@@ -36,17 +36,17 @@ class QuantilePrediction:
 
     Parameters
     ----------
-    values: torch.Tensor
+    values: torch.tensor
         3D-Tensor (sample,timestep,quantile) representing the predicted values for each quantile.
     quantiles: Iterable[float]:
         List of the quantiles in the same order as the predictions.
     """
 
-    def __init__(self, values: torch.Tensor, quantiles: Iterable[float]):
+    def __init__(self, values: torch.tensor, quantiles: Iterable[float]):
         self.values = values
         self.quantiles = list(quantiles)
 
-    def get_gauss_params(self) -> torch.Tensor:
+    def get_gauss_params(self) -> torch.tensor:
         """
         Estimate expectation value and std. deviation from quantile prediction.
         This is approximation, for the mean the pdf is treated as a histogram.
@@ -55,7 +55,7 @@ class QuantilePrediction:
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             3D Tensor (sample, timestep, valuetype), [:,:,0] corresponds to the predicted mean, while [:,:,1] corresponds to the std. deviation.
 
         Raises
@@ -71,7 +71,7 @@ class QuantilePrediction:
             [quant for quant in self.quantiles if quant != 0.5]
         ).values
 
-        z_values = torch.Tensor(
+        z_values = torch.tensor(
             [NormalDist().inv_cdf(quant) for quant in self.quantiles if quant != 0.5],
             device=self.values.device,
         )
@@ -87,7 +87,7 @@ class QuantilePrediction:
 
     @staticmethod
     def from_gauss_params(
-        values: torch.Tensor, quantiles: Iterable[float]
+        values: torch.tensor, quantiles: Iterable[float]
     ) -> QuantilePrediction:
         """
         Estimate expectation value and std. deviation from quantile prediction.
@@ -96,26 +96,26 @@ class QuantilePrediction:
 
         Parameters
         -------
-        values : torch.Tensor
+        values : torch.tensor
             3D Tensor (sample, timestep, valuetype), [:,:,0] corresponds to the predicted mean, while [:,:,1] corresponds to the std. deviation.
 
         quantiles : Iterable[float]
             Quantiles to be included in the QuantilePrediction.
         """
         quantiles = list(quantiles)
-        z_values = torch.Tensor(
+        z_values = torch.tensor(
             [NormalDist().inv_cdf(quant) for quant in quantiles], device=values.device
         )
         return QuantilePrediction(
             values[:, :, 0:1] + z_values[None, None, :] * values[:, :, 1:2], quantiles
         )
 
-    def get_mean(self) -> torch.Tensor:
+    def get_mean(self) -> torch.tensor:
 
         quantiles = np.array(self.quantiles)
         sorted_idx = np.argsort(quantiles)
         quantiles = quantiles[sorted_idx]
-        intervals = torch.Tensor(
+        intervals = torch.tensor(
             quantiles[1:] - quantiles[:-1], device=self.values.device
         )
         values = self.values[:, :, sorted_idx]
@@ -125,7 +125,7 @@ class QuantilePrediction:
             quantiles[-1] - quantiles[0]
         )
 
-    def get_quantile(self, quantile: float) -> torch.Tensor:
+    def get_quantile(self, quantile: float) -> torch.tensor:
         """
         Get a specific quantile prediction from this IntervalPrediction.
 
@@ -136,7 +136,7 @@ class QuantilePrediction:
 
         Returns
         -------
-        torch.Tensor:
+        torch.tensor:
             The selected quantile as 2D Tensor (sample,timestep)
 
         Raises:
@@ -159,7 +159,7 @@ class QuantilePrediction:
 
         Returns
         -------
-        torch.Tensor:
+        torch.tensor:
             The selected quantile as 3D Tensor (sample,timestep,quantile)
 
         Raises:
@@ -231,26 +231,26 @@ class Metric(ABC):
 
     def __call__(
         self,
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **kwargs,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates the value of this metric using the options set in '__init__()'
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             The gaussian negative log likelihood loss, which depending on the value of 'avg_over'
             is either a scalar (overall loss) or 1d-array over the horizon or the sample.
         """
@@ -279,19 +279,19 @@ class Metric(ABC):
 
     # @abstractmethod
     def get_quantile_prediction(
-        self, predictions: torch.Tensor, quantiles: Optional[List[float]], **kwargs
+        self, predictions: torch.tensor, quantiles: Optional[List[float]], **kwargs
     ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
         Parameters
         ----------
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
+        (torch.tensor, torch.tensor, torch.tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         raise NotImplementedError(
@@ -300,17 +300,17 @@ class Metric(ABC):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles.
@@ -320,7 +320,7 @@ class Metric(ABC):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -330,19 +330,19 @@ class Metric(ABC):
 
     @abstractstaticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calcualtion of the metrics value. Direct use is not recommended, instead create an object and call it to keep parameters consistent throughout its use.
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
@@ -351,7 +351,7 @@ class Metric(ABC):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Negative-log-Likelihood, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -376,7 +376,7 @@ class NllGauss(Metric):
         self.input_labels = ["expected_value", "log_variance"]
 
     def get_quantile_prediction(
-        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None, **_
+        self, predictions: torch.tensor, quantiles: Optional[List[float]] = None, **_
     ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
@@ -384,14 +384,14 @@ class NllGauss(Metric):
 
         Parameters
         ----------
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
+        (torch.tensor, torch.tensor, torch.tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         if quantiles is None:
@@ -405,16 +405,16 @@ class NllGauss(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
@@ -427,7 +427,7 @@ class NllGauss(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -442,20 +442,20 @@ class NllGauss(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates gaussian negative log likelihood score.
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             The true values of the target variable, dimensions are (sample number, timestep, 1).
-        predictions :  torch.Tensor
-            - predictions[:,:,0] = expected_value, a torch.Tensor containing predicted expected values
+        predictions :  torch.tensor
+            - predictions[:,:,0] = expected_value, a torch.tensor containing predicted expected values
             of the target variable
             - predictions[:,:,1] = log_variance, approx. equal to log(2*pi*sigma^2)
         avg_over: str, default = "all"
@@ -463,7 +463,7 @@ class NllGauss(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             The gaussian negative log likelihood loss, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -514,7 +514,7 @@ class PinnballLoss(Metric):
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
     def get_quantile_prediction(
-        self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None, **_
+        self, predictions: torch.tensor, quantiles: Optional[List[float]] = None, **_
     ) -> QuantilePrediction:
         if quantiles is None:
             return QuantilePrediction(predictions, self.options.get("quantiles"))
@@ -525,7 +525,7 @@ class PinnballLoss(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **kwargs,
@@ -535,13 +535,13 @@ class PinnballLoss(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles.
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -558,8 +558,8 @@ class PinnballLoss(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         quantiles: List[float],
         avg_over: Literal["all"] = "all",
         **_,
@@ -569,9 +569,9 @@ class PinnballLoss(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             The true values of the target variable. Dimensions are (sample number, timestep, 1).
-        predictions : torch.Tensor
+        predictions : torch.tensor
             The predicted values for each quantile. Dimensions are (sample number, timestep, quantile).
         quantiles : List[float]
             Quantiles that we are estimating for
@@ -626,7 +626,7 @@ class PinnballLoss(Metric):
 #         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
 #     def get_quantile_prediction(
-#         self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
+#         self, predictions: torch.tensor, quantiles: Optional[List[float]] = None
 #     ) -> QuantilePrediction:
 #         if quantiles is None:
 #             return QuantilePrediction(predictions, self.options.get("quantiles"))
@@ -637,10 +637,10 @@ class PinnballLoss(Metric):
 
 #     def from_quantiles(
 #         self,
-#         target: torch.Tensor,
+#         target: torch.tensor,
 #         quantile_prediction: QuantilePrediction,
 #         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-#     ) -> torch.Tensor:
+#     ) -> torch.tensor:
 #         # TODO this is not correct
 #         sigma = (upper_bound - lower_bound) / (2 * 1.96)
 #         log_var = 2 * sigma.log()
@@ -651,19 +651,19 @@ class PinnballLoss(Metric):
 
 #     @staticmethod
 #     def func(
-#         target: torch.Tensor,
-#         predictions: torch.Tensor,
+#         target: torch.tensor,
+#         predictions: torch.tensor,
 #         quantiles: List[float],
 #         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-#     ) -> torch.Tensor:
+#     ) -> torch.tensor:
 #         """
 #         Calcualtion of the metrics value. Direct use is not recommended, instead create an object and call it to keep parameters consistent throughout its use.
 
 #         Parameters
 #         ----------
-#         target: torch.Tensor
+#         target: torch.tensor
 #             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-#         predictions: torch.Tensor
+#         predictions: torch.tensor
 #             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
 #         avg_over: str
 #             One of "time", "sample", "all", averages the the results over the coresponding axis.
@@ -672,7 +672,7 @@ class PinnballLoss(Metric):
 
 #         Returns
 #         -------
-#         torch.Tensor
+#         torch.tensor
 #             Negative-log-Likelihood, which depending on the value of 'avg_over'
 #             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
 #         """
@@ -681,9 +681,9 @@ class PinnballLoss(Metric):
 
 #         Parameters
 #         ----------
-#         target : torch.Tensor
+#         target : torch.tensor
 #             True values of the target variable
-#         predictions : List[torch.Tensor]
+#         predictions : List[torch.tensor]
 #             The predicted expected values of the target variable
 #         quantiles : List[float]
 #             Quantiles that we are estimating for
@@ -727,7 +727,7 @@ class CRPSGauss(Metric):
         self.input_labels = ["expected_value", "log_variance"]
 
     def get_quantile_prediction(
-        self, predictions: torch.Tensor, alpha=None, **_
+        self, predictions: torch.tensor, alpha=None, **_
     ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
@@ -735,14 +735,14 @@ class CRPSGauss(Metric):
 
         Parameters
         ----------
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
+        (torch.tensor, torch.tensor, torch.tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         if alpha is None:
@@ -755,7 +755,7 @@ class CRPSGauss(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
@@ -764,7 +764,7 @@ class CRPSGauss(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
@@ -772,7 +772,7 @@ class CRPSGauss(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -782,8 +782,8 @@ class CRPSGauss(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -801,10 +801,10 @@ class CRPSGauss(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             The true values of the target variable, dimensions are (sample number, timestep, 1).
-        predictions :  torch.Tensor
-            - predictions[:,:,0] = expected_value, a torch.Tensor containing predicted expected values
+        predictions :  torch.tensor
+            - predictions[:,:,0] = expected_value, a torch.tensor containing predicted expected values
             of the target variable
             - predictions[:,:,1] = log_variance, approx. equal to log(2*pi*sigma^2)
         avg_over: str, default = "all"
@@ -812,7 +812,7 @@ class CRPSGauss(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             The gaussian negative log likelihood loss, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
 
@@ -851,8 +851,8 @@ class Residuals(Metric):
 
     def get_quantile_prediction(
         self,
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         quantiles: Optional[List[float]] = None,
         **_,
     ) -> QuantilePrediction:
@@ -862,16 +862,16 @@ class Residuals(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
+        (torch.tensor, torch.tensor, torch.tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         if quantiles is None:
@@ -885,17 +885,17 @@ class Residuals(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
@@ -905,7 +905,7 @@ class Residuals(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -915,8 +915,8 @@ class Residuals(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -926,17 +926,17 @@ class Residuals(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             The true values of the target variable, dimensions are (sample number, timestep, 1).
-        predictions :  torch.Tensor
-            - predictions[:,:,0] = expected_value, a torch.Tensor containing predicted expected values
+        predictions :  torch.tensor
+            - predictions[:,:,0] = expected_value, a torch.tensor containing predicted expected values
             of the target variable
         avg_over: str, default = "all"
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             difference from the target value, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall average) or 1d-tensor over the horizon or the sample.
 
@@ -973,8 +973,8 @@ class Mse(Metric):
 
     def get_quantile_prediction(
         self,
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         quantiles: Optional[List[float]] = None,
         **_,
     ) -> QuantilePrediction:
@@ -984,16 +984,16 @@ class Mse(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
+        (torch.tensor, torch.tensor, torch.tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         if quantiles is None:
@@ -1007,17 +1007,17 @@ class Mse(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
@@ -1030,7 +1030,7 @@ class Mse(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -1040,8 +1040,8 @@ class Mse(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1050,17 +1050,17 @@ class Mse(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             The true values of the target variable, dimensions are (sample number, timestep, 1).
-        predictions :  torch.Tensor
-            - predictions[:,:,0] = expected_value, a torch.Tensor containing predicted expected values
+        predictions :  torch.tensor
+            - predictions[:,:,0] = expected_value, a torch.tensor containing predicted expected values
             of the target variable. Dimensions are (sample number, timestep, 1).
         avg_over: str, default = "all"
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             The mean squared error, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
 
@@ -1101,8 +1101,8 @@ class Rmse(Metric):
 
     def get_quantile_prediction(
         self,
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         quantiles: Optional[List[float]] = None,
         **_,
     ) -> QuantilePrediction:
@@ -1112,16 +1112,16 @@ class Rmse(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval. If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
+        (torch.tensor, torch.tensor, torch.tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         if quantiles is None:
@@ -1135,17 +1135,17 @@ class Rmse(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
@@ -1158,7 +1158,7 @@ class Rmse(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -1168,8 +1168,8 @@ class Rmse(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1178,17 +1178,17 @@ class Rmse(Metric):
 
                 Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             The true values of the target variable, dimensions are (sample number, timestep, 1).
-        predictions :  torch.Tensor
-            - predictions[:,:,0] = expected_value, a torch.Tensor containing predicted expected values
+        predictions :  torch.tensor
+            - predictions[:,:,0] = expected_value, a torch.tensor containing predicted expected values
             of the target variable. Dimensions are (sample number, timestep, 1).
         avg_over: str, default = "all"
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             The mean squared error, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
 
@@ -1219,8 +1219,8 @@ class Mase(Metric):
 
     def get_quantile_prediction(
         self,
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         quantiles: Optional[List[float]] = None,
         **_,
     ) -> QuantilePrediction:
@@ -1230,16 +1230,16 @@ class Mase(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
         quantiles : List[float], default = None
             quantiles to be estimated from the original prediction. Defaults to (1-alpha/2, alpha/2, 0.5)
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
+        (torch.tensor, torch.tensor, torch.tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         if quantiles is None:
@@ -1253,18 +1253,18 @@ class Mase(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         freq=None,
         **_,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
@@ -1274,7 +1274,7 @@ class Mase(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -1289,8 +1289,8 @@ class Mase(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         freq=1,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         insample_target=None,
@@ -1306,21 +1306,21 @@ class Mase(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             The true values of the target variable
-        predictions :  torch.Tensor
-            predictions[:,:,0] = y_hat_test, predicted expected values of the target variable (torch.Tensor).
+        predictions :  torch.tensor
+            predictions[:,:,0] = y_hat_test, predicted expected values of the target variable (torch.tensor).
             Dimensions are (sample number, timestep, 1).
         freq : int scalar
             The frequency of the season type being considered
         avg_over: str, default = "all"
             Only "all" is supported by Mase, averages the results over the coresponding axis.
-        insample_target : torch.Tensor, default = None
+        insample_target : torch.tensor, default = None
             Contains insample values (e.g. target values shifted by season frequency). If none is provided defaults to shifting the target by 'freq'.
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             A scalar with the overall MASE (lower the better)
 
         Raises
@@ -1358,8 +1358,8 @@ class Sharpness(Metric):
 
     def get_quantile_prediction(
         self,
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         quantiles: Optional[List[float]] = None,
         **_,
     ) -> QuantilePrediction:
@@ -1369,16 +1369,16 @@ class Sharpness(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        predictions: torch.Tensor
+        predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, 1).
         quantiles : List[float], default = None
             quantiles to be estimated from the original prediction. Defaults to (1-alpha/2, alpha/2, 0.5)
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor, torch.Tensor)
+        (torch.tensor, torch.tensor, torch.tensor)
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         if quantiles is None:
@@ -1391,17 +1391,17 @@ class Sharpness(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
-    ) -> torch.Tensor:
+    ) -> torch.tensor:
         """
         Calculates the value of the metric based on interval and expectation value over the timeframe.
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast 2 quantile predictions, if more are provided highest and lowest quantile are used.
@@ -1410,7 +1410,7 @@ class Sharpness(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -1426,8 +1426,8 @@ class Sharpness(Metric):
 
     @staticmethod
     def func(
-        # target: torch.Tensor,
-        predictions: torch.Tensor,
+        # target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1436,7 +1436,7 @@ class Sharpness(Metric):
 
         Parameters
         ----------
-        predictions :  torch.Tensor
+        predictions :  torch.tensor
             - predictions[:,:,0] = y_pred_upper, predicted upper limit of the target variable
             - predictions[:,:,1] = y_pred_lower, predicted lower limit of the target variable
         avg_over: str, default = "all"
@@ -1444,7 +1444,7 @@ class Sharpness(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             The shaprness, which depending on the value of 'total' is either a scalar (overall sharpness)
             or 1d-array over the horizon, in which case it is expected to increase as we move
             along the horizon. Generally, lower is better.
@@ -1469,7 +1469,7 @@ class Picp(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["sample"], Literal["all"]] = "all",
         **_,
@@ -1479,7 +1479,7 @@ class Picp(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast 2 quantile predictions, if more are provided highest and lowest quantile are used.
@@ -1488,7 +1488,7 @@ class Picp(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -1503,8 +1503,8 @@ class Picp(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1514,17 +1514,17 @@ class Picp(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             true values of the target variable
-        predictions :  List[torch.Tensor]
-            - predictions[:,:,0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
-            - predictions[:,:,1] = y_pred_lower, predicted lower limit of the target variable (torch.Tensor)
+        predictions :  List[torch.tensor]
+            - predictions[:,:,0] = y_pred_upper, predicted upper limit of the target variable (torch.tensor)
+            - predictions[:,:,1] = y_pred_lower, predicted lower limit of the target variable (torch.tensor)
         avg_over: str, default = "all"
             One of "time", "sample", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             The PICP, which depending on the value of 'avg_over' is either a scalar (PICP in %, for
             significance level alpha = 0.05, PICP should >= 95%)
             or 1d-array over the horizon or per sample.
@@ -1560,8 +1560,8 @@ class Picp(Metric):
 class PicpLoss(Picp):
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["sample"], Literal["all"]] = "all",
     ):
         return 1 - Picp.func(target, predictions, avg_over)
@@ -1569,27 +1569,27 @@ class PicpLoss(Picp):
 
 # TODO not very nice, if needed think about a different approach to the "reward" vs "loss" problem
 # @metric_with_labels(["upper_limit", "lower_limit"])
-# def picp_loss(target: torch.Tensor, predictions, total: bool =True):
+# def picp_loss(target: torch.tensor, predictions, total: bool =True):
 #     """
 #     Calculate 1 - PICP (see eval_metrics.picp for more details)
 
 #     Parameters
 #     ----------
-#     target : torch.Tensor
+#     target : torch.tensor
 #         The true values of the target variable
-#     predictions :  List[torch.Tensor]
-#         - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.Tensor)
-#         - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.Tensor)
+#     predictions :  List[torch.tensor]
+#         - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.tensor)
+#         - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.tensor)
 #     total : bool, default = True
 #         - When total is set to True, return a scalar value for 1- PICP
 #         - When total is set to False, return 1-PICP along the horizon
 
 #     Returns
 #     -------
-#     torch.Tensor
+#     torch.tensor
 #         Returns 1-PICP, either as a scalar or over the horizon
 #     """
-#     return 1 - picp(target: torch.Tensor, predictions, total)
+#     return 1 - picp(target: torch.tensor, predictions, total)
 class Mis(Metric):
     def __init__(self, alpha=None):
         if alpha is None:
@@ -1599,7 +1599,7 @@ class Mis(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
@@ -1609,7 +1609,7 @@ class Mis(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
 
         quantile_prediction: QuantilePrediction
@@ -1620,7 +1620,7 @@ class Mis(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -1643,8 +1643,8 @@ class Mis(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         alpha: float = None,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
@@ -1657,9 +1657,9 @@ class Mis(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             true values of the target variable
-        predictions :  List[torch.Tensor]
+        predictions :  List[torch.tensor]
             - predictions[:,:,0] = y_pred_upper, predicted upper limit of the target variable
             - predictions[:,:,1] = y_pred_lower, predicted lower limit of the target variable
         alpha : float
@@ -1669,7 +1669,7 @@ class Mis(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             The MIS, which depending on the value of 'total' is either a scalar (overall MIS)
             or 1d-array over the horizon, in which case it is expected to increase as we move
             along the horizon. Generally, lower is better.
@@ -1718,7 +1718,7 @@ class Rae(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
@@ -1728,7 +1728,7 @@ class Rae(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
@@ -1741,7 +1741,7 @@ class Rae(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -1751,8 +1751,8 @@ class Rae(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1762,9 +1762,9 @@ class Rae(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             The true values of the target variable
-        predictions :  torch.Tensor
+        predictions :  torch.tensor
             Predicted values over samples and time. Dimension have to be (sample number, timestep,1).
         avg_over: str, default = "all"
             Only "all" is supported, averages the the results over the coresponding axis.
@@ -1772,7 +1772,7 @@ class Rae(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             A 0d-Tensor with the overall RAE.
 
         Raises
@@ -1803,7 +1803,7 @@ class Mae(Metric):
 
     def from_quantiles(
         self,
-        target: torch.Tensor,
+        target: torch.tensor,
         quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
@@ -1813,7 +1813,7 @@ class Mae(Metric):
 
         Parameters
         ----------
-        target: torch.Tensor
+        target: torch.tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
          quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
@@ -1823,7 +1823,7 @@ class Mae(Metric):
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
@@ -1833,8 +1833,8 @@ class Mae(Metric):
 
     @staticmethod
     def func(
-        target: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.tensor,
+        predictions: torch.tensor,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1844,16 +1844,16 @@ class Mae(Metric):
 
         Parameters
         ----------
-        target : torch.Tensor
+        target : torch.tensor
             true values of the target variable
-        predictions :  torch.Tensor
+        predictions :  torch.tensor
             Predicted values over samples and time. Dimension have to be (sample number, timestep,1).
         avg_over: str, default = "all"
             Only "all" is supported, averages the the results over the coresponding axis.
 
         Returns
         -------
-        torch.Tensor
+        torch.tensor
             A scalar with the overall mae (the lower the better)
 
         Raises
