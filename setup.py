@@ -32,9 +32,8 @@ if __name__ == "__main__":
         name="proloaf",
         version="0.2.0",
         packages=["proloaf"],
-        package_dir={"proloaf": "proloaf"},
+        package_dir={"": "src"},
         license="Apache License 2.0",
-        url="https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/tree/develop/proloaf",
         install_requires=[
             "numpy",
             "pandas",
