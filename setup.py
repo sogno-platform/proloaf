@@ -43,5 +43,10 @@ if __name__ == "__main__":
             "scikit-learn",
             "datetime",
             "pyparsing>=2.2.1,<3",
+            "arch",
+            "optuna",
+            "pmdarima",
+            "statsmodels",
+            "tensorboard",
         ],
     )
