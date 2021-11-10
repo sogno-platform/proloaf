@@ -30,7 +30,7 @@ import inspect
 from statistics import NormalDist
 
 
-class QuantilePrediciton:
+class QuantilePrediction:
     """
     Common prediction format.
 
@@ -72,12 +72,13 @@ class QuantilePrediciton:
         ).values
 
         z_values = torch.Tensor(
-            [NormalDist().inv_cdf(quant) for quant in self.quantiles if quant != 0.5]
+            [NormalDist().inv_cdf(quant) for quant in self.quantiles if quant != 0.5],
+            device=self.values.device,
         )
 
         # Assume median is expectation value (which is true assuming gaussian distribution)
         # calculate std-deviation for each quantile
-        # should be the same for each quantile (but not timestep and sample) assuming perfectly normal distributed predicitons
+        # should be the same for each quantile (but not timestep and sample) assuming perfectly normal distributed predictions
         sigma = (intervals - mean.unsqueeze(2)) / z_values[None, None, :]
 
         # TODO replace torch.nansum/size with torch.nanmean once that makes it into official pytorch
@@ -87,7 +88,7 @@ class QuantilePrediciton:
     @staticmethod
     def from_gauss_params(
         values: torch.Tensor, quantiles: Iterable[float]
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Estimate expectation value and std. deviation from quantile prediction.
 
@@ -99,11 +100,13 @@ class QuantilePrediciton:
             3D Tensor (sample, timestep, valuetype), [:,:,0] corresponds to the predicted mean, while [:,:,1] corresponds to the std. deviation.
 
         quantiles : Iterable[float]
-            Quantiles to be included in the QuantilePrediciton.
+            Quantiles to be included in the QuantilePrediction.
         """
         quantiles = list(quantiles)
-        z_values = torch.Tensor([NormalDist().inv_cdf(quant) for quant in quantiles])
-        return QuantilePrediciton(
+        z_values = torch.Tensor(
+            [NormalDist().inv_cdf(quant) for quant in quantiles], device=values.device
+        )
+        return QuantilePrediction(
             values[:, :, 0:1] + z_values[None, None, :] * values[:, :, 1:2], quantiles
         )
 
@@ -112,7 +115,9 @@ class QuantilePrediciton:
         quantiles = np.array(self.quantiles)
         sorted_idx = np.argsort(quantiles)
         quantiles = quantiles[sorted_idx]
-        intervals = torch.Tensor(quantiles[1:] - quantiles[:-1])
+        intervals = torch.Tensor(
+            quantiles[1:] - quantiles[:-1], device=self.values.device
+        )
         values = self.values[:, :, sorted_idx]
         center_values = (values[:, :, 1:] + values[:, :, :-1]) / 2
         # weighted sum over the intervals
@@ -122,7 +127,7 @@ class QuantilePrediciton:
 
     def get_quantile(self, quantile: float) -> torch.Tensor:
         """
-        Get a specific quantile prediciton from this IntervalPrediction.
+        Get a specific quantile prediction from this IntervalPrediction.
 
         Parameters
         ----------
@@ -141,16 +146,16 @@ class QuantilePrediciton:
 
     def select_quantiles(
         self, quantiles: Iterable[float], inplace=False
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
-        Get a narrow the prediciton down to the selected quantiles.
+        Get a narrow the prediction down to the selected quantiles.
 
         Parameters
         ----------
         quantiles: List[float],
             Quantiles you want to select.
         inplace:
-            If False a new QuantilePrediciton will be created and return, if True the existing QuantilePrediciton will be modified.
+            If False a new QuantilePrediction will be created and return, if True the existing QuantilePrediction will be modified.
 
         Returns
         -------
@@ -167,16 +172,16 @@ class QuantilePrediciton:
             self.quantiles = quantiles
             return self
         else:
-            return QuantilePrediciton(self.values[:, :, indices], quantiles)
+            return QuantilePrediction(self.values[:, :, indices], quantiles)
 
-    def select_upper_bound(self, inplace=False) -> QuantilePrediciton:
+    def select_upper_bound(self, inplace=False) -> QuantilePrediction:
         """
-        Generates QuantilePrediciton only containing the greatest quantile.
+        Generates QuantilePrediction only containing the greatest quantile.
 
         Parameters
         ----------
         inplace:
-            If False a new QuantilePrediciton will be created and return, if True the existing QuantilePrediciton will be modified.
+            If False a new QuantilePrediction will be created and return, if True the existing QuantilePrediction will be modified.
 
         Returns
         -------
@@ -186,14 +191,14 @@ class QuantilePrediciton:
         upper_quantile = max(self.quantiles)
         return self.select_quantiles((upper_quantile,), inplace=inplace)
 
-    def select_lower_bound(self, inplace=False) -> QuantilePrediciton:
+    def select_lower_bound(self, inplace=False) -> QuantilePrediction:
         """
-        Generates QuantilePrediciton only containing the lowest quantile.
+        Generates QuantilePrediction only containing the lowest quantile.
 
         Parameters
         ----------
         inplace:
-            If False a new QuantilePrediciton will be created and return, if True the existing QuantilePrediciton will be modified.
+            If False a new QuantilePrediction will be created and return, if True the existing QuantilePrediction will be modified.
 
         Returns
         -------
@@ -206,7 +211,7 @@ class QuantilePrediciton:
 
 class Metric(ABC):
     """
-    Base class for prediciton evaluation metrics, defining the function itself,
+    Base class for prediction evaluation metrics, defining the function itself,
     saving all metric specific parameters in per instance and providing some methods to convieniently use metrics.
 
     Parameters
@@ -275,7 +280,7 @@ class Metric(ABC):
     # @abstractmethod
     def get_quantile_prediction(
         self, predictions: torch.Tensor, quantiles: Optional[List[float]], **kwargs
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -290,13 +295,13 @@ class Metric(ABC):
             (Upper bound, lower bound,expectation value) all per sample and timestep.
         """
         raise NotImplementedError(
-            f"get_prediciton is not available for {self.__class__}"
+            f"get_prediction is not available for {self.__class__}"
         )
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
         **kwargs,
     ) -> torch.Tensor:
@@ -307,7 +312,7 @@ class Metric(ABC):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles.
             Some of the metrics have additional requirements, like a predicted median or atleast one symetric interval in the quantiles.
         avg_over: str
@@ -372,7 +377,7 @@ class NllGauss(Metric):
 
     def get_quantile_prediction(
         self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None, **_
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -394,14 +399,14 @@ class NllGauss(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
 
         sigma = (0.5 * predictions[:, :, 1]).exp()
-        return QuantilePrediciton.from_gauss_params(
+        return QuantilePrediction.from_gauss_params(
             torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
         )
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ) -> torch.Tensor:
         """
@@ -411,7 +416,7 @@ class NllGauss(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
@@ -510,18 +515,18 @@ class PinnballLoss(Metric):
 
     def get_quantile_prediction(
         self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None, **_
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         if quantiles is None:
-            return QuantilePrediciton(predictions, self.options.get("quantiles"))
+            return QuantilePrediction(predictions, self.options.get("quantiles"))
         else:
-            return QuantilePrediciton(
+            return QuantilePrediction(
                 predictions, self.options.get("quantiles")
             ).select_quantiles(quantiles, inplace=True)
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **kwargs,
     ):
@@ -532,7 +537,7 @@ class PinnballLoss(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles.
         Returns
         -------
@@ -622,18 +627,18 @@ class PinnballLoss(Metric):
 
 #     def get_quantile_prediction(
 #         self, predictions: torch.Tensor, quantiles: Optional[List[float]] = None
-#     ) -> QuantilePrediciton:
+#     ) -> QuantilePrediction:
 #         if quantiles is None:
-#             return QuantilePrediciton(predictions, self.options.get("quantiles"))
+#             return QuantilePrediction(predictions, self.options.get("quantiles"))
 #         else:
-#             return QuantilePrediciton(
+#             return QuantilePrediction(
 #                 predictions, self.options.get("quantiles")
 #             ).select_quantiles(quantiles, inplace=True)
 
 #     def from_quantiles(
 #         self,
 #         target: torch.Tensor,
-#         quantile_prediction: QuantilePrediciton,
+#         quantile_prediction: QuantilePrediction,
 #         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
 #     ) -> torch.Tensor:
 #         # TODO this is not correct
@@ -723,7 +728,7 @@ class CRPSGauss(Metric):
 
     def get_quantile_prediction(
         self, predictions: torch.Tensor, alpha=None, **_
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -744,14 +749,14 @@ class CRPSGauss(Metric):
             alpha = self.options.get("alpha")
         expected_values = predictions[:, :, 0]  # expected_values:mu
         sigma = torch.exp(predictions[:, :, 1] * 0.5)
-        return QuantilePrediciton.from_gauss_params(
+        return QuantilePrediction.from_gauss_params(
             torch.stack((expected_values, sigma)), [1 - alpha / 2.0, alpha / 2.0, 0.5]
         )
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ):
         """
@@ -761,7 +766,7 @@ class CRPSGauss(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
             The mean is estimated to be the median as it would be for a gaussian distribution.
 
@@ -850,7 +855,7 @@ class Residuals(Metric):
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
         **_,
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -874,14 +879,14 @@ class Residuals(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[:, :, 0], rmse.item())
-        return QuantilePrediciton.from_gauss_params(
+        return QuantilePrediction.from_gauss_params(
             torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
         )
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.Tensor:
@@ -892,7 +897,7 @@ class Residuals(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
@@ -972,7 +977,7 @@ class Mse(Metric):
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
         **_,
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -996,14 +1001,14 @@ class Mse(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[:, :, 0], rmse.item())
-        return QuantilePrediciton.from_gauss_params(
+        return QuantilePrediction.from_gauss_params(
             torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
         )
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.Tensor:
@@ -1014,7 +1019,7 @@ class Mse(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
@@ -1100,7 +1105,7 @@ class Rmse(Metric):
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
         **_,
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -1124,14 +1129,14 @@ class Rmse(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[:, :, 0], rmse.item())
-        return QuantilePrediciton.from_gauss_params(
+        return QuantilePrediction.from_gauss_params(
             torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
         )
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.Tensor:
@@ -1142,7 +1147,7 @@ class Rmse(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
@@ -1218,7 +1223,7 @@ class Mase(Metric):
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
         **_,
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -1242,14 +1247,14 @@ class Mase(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[:, :, 0], rmse.item())
-        return QuantilePrediciton.from_gauss_params(
+        return QuantilePrediction.from_gauss_params(
             torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
         )
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         freq=None,
         **_,
@@ -1261,7 +1266,7 @@ class Mase(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
@@ -1357,7 +1362,7 @@ class Sharpness(Metric):
         predictions: torch.Tensor,
         quantiles: Optional[List[float]] = None,
         **_,
-    ) -> QuantilePrediciton:
+    ) -> QuantilePrediction:
         """
         Calculates the an interval and expectation value for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -1380,14 +1385,14 @@ class Sharpness(Metric):
             quantiles = self.options.get("quantiles")
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[:, :, 0], rmse.item())
-        return QuantilePrediciton.from_gauss_params(
+        return QuantilePrediction.from_gauss_params(
             torch.stack((predictions[:, :, 0], sigma), dim=2), quantiles
         )
 
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.Tensor:
@@ -1398,7 +1403,7 @@ class Sharpness(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast 2 quantile predictions, if more are provided highest and lowest quantile are used.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
@@ -1465,7 +1470,7 @@ class Picp(Metric):
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1476,7 +1481,7 @@ class Picp(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast 2 quantile predictions, if more are provided highest and lowest quantile are used.
         avg_over: str
             One of "time", "sample", "all", averages the the results over the coresponding axis.
@@ -1595,7 +1600,7 @@ class Mis(Metric):
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1607,7 +1612,7 @@ class Mis(Metric):
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
 
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast 2 quantile predictions of symetric quantiles (e.g (0.95,0.05)).
             If more are provided greatest symetric interval is used.
         avg_over: str
@@ -1714,7 +1719,7 @@ class Rae(Metric):
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1725,7 +1730,7 @@ class Rae(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-        quantile_prediction: QuantilePrediciton
+        quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
@@ -1799,7 +1804,7 @@ class Mae(Metric):
     def from_quantiles(
         self,
         target: torch.Tensor,
-        quantile_prediction: QuantilePrediciton,
+        quantile_prediction: QuantilePrediction,
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
@@ -1810,7 +1815,7 @@ class Mae(Metric):
         ----------
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-         quantile_prediction: QuantilePrediciton
+         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
@@ -1867,7 +1872,7 @@ class Mae(Metric):
         return torch.mean(torch.abs(target - y_hat_test))
 
 
-_EXCLUDED = ["Metric", "QuantilePrediciton"]
+_EXCLUDED = ["Metric", "QuantilePrediction"]
 # dict {class_name:class}
 _all_dict = {
     cls[0].lower(): cls[1]
