@@ -694,7 +694,9 @@ class ModelHandler:
                                 target=targets,
                                 quantile_prediction=quantiles,
                                 avg_over=avg_over,
-                            ).cpu().numpy()
+                            )
+                            .cpu()
+                            .numpy()
                             for metric in test_metrics
                         ]
                     )  # .reshape(-1, len(test_metrics))
@@ -1011,7 +1013,7 @@ class TrainingRun:
         id: Union[str, int] = None,
         device: str = "cpu",
         log_df: pd.DataFrame = None,
-        log_tb: torch.proloaf.tensorboard.SummaryWriter = None,
+        log_tb: torch.utils.tensorboard.SummaryWriter = None,
     ):
         if id is None:
             self.id = TrainingRun._next_id
@@ -1116,7 +1118,7 @@ class TrainingRun:
             self.optimizer.zero_grad()
             loss = self.loss_function(targets, prediction)
             loss.backward()
-            torch.nn.proloaf.clip_grad_norm_(self.model.parameters(), 1)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
             self.optimizer.step()
             self.step_counter += 1
             self.training_loss += loss.item() / len(self.train_dl)

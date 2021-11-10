@@ -39,7 +39,7 @@ import warnings
 from copy import deepcopy
 
 import pandas as pd
-from sklearn.proloaf import validation
+from sklearn.utils import validation
 import torch
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))

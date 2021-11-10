@@ -24,7 +24,7 @@ Provides functions for logging training results and reading and writing those lo
 import pandas as pd
 import shutil
 from datetime import datetime
-from torch.proloaf.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 from proloaf.confighandler import *
 
