@@ -51,6 +51,9 @@ a042b336626aa82913253d314723796b9831160e Merge branch 'develop' into 'master'
 069fbdfa62594c5c00ddf89faa345c9036507e24 revert changes in build stage
 742e7eb824a857356b9f68c7de943d90f96ab68e Update .gitlab-ci.yml
 740a61501f2887081f9fa87f5383d85796c511d8 Update dockerfile for hugo build
+ca62ddf419311b0a9c5bc1c889cc12fd9a39f7df Update setup.py for openstf
+3e53f7069be89860855bd6bc8d06eefa9541fccc put dash instead
+44cc07fa06ba5b6e825e5bf2f91f9783037a3a6c Update names in setup.py
 
 I, Markus Mirz hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: mmirz@eonerc.rwth-aachen.de
 
