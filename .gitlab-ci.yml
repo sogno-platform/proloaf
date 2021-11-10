@@ -5,7 +5,7 @@ variables:
 
 workflow:
     rules:
-        - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE
+        - if: $CI_COMMIT_BRANCH == "refactor-utils" && $CI_COMMIT_MESSAGE
         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "api"
         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "web"
 
@@ -105,7 +105,7 @@ train_on_call:
 test_train_no_hp:
     stage: test-train
     script:
-        - python3 source/train.py -s ci_tests/ci_test_no_hp --ci
+        - python3 src/train.py -s ci_tests/ci_test_no_hp --ci
     artifacts:
         when: on_success
         name: proloaf
@@ -125,7 +125,7 @@ test_train_no_hp:
 test_train_hp:
     stage: test-train
     script:
-        - python3 source/train.py -s ci_tests/ci_test_hp --ci
+        - python3 src/train.py -s ci_tests/ci_test_hp --ci
     artifacts:
         when: on_success
         expire_in: 1 hour
@@ -186,7 +186,7 @@ eval_on_call:
 test_eval_hp:
     stage: test-eval
     script:
-        - python3 source/evaluate.py -s ci_tests/ci_test_hp
+        - python3 src/evaluate.py -s ci_tests/ci_test_hp
     artifacts:
       name: proloaf
       when: on_success
@@ -206,7 +206,7 @@ test_eval_hp:
 test_eval_no_hp:
     stage: test-eval
     script:
-        - python3 source/evaluate.py -s ci_tests/ci_test_no_hp
+        - python3 src/evaluate.py -s ci_tests/ci_test_no_hp
     artifacts:
       name: proloaf
       when: on_success
