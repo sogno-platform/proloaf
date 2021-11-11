@@ -5,7 +5,6 @@ variables:
 
 workflow:
     rules:
-        - if: $CI_COMMIT_BRANCH == "fix-ci" && $CI_COMMIT_MESSAGE
         - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE
         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "api"
         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "web"

@@ -3,8 +3,6 @@ WORKDIR /usr/src/app
 COPY ./requirements.txt ./
 COPY ./setup.py ./
 COPY ./src ./src
-RUN ls -la
-RUN ls -la ..
 RUN python3 setup.py build
 RUN python3 setup.py install
 RUN pip3 install --no-cache-dir -r requirements.txt
