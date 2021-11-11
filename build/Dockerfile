@@ -2,7 +2,7 @@ FROM python:3
 WORKDIR /usr/src/app
 COPY ./requirements.txt ./
 COPY ./setup.py ./
-COPY ./src ./
+COPY ./src ./src
 RUN ls -la
 RUN ls -la ..
 RUN python3 setup.py build
