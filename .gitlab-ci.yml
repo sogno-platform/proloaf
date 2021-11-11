@@ -18,6 +18,7 @@ stages:
     - test-eval
     - evaluation
     - oracles:deploy
+    - pdoc
     - build
     - deploy
 
@@ -35,14 +36,12 @@ docker-plf:
    - docker
 
 prep-docs:
-  stage: prepare
+  stage: pdoc
   image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
   script:
     - pip3 install --no-cache-dir pdoc
     - pdoc -o ./docs/static/reference/proloaf -t . -d numpy ../proloaf
-    - cd docs/static/reference/proloaf
-    - ls -l
-    - cd ../../../..
+    - ls -l ./docs/static/reference/proloaf
   artifacts:
     expire_in: 1 day
     when: on_success
