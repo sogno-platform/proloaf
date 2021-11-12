@@ -3,7 +3,7 @@
 # 
 
 [![pipeline status](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/badges/master/pipeline.svg)](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/commits/master)
-[![Python](https://img.shields.io/badge/python->=3.6-blue)](https://www.python.org)
+[![Python](https://img.shields.io/badge/python->=3.8-blue)](https://www.python.org)
 
 [**Website**](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf)
 | [**Docs**](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/)
@@ -41,7 +41,7 @@ To keep all infos on what you can do with ProLoaF and how to get there, our
 [documentation overview](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/overview/), is the place where you'll find all answers.
 
 ## Related Publications
-G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation," The 16th International Conference on Probabilistic Methods Applied to Power Systems, PMAPS 2020, 2020-08-18 - 2020-08-21, Liège, Belgium, ISBN 978-1-7281-2822-1, [Access Online](http://aimontefiore.org/PMAPS2020/openconf/modules/request.php?module=oc_proceedings&action=view.php&id=92&type=3&a=Accept)
+G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation," The 16th International Conference on Probabilistic Methods Applied to Power Systems, PMAPS 2020, 2020-08-18 - 2020-08-21, Liège, Belgium, ISBN 978-1-7281-2822-1, [Access Online](Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation)
 
 
 ## License
