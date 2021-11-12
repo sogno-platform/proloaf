@@ -8,6 +8,11 @@ Author-email: gguerses@eonerc.rwth-aachen.de
 License: Apache License Version 2.0, January 2004
 
 Description: # ProLoaF Python Support
+
+ProLoaF makes use of the big data paradigm that allows machine learning algorithms, trained with data from the power system field. The core comprises a recurrent neural network (encoder-decoder architecture) to predict the target variable.
+The targets can vary from timerseries of PV, Wind or other generators to most commonly the total energy consumption.
+Both, the relevant input data history and prediction horizon are arbitrarily long and customizable for any specific need.
+
         ## Installation
 
         First, clone this Repository and initialize the submodules:
@@ -31,7 +36,7 @@ Description: # ProLoaF Python Support
 
         ## Documentation
 
-        User documentation is available here: <https://villas.fein-aachen.org/doc/node.html>
+        User documentation is available here: <https://sogno-platform.github.io/proloaf/docs/>
 
         ## Copyright
 
