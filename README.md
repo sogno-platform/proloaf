@@ -2,7 +2,8 @@
 
 # 
 
-[![Python](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8-blue)](https://www.python.org)
+[![pipeline status](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/badges/master/pipeline.svg)](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/commits/master)
+[![Python](https://img.shields.io/badge/python->=3.6-blue)](https://www.python.org)
 
 [**Website**](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf)
 | [**Docs**](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/)
