@@ -11,6 +11,11 @@
 | [**Tutorial**](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/tutorials/)
 
 ProLoaF is a probabilistic load forecasting project.
+## Description
+ProLoaF makes use of the big data paradigm that allows machine learning algorithms, trained with data from the power system field. The core comprises a recurrent neural network (encoder-decoder architecture) to predict the target variable.
+
+The targets can vary from timerseries of PV, Wind or other generators to most commonly the total energy consumption.
+Both, the relevant input data history and prediction horizon are arbitrarily long and customizable for any specific need.
 
 ## Installation
 
@@ -38,11 +43,42 @@ ProLoaF supports Python 3.8 and higher. For further information see [Getting Sta
 
 ## Gettings started, Key Capabilities, Example Workflows & References 
 To keep all infos on what you can do with ProLoaF and how to get there, our
-[documentation overview](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/overview/), is the place where you'll find all answers.
+[user documentation](https://sogno-platform.github.io/proloaf/docs/overview/), is the place where you'll find all answers.
 
 ## Related Publications
-G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation," The 16th International Conference on Probabilistic Methods Applied to Power Systems, PMAPS 2020, 2020-08-18 - 2020-08-21, Liège, Belgium, ISBN 978-1-7281-2822-1, [Access Online](Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation)
+We kindly ask all academic publications employing components of ProLoaF to cite one of the following papers:
 
+- G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation," The 16th International Conference on Probabilistic Methods Applied to Power Systems, PMAPS 2020, 2020-08-18 - 2020-08-21, Liège, Belgium, ISBN 978-1-7281-2822-1, [Access Online](Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation)
+
+## Copyright
+2019-2021, Institute for Automation of Complex Power Systems, EONERC
 
 ## License
 This project is licensed to the [Apache Software Foundation (ASF)](http://www.apache.org/licenses/LICENSE-2.0).
+
+```
+This program is free software: you can redistribute it and/or modify
+it under the terms of the Apache License version 2 of the License, or
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+Apache License for more details.
+
+You should have received a copy of the Apache License
+along with this program.  If not, see <http://www.apache.org/licenses/LICENSE-2.>.
+```
+
+For other licensing options please consult [Prof. Antonello Monti](mailto:amonti@eonerc.rwth-aachen.de).
+
+## Contact
+
+[![EONERC ACS Logo](docs/static/img/eonerc_logo.png)](http://www.acs.eonerc.rwth-aachen.de)
+
+- Gonca Gürses-Tran <gguerses@eonerc.rwth-aachen.de>
+- Florian Oppermann <florian.oppermann@eonerc.rwth-aachen.de>
+
+[Institute for Automation of Complex Power Systems (ACS)](http://www.acs.eonerc.rwth-aachen.de)
+[EON Energy Research Center (EONERC)](http://www.eonerc.rwth-aachen.de)
+[RWTH University Aachen, Germany](http://www.rwth-aachen.de)

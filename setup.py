@@ -28,12 +28,28 @@ except ImportError:
 from setuptools import find_packages
 
 if __name__ == "__main__":
+    with open('README.md') as f:
+        long_description = f.read()
+
     setup(
         name="proloaf",
         version="0.2.0",
-        packages=["proloaf"],
-        package_dir={"": "src"},
+        author="Gonca Gürses-Tran",
+        author_email="gguerses@eonerc.rwth-aachen.de",
+        url="https://github.com/sogno-platform/proloaf",
         license="Apache License 2.0",
+        description="A Probabilistic Load Forecasting Project.",
+        long_description=long_description,
+        long_description_content_type="text/markdown",
+        packages=["proloaf"],
+        classifiers=[
+            "Topic :: Scientific/Engineering",
+            "License :: OSI Approved :: Apache Software License",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python :: 3.8",
+        ],
+        package_dir={"": "src"},
+        python_requires=">=3.8",
         install_requires=[
             "numpy",
             "pandas",
