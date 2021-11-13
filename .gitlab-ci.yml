@@ -73,6 +73,7 @@ dco:
     tags:
         - docker
     only:
+      master
       variables:
         - $CI_PIPELINE_SOURCE == 'push'
 
