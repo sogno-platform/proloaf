@@ -27,8 +27,7 @@
                 85
             ],
             "features": [
-                "demand",
-                "demand_ct"
+                "demand"
             ]
         },
         {
@@ -95,7 +94,6 @@
     ],
     "encoder_features": [
         "demand",
-        "demand_ct",
         "drybulb",
         "dewpnt"
     ],
