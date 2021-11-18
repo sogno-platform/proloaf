@@ -48,7 +48,7 @@ To keep all infos on what you can do with ProLoaF and how to get there, our
 ## Related Publications
 We kindly ask all academic publications employing components of ProLoaF to cite one of the following papers:
 
-- G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation," The 16th International Conference on Probabilistic Methods Applied to Power Systems, PMAPS 2020, 2020-08-18 - 2020-08-21, Liège, Belgium, ISBN 978-1-7281-2822-1, [Access Online](Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation)
+- G. Gürses-Tran, H. Flamme, and A. Monti, "Probabilistic Load Forecasting for Day-Ahead Congestion Mitigation," The 16th International Conference on Probabilistic Methods Applied to Power Systems, PMAPS 2020, 2020-08-18 - 2020-08-21, Liège, Belgium, ISBN 978-1-7281-2822-1, [Access Online](https://ieeexplore.ieee.org/document/9183670)
 
 ## Copyright
 2019-2021, Institute for Automation of Complex Power Systems, EONERC
