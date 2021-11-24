@@ -247,7 +247,11 @@ def add_onehot_features(df):
     weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(
         df.index
     )  # one-hot encoding of weekdays
-    df = pd.concat([df, hours, month, weekday], axis=1)
+    # df = pd.concat([df, hours, month, weekday], axis=1)
+    df[hours.columns] = hours
+    df[month.columns] = month
+    df[weekday.columns] = weekday
+    # print(df.head())
     return df
 
 
@@ -270,7 +274,7 @@ def check_continuity(df):
         pd.date_range(min(df.index), max(df.index), freq=df.index.freq)
     ):
         raise ValueError("DateTime index is not continuous")
-    return
+    return df
 
 
 def check_nans(df):
@@ -296,7 +300,7 @@ def check_nans(df):
     return
 
 
-def set_to_hours(df: pd.DataFrame, timecolumn="Time"):
+def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="H"):
     """
     Sets the index of the DataFrame to 'Time' and the frequency to hours.
 
@@ -311,10 +315,11 @@ def set_to_hours(df: pd.DataFrame, timecolumn="Time"):
         The modified DataFrame
 
     """
+    if df.index.name != timecolumn:
+        df.set_index(timecolumn, inplace=True)
 
-    df[timecolumn] = pd.to_datetime(df[timecolumn])
-    df.set_index(timecolumn, inplace=True)
-    df = df.asfreq(freq="H")
+    df.index = pd.to_datetime(df.index)
+    df = df.asfreq(freq=freq)
     return df
 
 
@@ -548,7 +553,7 @@ def scale(df: pd.DataFrame, scaler: sklearn.base.TransformerMixin):
         df_new = scaler.transform(df)
     except sklearn.exceptions.NotFittedError:
         df_new = scaler.fit_transform(df)
-    df_new = pd.DataFrame(df_new, columns=df.columns)
+    df_new = pd.DataFrame(df_new, columns=df.columns, index=df.index)
     return df_new
 
 
@@ -865,7 +870,7 @@ def transform(
     if 0 in df_train.shape:
         train_data_loader = None
     else:
-        train_data_loader = tl.make_dataloader(
+        train_data_loader = tl.make_dataloader_wip(
             df_train,
             target_id,
             encoder_features,
@@ -877,7 +882,7 @@ def transform(
     if 0 in df_val.shape:
         validation_data_loader = None
     else:
-        validation_data_loader = tl.make_dataloader(
+        validation_data_loader = tl.make_dataloader_wip(
             df_val,
             target_id,
             encoder_features,
@@ -889,7 +894,7 @@ def transform(
     if 0 in df_test.shape:
         test_data_loader = None
     else:
-        test_data_loader = tl.make_dataloader(
+        test_data_loader = tl.make_dataloader_wip(
             df_test,
             target_id,
             encoder_features,

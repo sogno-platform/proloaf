@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 import torch
 import sklearn
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from typing import Union, Tuple, Callable, Iterable
 import proloaf.datahandler as dh
 from time import sleep
@@ -47,19 +47,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
     ):
         self.data = df
         # Do all transformation that should be done on the dataset as a whole
-        if preparation_steps is not None:
-            if isinstance(preparation_steps, str):
-                raise TypeError("Preparation steps can not be identified by strings.")
-            elif isinstance(preparation_steps, Iterable):
-                print("preparation_steps is Iterable")
-                for step in preparation_steps:
-                    self.data = step(self.data)
-            elif isinstance(preparation_steps, Callable):
-                print("preparation_steps is Callable")
-            else:
-                raise TypeError(
-                    "preparation_steps should be a callable or an interable of callables."
-                )
+
         self.history_features = history_features
         self.history_horizon = history_horizon
         self.future_features = future_features
@@ -69,14 +57,31 @@ class TimeSeriesData(torch.utils.data.Dataset):
         )
         self.transform = transform
         self.device = device
+        # print(self.data[self.history_features])
+        if preparation_steps is not None:
+            if isinstance(preparation_steps, str):
+                raise TypeError("Preparation steps can not be identified by strings.")
+            elif isinstance(preparation_steps, Iterable):
+                # print("preparation_steps is Iterable")
+                for step in preparation_steps:
+                    # print(step)
+                    self.data = step(self.data)
+                    # print(self.data[self.history_features])
+
+            elif isinstance(preparation_steps, Callable):
+                pass
+                # print("preparation_steps is Callable")
+            else:
+                raise TypeError(
+                    "preparation_steps should be a callable or an interable of callables."
+                )
+        # print(f"{self.data[self.future_features].columns = }")
         self.hist = torch.from_numpy(
-            self.data.filter(items=self.history_features, axis="columns").to_numpy()
+            self.data[self.history_features].to_numpy()
         ).float()
-        self.fut = torch.from_numpy(
-            self.data.filter(items=self.future_features, axis="columns").to_numpy()
-        ).float()
+        self.fut = torch.from_numpy(self.data[self.future_features].to_numpy()).float()
         self.target = torch.from_numpy(
-            self.data.filter(items=self.target_features, axis="columns").to_numpy()
+            self.data[self.target_features].to_numpy()
         ).float()
 
     def __len__(self):
@@ -325,12 +330,12 @@ def make_dataloader_wip(
         future_features=decoder_features,
         target_features=target_id,
         preparation_steps=[
-            # dh.set_to_hours,
-            # dh.fill_if_missing,
-            # dh.add_cyclical_features,
-            # dh.add_onehot_features,
-            # partial(dh.scale, scaler=StandardScaler()),
-            # dh.check_continuity,
+            dh.set_to_hours,
+            dh.fill_if_missing,
+            dh.add_cyclical_features,
+            dh.add_onehot_features,
+            partial(dh.scale, scaler=MinMaxScaler()),
+            dh.check_continuity,
         ],
     )
     if batch_size is None:
