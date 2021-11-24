@@ -28,6 +28,7 @@ useful for testing or future applications.
 
 import numpy as np
 import pandas as pd
+import sklearn
 import proloaf.tensorloader as tl
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
@@ -295,7 +296,7 @@ def check_nans(df):
     return
 
 
-def set_to_hours(df):
+def set_to_hours(df: pd.DataFrame, timecolumn="Time"):
     """
     Sets the index of the DataFrame to 'Time' and the frequency to hours.
 
@@ -311,8 +312,8 @@ def set_to_hours(df):
 
     """
 
-    df["Time"] = pd.to_datetime(df["Time"])
-    df = df.set_index("Time")
+    df[timecolumn] = pd.to_datetime(df[timecolumn])
+    df.set_index(timecolumn, inplace=True)
     df = df.asfreq(freq="H")
     return df
 
@@ -527,7 +528,7 @@ def extract(df, horizon, anchor_key=0, filter_df=False):
     return reshaped_data
 
 
-def scale(df, scaler):
+def scale(df: pd.DataFrame, scaler: sklearn.base.TransformerMixin):
     """
     Scales the given pandas.DataFrame using the specified scikit-learn scaler
 
@@ -543,7 +544,10 @@ def scale(df, scaler):
     pandas.DataFrame
         The scaled DataFrame
     """
-    df_new = scaler.transform(df)
+    try:
+        df_new = scaler.transform(df)
+    except sklearn.exceptions.NotFittedError:
+        df_new = scaler.fit_transform(df)
     df_new = pd.DataFrame(df_new, columns=df.columns)
     return df_new
 
@@ -554,7 +558,7 @@ def rescale(values, scaler):
 
     Parameters
     ----------
-    values : array-like, sparse matric of shape (n samples, n features)
+    values : array-like, sparse matrix of shape (n samples, n features)
         The data to be rescaled
     scaler : sklearn.preprocessing scaler
         The scaler that was used to scale the data originally
