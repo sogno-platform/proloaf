@@ -20,11 +20,132 @@
 """
 Provides structures for storing and loading data (e.g. training, validation or test data)
 """
+from functools import partial
 import numpy as np
+import pandas as pd
 import torch
 import sklearn
-
+from sklearn.preprocessing import StandardScaler
+from typing import Union, Tuple, Callable, Iterable
 import proloaf.datahandler as dh
+from time import sleep
+from torch.utils.data.dataloader import DataLoader, Dataset
+
+
+class TimeSeriesData(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        history_horizon: int,
+        forecast_horizon: int,
+        history_features: Iterable[str],
+        future_features: Iterable[str],
+        target_features: Iterable[str],
+        preparation_steps: Iterable[Callable[[pd.DataFrame], pd.DataFrame]] = None,
+        transform: Callable = None,
+        device: Union[int, str] = "cpu",
+    ):
+        self.data = df
+        # Do all transformation that should be done on the dataset as a whole
+        if preparation_steps is not None:
+            if isinstance(preparation_steps, str):
+                raise TypeError("Preparation steps can not be identified by strings.")
+            elif isinstance(preparation_steps, Iterable):
+                print("preparation_steps is Iterable")
+                for step in preparation_steps:
+                    self.data = step(self.data)
+            elif isinstance(preparation_steps, Callable):
+                print("preparation_steps is Callable")
+            else:
+                raise TypeError(
+                    "preparation_steps should be a callable or an interable of callables."
+                )
+        self.history_features = history_features
+        self.history_horizon = history_horizon
+        self.future_features = future_features
+        self.forecast_horizon = forecast_horizon
+        self.target_features = (
+            (target_features,) if isinstance(target_features, str) else target_features
+        )
+        self.transform = transform
+        self.device = device
+        self.hist = torch.from_numpy(
+            self.data.filter(items=self.history_features, axis="columns").to_numpy()
+        ).float()
+        self.fut = torch.from_numpy(
+            self.data.filter(items=self.future_features, axis="columns").to_numpy()
+        ).float()
+        self.target = torch.from_numpy(
+            self.data.filter(items=self.target_features, axis="columns").to_numpy()
+        ).float()
+
+    def __len__(self):
+        # TODO add Warning when not enough data available
+        return max(0, len(self.data) - self.history_horizon - self.forecast_horizon) + 1
+
+    def __iter__(self):
+        self._index = 0
+        return self
+
+    def __next__(self):
+        if self._index >= len(self):
+            raise StopIteration
+        idx = self._index
+        self._index += 1
+        return self[idx]
+
+    def get_as_frame(self, idx) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        # TODO should the index be the first datapoint or the
+        if not isinstance(idx, int):
+            idx = self.data.get_loc(idx)
+        hist = self.data.iloc[idx : idx + self.history_horizon]
+        fut = self.data.iloc[
+            idx
+            + self.history_horizon : idx
+            + self.history_horizon
+            + self.forecast_horizon
+        ]
+
+        return (
+            hist.filter(items=self.history_features, axis="columns"),
+            fut.filter(items=self.future_features, axis="columns"),
+            fut.filter(items=self.target_features, axis="columns"),
+        )
+
+    def __getitem__(self, idx):
+        return (
+            self.hist[idx : idx + self.history_horizon],
+            self.fut[
+                idx
+                + self.history_horizon : idx
+                + self.history_horizon
+                + self.forecast_horizon
+            ],
+            self.target[
+                idx
+                + self.history_horizon : idx
+                + self.history_horizon
+                + self.forecast_horizon
+            ],
+        )
+
+    def to(self, device: Union[str, int]):
+        self.device = device
+        return self
+
+    # def to(self, device: Union[str, int]):
+    #     self._device = device
+
+    @staticmethod
+    def to_tensor(batch):
+        hist, fut = (
+            torch.tensor([sample[0].to_numpy() for sample in batch]),
+            torch.tensor([sample[1].to_numpy() for sample in batch]),
+        )
+        # fut = torch.tensor([sample[1].to_numpy() for sample in batch])
+        # hist = torch.from_numpy(hist)
+        # fut = torch.from_numpy(fut)
+        return hist, fut
 
 
 class CustomTensorData:
@@ -175,6 +296,56 @@ class CustomTensorDataLoader:
         return self.dataset.inputs2.shape[2]
 
 
+class MyDataLoader(DataLoader):
+    def to(self, device):
+        if hasattr(self.dataset, "to"):
+            self.dataset.to(device)
+        else:
+            raise AttributeError("Dataset does not have an attribute 'to'")
+        return self
+
+
+def make_dataloader_wip(
+    df,
+    target_id,
+    encoder_features,
+    decoder_features,
+    history_horizon,
+    forecast_horizon,
+    batch_size=None,
+    shuffle=True,
+    drop_last=True,
+    **_,
+):
+    tsd = TimeSeriesData(
+        df,
+        history_horizon=history_horizon,
+        forecast_horizon=forecast_horizon,
+        history_features=encoder_features,
+        future_features=decoder_features,
+        target_features=target_id,
+        preparation_steps=[
+            # dh.set_to_hours,
+            # dh.fill_if_missing,
+            # dh.add_cyclical_features,
+            # dh.add_onehot_features,
+            # partial(dh.scale, scaler=StandardScaler()),
+            # dh.check_continuity,
+        ],
+    )
+    if batch_size is None:
+        batch_size = len(tsd)
+    return MyDataLoader(
+        tsd,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=drop_last,
+        # num_workers=4,
+        # prefetch_factor=10
+        # pin_memory=True,
+    )
+
+
 def make_dataloader(
     df,
     target_id,
@@ -241,3 +412,47 @@ def make_dataloader(
     return CustomTensorDataLoader(
         custom_tensor_data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last
     )
+
+
+if __name__ == "__main__":
+
+    def test_func():
+        pass
+
+    df = pd.DataFrame(np.random.randn(5, 4))
+    print(df)
+    x = np.random.randn(5, 2)
+    print(x)
+    df[[0, 2]] = x
+    print(df)
+
+    # df[0][1] = pd.NA
+    # print(f"{df = }")
+    # tsd = TimeSeriesData(
+    #     df,
+    #     history_horizon=2,
+    #     forecast_horizon=2,
+    #     history_features=[0, 1],
+    #     future_features=[2],
+    #     target_features=[3],
+    #     preparation_steps=[
+    #         # dh.set_to_hours,
+    #         dh.fill_if_missing,
+    #         # dh.add_cyclical_features,
+    #         # dh.add_onehot_features,
+    #         partial(dh.scale, scaler=StandardScaler()),
+    #         # dh.check_continuity,
+    #     ],
+    # )
+    # dl = DataLoader(
+    #     tsd,
+    #     batch_size=1,
+    #     # collate_fn=TimeSeriesData.to_tensor,
+    # )
+
+    # print(f"{tsd.data = }")
+    # print(dl)
+    # for hist, fut, target in dl:
+    # print(f"{hist = }")
+    # print(f"{fut = }")
+    # print(f"{target = }")
