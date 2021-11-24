@@ -120,6 +120,14 @@ def main(
             )
         except FileNotFoundError:
             ref_model_1 = None
+            print(
+                "No old version of the trained model was found for the new one to compare to"
+            )
+        except Exception:
+            ref_model_1 = None
+            print(
+                "An older version of this model was found but could not be loaded, this is likely because of diverigng ProLoaF versions."
+            )
         if ref_model_1 is not None:
             modelhandler.select_model(
                 validation_dl,
