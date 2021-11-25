@@ -26,6 +26,7 @@ Some functions are no longer used directly in the project, but may nonetheless b
 useful for testing or future applications.
 """
 
+from typing import Dict, List
 import numpy as np
 import pandas as pd
 import sklearn
@@ -652,6 +653,175 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     return targets_rescaled, output_rescaled
 
 
+class MultiScaler(sklearn.base.TransformerMixin):
+    """
+    SciKit-learn style scaler, that combines multiple scalers
+    into one, then just applies them to their corresponding data columns.
+    The MultiScaler is callable and will try to transform the data without fitting.
+    If that false fit_tranform is called.
+
+    Note: While this should work with numpy.ndarrays as input (dim 0 being the "columns")
+    this is not tested and should only be used with caution.
+
+
+    Parameters
+    ----------
+    feature_groups : List[Dict[str,any]]
+        An array of dicts. Each dict has entries with the following keywords:
+
+        - "name", stores the name of the feature group
+        - "scaler", stores a list in which the first entry is the name of the feature
+        group's scaler. Valid names are 'standard', 'robust' or 'minmax'. Additional
+        entries in the list are for scaler parameters.
+        - "features", stores a list with the names of the features belonging to the feature group
+
+    """
+
+    def __init__(
+        self,
+        feature_groups: List[Dict],
+        scalers: Dict[str, sklearn.base.TransformerMixin] = None,
+    ):
+        self.feature_groups = feature_groups
+        if scalers is None:
+            self.scalers = {}
+        else:
+            self.scalers = scalers
+
+    def fit(self, X: pd.DataFrame):
+        """
+        Fits the scaler to the data.
+
+        Parameters
+        ----------
+        X: pandas.DataFrame
+            Reference data to fit the scaler on.
+        """
+        for group in self.feature_groups:
+            if "features" not in group or not group["features"]:
+                print(
+                    f"Feature group {group['name']} has not features and will be skipped."
+                )
+                continue
+            df_to_scale = X[group["features"]]
+
+            # if group["name"] in self.scalers:
+            #     scaler = self.scalers[group["name"]]
+            # else:
+            # scaler = None
+            if group["scaler"] is None or group["scaler"][0] is None:
+                if group["name"] != "aux":
+                    print(
+                        group["name"]
+                        + " features were not scaled, if this was unintentional check the config file."
+                    )
+            elif group["scaler"][0] == "standard":
+                scaler = StandardScaler()
+            elif group["scaler"][0] == "robust":
+                scaler = RobustScaler(
+                    quantile_range=(group["scaler"][1], group["scaler"][2])
+                )
+            elif group["scaler"][0] == "minmax":
+                scaler = MinMaxScaler(
+                    feature_range=(group["scaler"][1], group["scaler"][2])
+                )
+            else:
+                raise RuntimeError(
+                    f"scaler could not be generated. {group['scaler']} is not a known Identifier of a scaler."
+                )
+            if scaler is not None:
+                scaler.fit(df_to_scale)
+            self.scalers[group["name"]] = scaler
+        return self
+
+    def transform(self, X: pd.DataFrame, inplace: bool = False):
+        """
+        Transforms the data using fitted scalers.
+
+        Parameters
+        ----------
+        X: pandas.DataFrame
+            Data to be transformed.
+        inplace: bool, default = False
+            If True the input DataFrame X will be used to store the scaled data, if False the DataFrame will be copied.
+            Careful, when inplace is True and transform raises an exception the input DataFrame might already be partially moddified.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            if not all scalers are fitted before transforming.
+        """
+        if not inplace:
+            X = X.copy()
+        for group in self.feature_groups:
+            df_to_scale = X[group["features"]]
+            scaler = self.scalers.get(group["name"])
+            if scaler is None and group["name"] != "aux":
+                print(
+                    f"Feature group {group['name']} was not transformed as there is no scaler for it."
+                )
+                continue
+            X_new = scaler.transform(df_to_scale)
+            X[group["features"]] = X_new
+        return X
+
+    def inverse_transform(self, X: pd.DataFrame, inplace=False):
+        """
+        Reverses the transformation with this scaler.
+
+        Parameters
+        ----------
+        X: pandas.DataFrame
+            Data to be transformed.
+        inplace: bool, default = False
+            If True the input DataFrame X will be used to store the scaled data, if False the DataFrame will be copied.
+            Careful, when inplace is True and transform raises an exception the input DataFrame might already be partially moddified.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            if not all scalers are fitted before transforming.
+        """
+        if not inplace:
+            X = X.copy()
+        for group in self.feature_groups:
+            df_to_scale = X[group["features"]]
+            scaler = self.scalers.get(group["name"])
+            if scaler is None and group["name"] != "aux":
+                print(
+                    f"Feature group {group['name']} was not transformed as there is no scaler for it."
+                )
+                continue
+            X_new = scaler.inverse_transform(df_to_scale)
+            X[group["features"]] = X_new
+        return X
+
+    def __call__(self, X: pd.DataFrame, inplace=False):
+        """
+        Transforms the data using fitted scalers.
+
+        Parameters
+        ----------
+        X: pandas.DataFrame
+            Data to be transformed.
+        inplace: bool, default = False
+            If True the input DataFrame X will be used to store the scaled data, if False the DataFrame will be copied.
+            DO NOT use inplace=True if there is a chance that the scalers are partially fitted.
+            This will not happen unless fitting fails or scalers are provided externanly.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            if not all scalers are fitted before transforming.
+        """
+        try:
+            return self.transform(X, inplace=inplace)
+        except sklearn.exceptions.NotFittedError:
+            # XXX if inplace=True this can cause undefined behaviour
+            # if some scalers are already fitted and others are not.
+            return self.fit_transform(X, inplace=inplace)
+
+
 def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers=None, **_):
     """
     Scale and return the specified feature groups of the given DataFrame, each with their own
@@ -717,7 +887,9 @@ def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers=None, *
                     feature_range=(group["scaler"][1], group["scaler"][2])
                 )
             else:
-                raise RuntimeError("scaler could not be generated")
+                raise RuntimeError(
+                    f"scaler could not be generated. {group['scaler']} is not a known Identifier of a scaler."
+                )
             if scaler is not None:
                 scaler.fit(df_to_scale)
 
