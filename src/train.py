@@ -31,6 +31,7 @@ Notes
 
 """
 
+from functools import partial
 import os
 import sys
 from typing import Callable
@@ -52,7 +53,7 @@ import proloaf.loghandler as log
 import proloaf.confighandler as ch
 import proloaf.datahandler as dh
 import proloaf.modelhandler as mh
-import proloaf
+import proloaf.tensorloader as tl
 
 # TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
 from proloaf.confighandler import read_config, get_existing_score
@@ -82,9 +83,39 @@ def main(
     try:
         df = pd.read_csv(infile, sep=";", index_col=0)
 
-        df = dh.fill_if_missing(df, periodicity=24)
+        train_df, val_df = dh.split(df, [config.get("train_split", 0.7)])
 
-        selected_features, scalers = dh.scale_all(df, **config)
+        scaler = dh.MultiScaler(config["feature_groups"])
+        train_dataset = tl.TimeSeriesData(
+            train_df,
+            device=device,
+            preparation_steps=[
+                dh.set_to_hours,
+                dh.fill_if_missing,
+                dh.add_cyclical_features,
+                dh.add_onehot_features,
+                scaler.fit_transform,
+                dh.check_continuity,
+            ],
+            **config,
+        )
+        val_dataset = tl.TimeSeriesData(
+            val_df,
+            device=device,
+            preparation_steps=[
+                dh.set_to_hours,
+                partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
+                dh.add_cyclical_features,
+                dh.add_onehot_features,
+                scaler.transform,
+                dh.check_continuity,
+            ],
+            **config,
+        )
+
+        # df = dh.fill_if_missing(df, periodicity=24)
+
+        # selected_features, scalers = dh.scale_all(df, **config)
 
         if config.get("exploration_path") is None:
             tuning_config = None
@@ -98,18 +129,21 @@ def main(
             work_dir=work_dir,
             config=config,
             tuning_config=tuning_config,
-            scalers=scalers,
+            scalers=scaler,
             loss=loss,
             loss_kwargs=loss_kwargs,
             device=device,
         )
 
-        train_dl, validation_dl, test_dl = dh.transform(
-            selected_features, device=device, **config
-        )
+        # train_dl, validation_dl, test_dl = dh.transform(
+        #     selected_features, device=device, **config
+        # )
         # modelhandler.load_model(os.path.join(work_dir, "oracles", "opsd_LSTM_gnll.pkl"))
 
-        modelhandler.fit(train_dl, validation_dl)
+        modelhandler.fit(
+            train_dataset.make_data_loader(config["batch_size"]),
+            val_dataset.make_data_loader(config["batch_size"]),
+        )
         try:
             ref_model_1 = modelhandler.load_model(
                 os.path.join(
@@ -126,11 +160,11 @@ def main(
         except Exception:
             ref_model_1 = None
             print(
-                "An older version of this model was found but could not be loaded, this is likely because of diverigng ProLoaF versions."
+                "An older version of this model was found but could not be loaded, this is likely due to diverignig ProLoaF versions."
             )
         if ref_model_1 is not None:
             modelhandler.select_model(
-                validation_dl,
+                val_dataset.make_data_loader(config["batch_size"]),
                 [ref_model_1, modelhandler.model_wrap],
                 metrics.NllGauss(),
             )
