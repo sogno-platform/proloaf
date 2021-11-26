@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
     # Read load data
     df = pd.read_csv(INFILE, sep=";")
-    df = dh.fill_if_missing(df, periodicity=24)
+    # df = dh.fill_if_missing(df, periodicity=24)
 
     if "target_list" in PAR:
         if PAR["target_list"] is not None:
@@ -94,22 +94,34 @@ if __name__ == "__main__":
             f"{INMODEL}.pkl"
         )  # torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
         net.to(DEVICE)
-        df_new, _ = dh.scale_all(df, scalers=net.scalers, **PAR)
-        df_new.index = df["Time"]
+        # df_new, _ = dh.scale_all(df, scalers=net.scalers, **PAR)
+        # df_new.index = df["Time"]
 
-        split_index = int(len(df_new.index) * SPLIT_RATIO)
-        train_df = df_new.iloc[0:split_index]
-        test_df = df_new.iloc[split_index:]
+        train_df, test_df = dh.split(df, [SPLIT_RATIO])
 
-        test_data_loader = tl.make_dataloader(
+        test_dataset = tl.TimeSeriesData(
             test_df,
-            target_id,
-            PAR["encoder_features"],
-            PAR["decoder_features"],
-            history_horizon=PAR["history_horizon"],
-            forecast_horizon=PAR["forecast_horizon"],
-            shuffle=False,
-        ).to(DEVICE)
+            device=DEVICE,
+            preparation_steps=[
+                dh.set_to_hours,
+                dh.fill_if_missing,
+                dh.add_cyclical_features,
+                dh.add_onehot_features,
+                net.scalers.transform,
+                dh.check_continuity,
+            ],
+            **PAR,
+        )
+        test_data_loader = test_dataset.make_data_loader(None, shuffle=False)
+        # test_data_loader = tl.make_dataloader(
+        #     test_df,
+        #     target_id,
+        #     PAR["encoder_features"],
+        #     PAR["decoder_features"],
+        #     history_horizon=PAR["history_horizon"],
+        #     forecast_horizon=PAR["forecast_horizon"],
+        #     shuffle=False,
+        # ).to(DEVICE)
 
         # bench = mh.ModelHandler.benchmark(
         #     test_data_loader,
@@ -200,11 +212,9 @@ if __name__ == "__main__":
         # the first and 24th timestep relative to the start of the Test-Dataset
         testhours = [0, 24]
 
-        actual_time = pd.to_datetime(
-            df.loc[PAR["history_horizon"] + split_index :, "Time"]
-        )
+        actual_time = pd.to_datetime(test_dataset.data.index[PAR["history_horizon"] :])
         for i in testhours:
-            inputs_enc, inputs_dec, targets = test_data_loader.get_sample(i)
+            inputs_enc, inputs_dec, targets = test_dataset[i]
             prediction = net.predict(inputs_enc.unsqueeze(0), inputs_dec.unsqueeze(0))
             quantile_prediction = net.loss_metric.get_quantile_prediction(
                 predictions=prediction, target=targets.unsqueeze(0)
@@ -216,7 +226,7 @@ if __name__ == "__main__":
             y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(
                 dim=2
             )
-            actuals = actual_time.iloc[i : i + FORECAST_HORIZON]
+            actuals = actual_time[i : i + FORECAST_HORIZON]
             plot.plot_timestep(
                 targets.detach().squeeze().numpy(),
                 expected_values.detach().numpy(),
@@ -232,7 +242,7 @@ if __name__ == "__main__":
             os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
         )
         print(results_total_per_forecast)
-        inputs_enc, inputs_dec, targets = test_data_loader[0]
+        inputs_enc, inputs_dec, targets = next(iter(test_data_loader))
         prediction = net.predict(inputs_enc=inputs_enc, inputs_dec=inputs_dec)
         quantile_prediction = net.loss_metric.get_quantile_prediction(
             predictions=prediction, target=targets

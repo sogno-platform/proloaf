@@ -410,7 +410,7 @@ def make_dataloader(
     CustomTensorDataLoader
         An iterable data structure containing the provided input and target data
     """
-
+    raise DeprecationWarning("Proloaf has changed the way it is handling data. The Dataloader created by this function is deprecated.")
     # anchor_key='09:00:00'
     # rel_anchor_key='09:00:00'
     x_enc = dh.extract(
