@@ -38,23 +38,22 @@ class TimeSeriesData(torch.utils.data.Dataset):
         df: pd.DataFrame,
         history_horizon: int,
         forecast_horizon: int,
-        history_features: Iterable[str],
-        future_features: Iterable[str],
-        target_features: Iterable[str],
+        encoder_features: Iterable[str],
+        decoder_features: Iterable[str],
+        target_id: Union[str, Iterable[str]],
         preparation_steps: Iterable[Callable[[pd.DataFrame], pd.DataFrame]] = None,
         transform: Callable = None,
         device: Union[int, str] = "cpu",
+        **_,
     ):
         self.data = df
         # Do all transformation that should be done on the dataset as a whole
 
-        self.history_features = history_features
+        self.encoder_features = encoder_features
         self.history_horizon = history_horizon
-        self.future_features = future_features
+        self.decoder_features = decoder_features
         self.forecast_horizon = forecast_horizon
-        self.target_features = (
-            (target_features,) if isinstance(target_features, str) else target_features
-        )
+        self.target_features = (target_id,) if isinstance(target_id, str) else target_id
         self.transform = transform
         self.device = device
         # print(self.data[self.history_features])
@@ -77,9 +76,9 @@ class TimeSeriesData(torch.utils.data.Dataset):
                 )
         # print(f"{self.data[self.future_features].columns = }")
         self.hist = torch.from_numpy(
-            self.data[self.history_features].to_numpy()
+            self.data[self.encoder_features].to_numpy()
         ).float()
-        self.fut = torch.from_numpy(self.data[self.future_features].to_numpy()).float()
+        self.fut = torch.from_numpy(self.data[self.decoder_features].to_numpy()).float()
         self.target = torch.from_numpy(
             self.data[self.target_features].to_numpy()
         ).float()
@@ -112,8 +111,8 @@ class TimeSeriesData(torch.utils.data.Dataset):
         ]
 
         return (
-            hist.filter(items=self.history_features, axis="columns"),
-            fut.filter(items=self.future_features, axis="columns"),
+            hist.filter(items=self.encoder_features, axis="columns"),
+            fut.filter(items=self.decoder_features, axis="columns"),
             fut.filter(items=self.target_features, axis="columns"),
         )
 
@@ -137,6 +136,21 @@ class TimeSeriesData(torch.utils.data.Dataset):
     def to(self, device: Union[str, int]):
         self.device = device
         return self
+
+    def make_data_loader(
+        self,
+        batch_size: int = None,
+        shuffle: bool = True,
+        drop_last: bool = True,
+    ):
+        if batch_size is None:
+            batch_size = len(self)
+        return TensorDataLoader(
+            self,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            drop_last=drop_last,
+        )
 
     # def to(self, device: Union[str, int]):
     #     self._device = device
@@ -301,7 +315,7 @@ class CustomTensorDataLoader:
         return self.dataset.inputs2.shape[2]
 
 
-class MyDataLoader(DataLoader):
+class TensorDataLoader(DataLoader):
     def to(self, device):
         if hasattr(self.dataset, "to"):
             self.dataset.to(device)
@@ -320,27 +334,28 @@ def make_dataloader_wip(
     batch_size=None,
     shuffle=True,
     drop_last=True,
+    feature_groups={},
     **_,
 ):
     tsd = TimeSeriesData(
         df,
         history_horizon=history_horizon,
         forecast_horizon=forecast_horizon,
-        history_features=encoder_features,
-        future_features=decoder_features,
-        target_features=target_id,
+        encoder_features=encoder_features,
+        decoder_features=decoder_features,
+        target_id=target_id,
         preparation_steps=[
             dh.set_to_hours,
             dh.fill_if_missing,
             dh.add_cyclical_features,
             dh.add_onehot_features,
-            partial(dh.scale, scaler=MinMaxScaler()),
+            dh.MultiScaler(feature_groups),
             dh.check_continuity,
         ],
     )
     if batch_size is None:
         batch_size = len(tsd)
-    return MyDataLoader(
+    return TensorDataLoader(
         tsd,
         batch_size=batch_size,
         shuffle=shuffle,
