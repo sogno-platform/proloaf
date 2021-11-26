@@ -703,12 +703,13 @@ class MultiScaler(sklearn.base.TransformerMixin):
                     f"Feature group {group['name']} has not features and will be skipped."
                 )
                 continue
+            scaler = None
             df_to_scale = X[group["features"]]
 
             # if group["name"] in self.scalers:
             #     scaler = self.scalers[group["name"]]
             # else:
-            # scaler = None
+            #
             if group["scaler"] is None or group["scaler"][0] is None:
                 if group["name"] != "aux":
                     print(
@@ -756,10 +757,11 @@ class MultiScaler(sklearn.base.TransformerMixin):
         for group in self.feature_groups:
             df_to_scale = X[group["features"]]
             scaler = self.scalers.get(group["name"])
-            if scaler is None and group["name"] != "aux":
-                print(
-                    f"Feature group {group['name']} was not transformed as there is no scaler for it."
-                )
+            if scaler is None:
+                if group["name"] != "aux":
+                    print(
+                        f"Feature group {group['name']} was not transformed as there is no scaler for it."
+                    )
                 continue
             X_new = scaler.transform(df_to_scale)
             X[group["features"]] = X_new
@@ -911,6 +913,7 @@ def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers=None, *
     return scaled_features, scalers
 
 
+# TODO not in use, deprecated?
 def constructDf(
     data,
     columns,
@@ -980,6 +983,15 @@ def constructDf(
     return train, test
 
 
+def split(df: pd.DataFrame, splits: List[float]):
+    split_index = [int(len(df) * split) for split in splits]
+    intervals = zip([None, *split_index], [*split_index, None])
+    print(intervals)
+    # intervals = zip(split_index, split_index)
+    # print(list())
+    return [df[a:b] for a, b in intervals]
+
+
 def transform(
     df: pd.DataFrame,
     encoder_features,
@@ -1042,6 +1054,16 @@ def transform(
     if 0 in df_train.shape:
         train_data_loader = None
     else:
+        # train_data_loader = tl.TimeSeriesData(
+        #     df_train,
+        #     history_horizon=history_horizon,
+        #     forecast_horizon=forecast_horizon,
+        #     history_features=encoder_features,
+        #     future_features=decoder_features,
+        #     target_features=[target_id],
+        #     preparation_steps=[],
+        #     device=device,
+        # )
         train_data_loader = tl.make_dataloader_wip(
             df_train,
             target_id,
