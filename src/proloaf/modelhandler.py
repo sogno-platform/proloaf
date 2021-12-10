@@ -441,6 +441,7 @@ class ModelWrapper:
             "hparam/score": training_run.validation_loss,
             # "hparam/relative_score": rel_score,
         }
+        training_run.remove_data()
         self.last_training = training_run
         return self
 
@@ -1048,6 +1049,11 @@ class TrainingRun:
             "early_stopping_margin": self.early_stopping.delta,
             "learning_rate": self.learning_rate,
         }
+
+    def remove_data(self):
+        self.train_dl = None
+        self.validation_dl = None
+        return self
 
     def set_optimizer(self, optimizer_name: str, learning_rate: float):
         """
