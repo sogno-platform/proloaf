@@ -82,7 +82,6 @@ if __name__ == "__main__":
 
     # Read load data
     df = pd.read_csv(INFILE, sep=";")
-    # df = dh.fill_if_missing(df, periodicity=24)
 
     if "target_list" in PAR:
         if PAR["target_list"] is not None:
@@ -90,45 +89,24 @@ if __name__ == "__main__":
 
     # reload trained NN
     with torch.no_grad():
-        net = mh.ModelHandler.load_model(
-            f"{INMODEL}.pkl"
-        )  # torch.load(INMODEL, map_location=torch.device(DEVICE))  # mapping to CPU
+        net = mh.ModelHandler.load_model(f"{INMODEL}.pkl")
         net.to(DEVICE)
-        # df_new, _ = dh.scale_all(df, scalers=net.scalers, **PAR)
-        # df_new.index = df["Time"]
 
         train_df, test_df = dh.split(df, [SPLIT_RATIO])
 
-        test_dataset = tl.TimeSeriesData(
+        test_data = tl.TimeSeriesData(
             test_df,
             device=DEVICE,
             preparation_steps=[
-                dh.set_to_hours,
-                dh.fill_if_missing,
-                dh.add_cyclical_features,
-                dh.add_onehot_features,
+                # dh.set_to_hours,
+                # dh.fill_if_missing,
+                # dh.add_cyclical_features,
+                # dh.add_onehot_features,
                 net.scalers.transform,
                 dh.check_continuity,
             ],
             **PAR,
         )
-        test_data_loader = test_dataset.make_data_loader(None, shuffle=False)
-        # test_data_loader = tl.make_dataloader(
-        #     test_df,
-        #     target_id,
-        #     PAR["encoder_features"],
-        #     PAR["decoder_features"],
-        #     history_horizon=PAR["history_horizon"],
-        #     forecast_horizon=PAR["forecast_horizon"],
-        #     shuffle=False,
-        # ).to(DEVICE)
-
-        # bench = mh.ModelHandler.benchmark(
-        #     test_data_loader,
-        #     [net],
-        #     [metrics.NllGauss(), metrics.Rmse()],  # metrics.Rmse(), metrics.Picp()],
-        #     total=True,
-        # )
 
         test_metrics_timesteps = [
             metrics.NllGauss(),
@@ -153,7 +131,7 @@ if __name__ == "__main__":
         ]
         results_total_per_forecast = (
             mh.ModelHandler.benchmark(
-                test_data_loader,
+                test_data,
                 [net],
                 test_metrics=test_metrics_total,
                 avg_over="all",
@@ -162,23 +140,22 @@ if __name__ == "__main__":
             .unstack()
         )
         results_per_sample_per_forecast = mh.ModelHandler.benchmark(
-            test_data_loader,
+            test_data,
             [net],
             test_metrics=test_metrics_sample,
             avg_over="time",
         )
         results_per_timestep_per_forecast = mh.ModelHandler.benchmark(
-            test_data_loader,
+            test_data,
             [net],
             test_metrics=test_metrics_timesteps,
             avg_over="sample",
         )
         results_per_timestep_per_forecast.head()
-        # XXX why is this different from the rest?
         rmse_values = pd.DataFrame(
             data=results_per_timestep_per_forecast.xs(
-                "Rmse", axis=1, level=1, drop_level=False
-            ).values,
+                "Rmse", axis=1, level=1, drop_level=True
+            ),
             columns=[net.name],
         )
         sharpness_values = pd.DataFrame(
@@ -212,9 +189,9 @@ if __name__ == "__main__":
         # the first and 24th timestep relative to the start of the Test-Dataset
         testhours = [0, 24]
 
-        actual_time = pd.to_datetime(test_dataset.data.index[PAR["history_horizon"] :])
+        actual_time = pd.to_datetime(test_data.data.index[PAR["history_horizon"] :])
         for i in testhours:
-            inputs_enc, inputs_dec, targets = test_dataset[i]
+            inputs_enc, inputs_dec, targets = test_data[i]
             prediction = net.predict(inputs_enc.unsqueeze(0), inputs_dec.unsqueeze(0))
             quantile_prediction = net.loss_metric.get_quantile_prediction(
                 predictions=prediction, target=targets.unsqueeze(0)
@@ -242,10 +219,13 @@ if __name__ == "__main__":
             os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
         )
         print(results_total_per_forecast)
-        inputs_enc, inputs_dec, targets = next(iter(test_data_loader))
-        prediction = net.predict(inputs_enc=inputs_enc, inputs_dec=inputs_dec)
+        inputs_enc, inputs_dec, targets = test_data[0]
+        prediction = net.predict(
+            inputs_enc=inputs_enc.unsqueeze(dim=0),
+            inputs_dec=inputs_dec.unsqueeze(dim=0),
+        )
         quantile_prediction = net.loss_metric.get_quantile_prediction(
-            predictions=prediction, target=targets
+            predictions=prediction, target=targets.unsqueeze(dim=0)
         )
         expected_values = quantile_prediction.get_quantile(0.5)
         y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=2)

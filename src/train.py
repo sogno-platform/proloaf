@@ -141,8 +141,8 @@ def main(
         # modelhandler.load_model(os.path.join(work_dir, "oracles", "opsd_LSTM_gnll.pkl"))
 
         modelhandler.fit(
-            train_dataset.make_data_loader(config["batch_size"]),
-            val_dataset.make_data_loader(config["batch_size"]),
+            train_dataset,
+            val_dataset,
         )
         try:
             ref_model_1 = modelhandler.load_model(
@@ -164,7 +164,7 @@ def main(
             )
         if ref_model_1 is not None:
             modelhandler.select_model(
-                val_dataset.make_data_loader(config["batch_size"]),
+                val_dataset,
                 [ref_model_1, modelhandler.model_wrap],
                 metrics.NllGauss(),
             )

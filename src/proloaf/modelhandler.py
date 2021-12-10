@@ -32,6 +32,8 @@ import optuna
 import torch
 from typing import Any, Callable, Union, List, Dict, Literal
 from copy import deepcopy
+
+from torch.utils.data import dataloader
 import proloaf
 
 from time import perf_counter
@@ -368,10 +370,11 @@ class ModelWrapper:
 
     def run_training(
         self,  # Maybe use the datahandler as "data" which than provides all the data_loaders,for unifying the interface.
-        train_data_loader,
-        validation_data_loader,
+        train_data,
+        validation_data,
         trial_id=None,
         log_tb=None,
+        batch_size: int = None,
     ):
         """
         Train the given model.
@@ -439,11 +442,12 @@ class ModelWrapper:
             self.model,
             id=trial_id,
             optimizer_name=self.optimizer_name,
-            train_data_loader=train_data_loader,
-            validation_data_loader=validation_data_loader,
+            train_data=train_data,
+            validation_data=validation_data,
             early_stopping_patience=self.early_stopping_patience,
             early_stopping_margin=self.early_stopping_margin,
             learning_rate=self.learning_rate,
+            batch_size=batch_size,
             loss_function=self.loss_metric,
             max_epochs=self.max_epochs,
             batch_size=self.batch_size,
@@ -614,8 +618,8 @@ class ModelHandler:
 
     def tune_hyperparameters(
         self,
-        train_data_loader: CustomTensorDataLoader,
-        validation_data_loader: CustomTensorDataLoader,
+        train_data: proloaf.tensorloader.TimeSeriesData,
+        validation_data: proloaf.tensorloader.TimeSeriesData,
     ):
         """
         TODO: description
@@ -652,8 +656,8 @@ class ModelHandler:
         study.optimize(
             self.tuning_objective(
                 self.tuning_config["settings"],
-                train_data_loader=train_data_loader,
-                validation_data_loader=validation_data_loader,
+                train_data_loader=train_data,
+                validation_data_loader=validation_data,
             ),
             n_trials=self.tuning_config["number_of_tests"],
             timeout=self.tuning_config.get("timeout", None),
@@ -679,7 +683,7 @@ class ModelHandler:
 
     def select_model(
         self,
-        data: proloaf.tensorloader.CustomTensorDataLoader,
+        data: proloaf.tensorloader.TimeSeriesData,
         models: List[ModelWrapper],
         loss: metrics.Metric,
     ):
@@ -693,7 +697,7 @@ class ModelHandler:
 
     @staticmethod
     def benchmark(
-        data: proloaf.tensorloader.CustomTensorDataLoader,
+        data: proloaf.tensorloader.TimeSeriesData,
         models: List[ModelWrapper],
         test_metrics: List[metrics.Metric],
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
@@ -704,8 +708,9 @@ class ModelHandler:
             # TODO currently only the first batch is used
             bench = {}
             for model in models:
+                dataloader = data.make_data_loader(batch_size=None, shuffle=False)
                 print(f"benchmarking {model.name}")
-                for inputs_enc, inputs_dec, targets in data:
+                for inputs_enc, inputs_dec, targets in dataloader:
                     quantiles = model.loss_metric.get_quantile_prediction(
                         predictions=model.predict(inputs_enc, inputs_dec),
                         target=targets,
@@ -743,8 +748,8 @@ class ModelHandler:
     # TODO Deprecated
     def run_training(
         self,  # Maybe use the datahandler as "data" which than provides all the data_loaders,for unifying the interface.
-        train_data_loader,
-        validation_data_loader,
+        train_data,
+        validation_data,
         trial_id=None,
         hparams={},
     ):
@@ -823,7 +828,7 @@ class ModelHandler:
             trial_id=trial_id,
         )
         temp_model_wrap.run_training(
-            train_data_loader, validation_data_loader, trial_id, tb
+            train_data, validation_data, trial_id, tb, config.get("batch_size")
         )
 
         # TODO readd rel_score
@@ -840,8 +845,8 @@ class ModelHandler:
     # TODO dataformat currently includes targets and features which differs from sklearn
     def fit(
         self,
-        train_data_loader: proloaf.tensorloader.CustomTensorDataLoader,
-        validation_data_loader: proloaf.tensorloader.CustomTensorDataLoader,
+        train_data: proloaf.tensorloader.TimeSeriesData,
+        validation_data: proloaf.tensorloader.TimeSeriesData,
         exploration: bool = None,
     ):
         if exploration is None:
@@ -852,11 +857,11 @@ class ModelHandler:
                 raise AttributeError(
                     "Hyper parameters are to be explored but no config for tuning was provided."
                 )
-            self.tune_hyperparameters(train_data_loader, validation_data_loader)
+            self.tune_hyperparameters(train_data, validation_data)
         else:
             self.model_wrap = self.run_training(
-                train_data_loader,
-                validation_data_loader,
+                train_data,
+                validation_data,
                 trial_id="main",
             )
         return self
@@ -1032,8 +1037,11 @@ class TrainingRun:
         max_epochs: int,
         early_stopping_patience: int,
         early_stopping_margin: float,
-        train_data_loader: proloaf.tensorloader.CustomTensorDataLoader = None,
-        validation_data_loader: proloaf.tensorloader.CustomTensorDataLoader = None,
+        batch_size: int = None,
+        train_data: proloaf.tensorloader.TimeSeriesData = None,
+        validation_data: proloaf.tensorloader.TimeSeriesData = None,
+        history_horizon: int = None,
+        forecast_horizon: int = None,
         id: Union[str, int] = None,
         device: str = "cpu",
         log_df: pd.DataFrame = None,
@@ -1047,12 +1055,17 @@ class TrainingRun:
         else:
             self.id = id
         self.model = model
-        self.train_dl = train_data_loader
-        self.validation_dl = validation_data_loader
+        self.train_ds = train_data
+        self.train_dl = None
+        self.validation_ds = validation_data
+        self.validation_dl = None
+        self.history_horizon = history_horizon
+        self.forecast_horizon = forecast_horizon
         self.validation_loss = np.inf
         self.training_loss = np.inf
         self.optimizer_name = optimizer_name
         self.learning_rate = learning_rate
+        self.batch_size = batch_size
         self.set_optimizer(optimizer_name, learning_rate)
         self.loss_function = loss_function
         self.step_counter = 0
@@ -1171,7 +1184,21 @@ class TrainingRun:
 
     def train(self):
         if not self.train_dl:
-            raise AttributeError("No training data provided")
+            if not self.train_ds:
+                raise AttributeError("No training data provided")
+            self.train_dl = self.train_ds.make_data_loader(
+                history_horizon=self.history_horizon,
+                forecast_horizon=self.forecast_horizon,
+                batch_size=self.batch_size,
+            )
+
+        if not self.validation_dl:
+            if self.validation_ds:
+                self.validation_dl = self.train_ds.make_data_loader(
+                    history_horizon=self.history_horizon,
+                    forecast_horizon=self.forecast_horizon,
+                    batch_size=self.batch_size,
+                )
         if self.log_tb:
             # is this actually for every run or model specific
             inputs_enc, inputs_dec, targets = next(iter(self.train_dl))
@@ -1230,10 +1257,10 @@ class TrainingRun:
         self.device = device
         if self.model:
             self.model.to(device)
-        if self.train_dl:
-            self.train_dl.to(device)
-        if self.validation_dl:
-            self.validation_dl.to(device)
+        if self.train_ds:
+            self.train_ds.to(device)
+        if self.validation_ds:
+            self.validation_ds.to(device)
         return self
 
 
