@@ -20,68 +20,88 @@
 """
 Provides structures for storing and loading data (e.g. training, validation or test data)
 """
-from functools import partial
 import numpy as np
 import pandas as pd
 import torch
-import sklearn
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from typing import Union, Tuple, Callable, Iterable
+from typing import List, Union, Tuple, Callable, Iterable
 import proloaf.datahandler as dh
 from time import sleep
-from torch.utils.data.dataloader import DataLoader, Dataset
+from torch.utils.data.dataloader import DataLoader
 
 
 class TimeSeriesData(torch.utils.data.Dataset):
     def __init__(
         self,
         df: pd.DataFrame,
-        history_horizon: int,
-        forecast_horizon: int,
-        encoder_features: Iterable[str],
-        decoder_features: Iterable[str],
-        target_id: Union[str, Iterable[str]],
+        history_horizon: int = None,
+        forecast_horizon: int = None,
+        encoder_features: Iterable[str] = None,
+        decoder_features: Iterable[str] = None,
+        target_id: Union[str, Iterable[str]] = None,
         preparation_steps: Iterable[Callable[[pd.DataFrame], pd.DataFrame]] = None,
         transform: Callable = None,
         device: Union[int, str] = "cpu",
         **_,
     ):
         self.data = df
-        # Do all transformation that should be done on the dataset as a whole
 
         self.encoder_features = encoder_features
         self.history_horizon = history_horizon
         self.decoder_features = decoder_features
         self.forecast_horizon = forecast_horizon
-        self.target_features = (target_id,) if isinstance(target_id, str) else target_id
-        self.transform = transform
+        self.target_id = target_id
+        # self.transform = transform
         self.device = device
+        self.tensor_prepared = False
+        self.frame_prepared = False
+        self.preparation_steps = preparation_steps
         # print(self.data[self.history_features])
-        if preparation_steps is not None:
-            if isinstance(preparation_steps, str):
-                raise TypeError("Preparation steps can not be identified by strings.")
-            elif isinstance(preparation_steps, Iterable):
-                # print("preparation_steps is Iterable")
-                for step in preparation_steps:
-                    # print(step)
-                    self.data = step(self.data)
-                    # print(self.data[self.history_features])
 
-            elif isinstance(preparation_steps, Callable):
-                pass
-                # print("preparation_steps is Callable")
-            else:
-                raise TypeError(
-                    "preparation_steps should be a callable or an interable of callables."
-                )
         # print(f"{self.data[self.future_features].columns = }")
-        self.hist = torch.from_numpy(
-            self.data[self.encoder_features].to_numpy()
-        ).float()
-        self.fut = torch.from_numpy(self.data[self.decoder_features].to_numpy()).float()
-        self.target = torch.from_numpy(
-            self.data[self.target_features].to_numpy()
-        ).float()
+        # self.to_tensor()
+
+    @property
+    def encoder_features(self):
+        return self._encoder_features.copy()
+
+    @encoder_features.setter
+    def encoder_features(self, val):
+        try:
+            if set(val) != set(self._encoder_features):
+                self._encoder_features = val
+                self.tensor_prepared = False
+        except AttributeError:
+            self._encoder_features = val
+            self.tensor_prepared = False
+
+    @property
+    def decoder_features(self):
+        return self._decoder_features.copy()
+
+    @decoder_features.setter
+    def decoder_features(self, val):
+        try:
+            if set(val) != set(self._decoder_features):
+                self._decoder_features = val
+                self.tensor_prepared = False
+        except AttributeError:
+            self._decoder_features = val
+            self.tensor_prepared = False
+
+    @property
+    def target_id(self):
+        return self._target_features.copy()
+
+    @target_id.setter
+    def target_id(self, val):
+        target_features = (val,) if isinstance(val, str) else val
+        try:
+            if set(target_features) != set(self._target_features):
+                self._target_features = target_features
+                self.tensor_prepared = False
+        except AttributeError:
+            self._target_features = target_features
+            self.tensor_prepared = False
 
     def __len__(self):
         # TODO add Warning when not enough data available
@@ -98,7 +118,40 @@ class TimeSeriesData(torch.utils.data.Dataset):
         self._index += 1
         return self[idx]
 
-    def get_as_frame(self, idx) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def add_preparation_step(self, step: Callable[[pd.DataFrame], pd.DataFrame]):
+        self.preparation_steps.append(step)
+        self.frame_prepared = False
+        self.tensor_prepared = False
+        return self
+
+    def clear_preparation_steps(self):
+        self.preparation_steps = None
+        return self
+
+    @staticmethod
+    def _apply_prep_to_frame(df, steps):
+        if isinstance(steps, str):
+            raise TypeError("Preparation steps can not be identified by strings.")
+        elif isinstance(steps, Iterable):
+            for step in steps:
+                df = step(df)
+        elif isinstance(steps, Callable):
+            df = steps(df)
+        else:
+            raise TypeError(
+                "preparation_steps should be a callable or an interable of callables."
+            )
+        return df
+
+    def apply_prep_to_frame(self):
+        if self.preparation_steps is None or self.frame_prepared:
+            self.frame_prepared = True
+            return self
+        self.data = self._apply_prep_to_frame(self.data, self.preparation_steps)
+        self.frame_prepared = True
+        return self
+
+    def get_as_frame(self, idx) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         # TODO should the index be the first datapoint or the
         if not isinstance(idx, int):
             idx = self.data.get_loc(idx)
@@ -135,16 +188,42 @@ class TimeSeriesData(torch.utils.data.Dataset):
 
     def to(self, device: Union[str, int]):
         self.device = device
+        if self.tensor_prepared:
+            if self.hist is not None:
+                self.hist.to(device)
+            if self.fut is not None:
+                self.fut.to(device)
+            if self.target is not None:
+                self.target.to(device)
         return self
 
     def make_data_loader(
         self,
+        history_horizon: int = None,
+        forecast_horizon: int = None,
+        encoder_features: Iterable[str] = None,
+        decoder_features: Iterable[str] = None,
+        target_id: Union[str, Iterable[str]] = None,
         batch_size: int = None,
         shuffle: bool = True,
         drop_last: bool = True,
     ):
+        if history_horizon is not None:
+            self.history_horizon = history_horizon
+        if forecast_horizon is not None:
+            self.forecast_horizon = forecast_horizon
+        if encoder_features is not None:
+            self.encoder_features = encoder_features
+        if decoder_features is not None:
+            self.decoder_features = decoder_features
+        if target_id is not None:
+            self.target_id = target_id
+
         if batch_size is None:
             batch_size = len(self)
+
+        self.to_tensor()
+
         return TensorDataLoader(
             self,
             batch_size=batch_size,
@@ -155,164 +234,188 @@ class TimeSeriesData(torch.utils.data.Dataset):
     # def to(self, device: Union[str, int]):
     #     self._device = device
 
-    @staticmethod
-    def to_tensor(batch):
-        hist, fut = (
-            torch.tensor([sample[0].to_numpy() for sample in batch]),
-            torch.tensor([sample[1].to_numpy() for sample in batch]),
-        )
-        # fut = torch.tensor([sample[1].to_numpy() for sample in batch])
-        # hist = torch.from_numpy(hist)
-        # fut = torch.from_numpy(fut)
-        return hist, fut
-
-
-class CustomTensorData:
-    """
-    A custom data structure that stores the inputs (for the Encoder and Decoder) and
-    target data as torch.Tensors.
-
-    Parameters
-    ----------
-    inputs1 : ndarray
-        Encoder inputs
-    inputs2 : ndarray
-        Decoder inputs
-    targets : ndarray
-        Targets (actual values)
-    """
-
-    def __init__(self, inputs1, inputs2, targets):
-        self.inputs1 = torch.Tensor(inputs1).float()
-        self.inputs2 = torch.Tensor(inputs2).float()
-        self.targets = torch.Tensor(targets).float()
-
-    def __getitem__(self, index):
-        return (
-            self.inputs1[index, :, :],
-            self.inputs2[index, :, :],
-            self.targets[index, :, :],
-        )
-
-    def __len__(self):
-        return self.targets.shape[0]
-
-    def to(self, device):
-        """
-        See torch.Tensor.to() - does dtype and/or device conversion
-        """
-
-        self.inputs1 = self.inputs1.to(device)
-        self.inputs2 = self.inputs2.to(device)
-        self.targets = self.targets.to(device)
-        return self
-
-
-class CustomTensorDataLoader:
-    """
-    An iterable data structure that stores CustomTensorData (optionally shuffled into random
-    permutations) in batches. Each iteration returns one batch.
-
-    Parameters
-    ----------
-    dataset : CustomTensorData
-        Input and target data stored in Tensors
-    batch_size : int, default = 1
-        The size of a batch. One training run operates on a single batch of data.
-    shuffle : bool, default = False
-        If True, shuffle the dataset into a random permutation
-    drop_last : bool, default = True
-        If True, sort the data set into as many batches of the specified size as possible.
-        Ignore any remaining data that don't make up a full batch.
-        If False, raise an error.
-
-    Raises
-    ------
-    NotImplementedError
-        Raised if drop_last is set to False.
-    StopIteration
-        Raised when the end of the iterator is reached.
-    """
-
-    def __init__(
-        self, dataset: CustomTensorData, batch_size=1, shuffle=False, drop_last=True
+    def to_tensor(
+        self,
+        # encoder_features: List[Union[str, int]] = None,
+        # decoder_features: List[Union[str, int]] = None,
+        # target_id: Union[str, int] = None,
     ):
-        if not drop_last:
-            raise NotImplementedError
+        if self.tensor_prepared:
+            print("tensor prepared")
+            return self
 
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.drop_last = drop_last
-        n = self.batch_size * (len(self.dataset) // self.batch_size)
-        if self.shuffle:
-            permutation = np.random.permutation(len(self.dataset))[:n]
+        if not self.frame_prepared:
+            print("frame not prepared")
+            df = self.data.copy()
+            df = self._apply_prep_to_frame(self.data, self.preparation_steps)
         else:
-            permutation = np.arange(n)
-        self.permutation = np.reshape(permutation, (len(self), self.batch_size))
+            df = self.data
 
-    def __iter__(self):
-        n = self.batch_size * (len(self.dataset) // self.batch_size)
-        if self.shuffle:
-            permutation = np.random.permutation(len(self.dataset))[:n]
-        else:
-            permutation = np.arange(n)
-        self.permutation = np.reshape(permutation, (len(self), self.batch_size))
-        self.batch_index = 0
+        self.hist = (
+            torch.from_numpy(df[self._encoder_features].to_numpy())
+            .float()
+            .to(self.device)
+        )
+        self.fut = (
+            torch.from_numpy(df[self._decoder_features].to_numpy())
+            .float()
+            .to(self.device)
+        )
+        self.target = (
+            torch.from_numpy(df[self._target_features].to_numpy())
+            .float()
+            .to(self.device)
+        )
+        self.tensor_prepared = True
         return self
 
-    def __next__(self):
-        if self.batch_index < len(self):
-            indices = self.permutation[self.batch_index]
-            self.batch_index += 1
-            return self.dataset[indices]
-        else:
-            raise StopIteration
 
-    def __getitem__(self, index):
-        indices = self.permutation[index]
-        return self.dataset[indices]
+# class CustomTensorData:
+#     """
+#     A custom data structure that stores the inputs (for the Encoder and Decoder) and
+#     target data as torch.Tensors.
 
-    def get_sample(self, index):
-        batch_num = index // self.batch_size
-        item_num = index % self.batch_size
-        index = self.permutation[batch_num][item_num]
-        return self.dataset[index]
+#     Parameters
+#     ----------
+#     inputs1 : ndarray
+#         Encoder inputs
+#     inputs2 : ndarray
+#         Decoder inputs
+#     targets : ndarray
+#         Targets (actual values)
+#     """
 
-    def __len__(self):
-        return len(self.dataset) // self.batch_size
+#     def __init__(self, inputs1, inputs2, targets):
+#         self.inputs1 = torch.Tensor(inputs1).float()
+#         self.inputs2 = torch.Tensor(inputs2).float()
+#         self.targets = torch.Tensor(targets).float()
 
-    def to(self, device: str):
-        """
-        See torch.Tensor.to() - does dtype and/or device conversion
-        """
+#     def __getitem__(self, index):
+#         return (
+#             self.inputs1[index, :, :],
+#             self.inputs2[index, :, :],
+#             self.targets[index, :, :],
+#         )
 
-        self.dataset.to(device)
-        return self
+#     def __len__(self):
+#         return self.targets.shape[0]
 
-    def number_features1(self):
-        """
-        Return the number of features in the Encoder inputs
+#     def to(self, device):
+#         """
+#         See torch.Tensor.to() - does dtype and/or device conversion
+#         """
 
-        Returns
-        -------
-        int
-            The number of entries in the axis that represents the features of the Encoder inputs
-        """
+#         self.inputs1 = self.inputs1.to(device)
+#         self.inputs2 = self.inputs2.to(device)
+#         self.targets = self.targets.to(device)
+#         return self
 
-        return self.dataset.inputs1.shape[2]
 
-    def number_features2(self):
-        """
-        Return the number of features in the Decoder inputs
+# class CustomTensorDataLoader:
+#     """
+#     An iterable data structure that stores CustomTensorData (optionally shuffled into random
+#     permutations) in batches. Each iteration returns one batch.
 
-        Returns
-        -------
-        int
-            The number of entries in the axis that represents the features of the Decoder inputs
-        """
+#     Parameters
+#     ----------
+#     dataset : CustomTensorData
+#         Input and target data stored in Tensors
+#     batch_size : int, default = 1
+#         The size of a batch. One training run operates on a single batch of data.
+#     shuffle : bool, default = False
+#         If True, shuffle the dataset into a random permutation
+#     drop_last : bool, default = True
+#         If True, sort the data set into as many batches of the specified size as possible.
+#         Ignore any remaining data that don't make up a full batch.
+#         If False, raise an error.
 
-        return self.dataset.inputs2.shape[2]
+#     Raises
+#     ------
+#     NotImplementedError
+#         Raised if drop_last is set to False.
+#     StopIteration
+#         Raised when the end of the iterator is reached.
+#     """
+
+#     def __init__(
+#         self, dataset: CustomTensorData, batch_size=1, shuffle=False, drop_last=True
+#     ):
+#         if not drop_last:
+#             raise NotImplementedError
+
+#         self.dataset = dataset
+#         self.batch_size = batch_size
+#         self.shuffle = shuffle
+#         self.drop_last = drop_last
+#         n = self.batch_size * (len(self.dataset) // self.batch_size)
+#         if self.shuffle:
+#             permutation = np.random.permutation(len(self.dataset))[:n]
+#         else:
+#             permutation = np.arange(n)
+#         self.permutation = np.reshape(permutation, (len(self), self.batch_size))
+
+#     def __iter__(self):
+#         n = self.batch_size * (len(self.dataset) // self.batch_size)
+#         if self.shuffle:
+#             permutation = np.random.permutation(len(self.dataset))[:n]
+#         else:
+#             permutation = np.arange(n)
+#         self.permutation = np.reshape(permutation, (len(self), self.batch_size))
+#         self.batch_index = 0
+#         return self
+
+#     def __next__(self):
+#         if self.batch_index < len(self):
+#             indices = self.permutation[self.batch_index]
+#             self.batch_index += 1
+#             return self.dataset[indices]
+#         else:
+#             raise StopIteration
+
+#     def __getitem__(self, index):
+#         indices = self.permutation[index]
+#         return self.dataset[indices]
+
+#     def get_sample(self, index):
+#         batch_num = index // self.batch_size
+#         item_num = index % self.batch_size
+#         index = self.permutation[batch_num][item_num]
+#         return self.dataset[index]
+
+#     def __len__(self):
+#         return len(self.dataset) // self.batch_size
+
+#     def to(self, device: str):
+#         """
+#         See torch.Tensor.to() - does dtype and/or device conversion
+#         """
+
+#         self.dataset.to(device)
+#         return self
+
+#     def number_features1(self):
+#         """
+#         Return the number of features in the Encoder inputs
+
+#         Returns
+#         -------
+#         int
+#             The number of entries in the axis that represents the features of the Encoder inputs
+#         """
+
+#         return self.dataset.inputs1.shape[2]
+
+#     def number_features2(self):
+#         """
+#         Return the number of features in the Decoder inputs
+
+#         Returns
+#         -------
+#         int
+#             The number of entries in the axis that represents the features of the Decoder inputs
+#         """
+
+#         return self.dataset.inputs2.shape[2]
 
 
 class TensorDataLoader(DataLoader):
@@ -322,48 +425,6 @@ class TensorDataLoader(DataLoader):
         else:
             raise AttributeError("Dataset does not have an attribute 'to'")
         return self
-
-
-def make_dataloader_wip(
-    df,
-    target_id,
-    encoder_features,
-    decoder_features,
-    history_horizon,
-    forecast_horizon,
-    batch_size=None,
-    shuffle=True,
-    drop_last=True,
-    feature_groups={},
-    **_,
-):
-    tsd = TimeSeriesData(
-        df,
-        history_horizon=history_horizon,
-        forecast_horizon=forecast_horizon,
-        encoder_features=encoder_features,
-        decoder_features=decoder_features,
-        target_id=target_id,
-        preparation_steps=[
-            dh.set_to_hours,
-            dh.fill_if_missing,
-            dh.add_cyclical_features,
-            dh.add_onehot_features,
-            dh.MultiScaler(feature_groups),
-            dh.check_continuity,
-        ],
-    )
-    if batch_size is None:
-        batch_size = len(tsd)
-    return TensorDataLoader(
-        tsd,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        drop_last=drop_last,
-        # num_workers=4,
-        # prefetch_factor=10
-        # pin_memory=True,
-    )
 
 
 def make_dataloader(
@@ -410,7 +471,9 @@ def make_dataloader(
     CustomTensorDataLoader
         An iterable data structure containing the provided input and target data
     """
-    raise DeprecationWarning("Proloaf has changed the way it is handling data. The Dataloader created by this function is deprecated.")
+    raise DeprecationWarning(
+        "Proloaf has changed the way it is handling data. The Dataloader created by this function is deprecated."
+    )
     # anchor_key='09:00:00'
     # rel_anchor_key='09:00:00'
     x_enc = dh.extract(
@@ -432,47 +495,3 @@ def make_dataloader(
     return CustomTensorDataLoader(
         custom_tensor_data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last
     )
-
-
-if __name__ == "__main__":
-
-    def test_func():
-        pass
-
-    df = pd.DataFrame(np.random.randn(5, 4))
-    print(df)
-    x = np.random.randn(5, 2)
-    print(x)
-    df[[0, 2]] = x
-    print(df)
-
-    # df[0][1] = pd.NA
-    # print(f"{df = }")
-    # tsd = TimeSeriesData(
-    #     df,
-    #     history_horizon=2,
-    #     forecast_horizon=2,
-    #     history_features=[0, 1],
-    #     future_features=[2],
-    #     target_features=[3],
-    #     preparation_steps=[
-    #         # dh.set_to_hours,
-    #         dh.fill_if_missing,
-    #         # dh.add_cyclical_features,
-    #         # dh.add_onehot_features,
-    #         partial(dh.scale, scaler=StandardScaler()),
-    #         # dh.check_continuity,
-    #     ],
-    # )
-    # dl = DataLoader(
-    #     tsd,
-    #     batch_size=1,
-    #     # collate_fn=TimeSeriesData.to_tensor,
-    # )
-
-    # print(f"{tsd.data = }")
-    # print(dl)
-    # for hist, fut, target in dl:
-    # print(f"{hist = }")
-    # print(f"{fut = }")
-    # print(f"{target = }")
