@@ -33,11 +33,9 @@ import torch
 from typing import Any, Callable, Union, List, Dict, Literal
 from copy import deepcopy
 
-from torch.utils.data import dataloader
 import proloaf
 
 from time import perf_counter
-from proloaf.tensorloader import CustomTensorDataLoader
 from proloaf import models
 from proloaf import metrics
 from proloaf.loghandler import (
