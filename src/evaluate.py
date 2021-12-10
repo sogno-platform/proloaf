@@ -98,7 +98,7 @@ if __name__ == "__main__":
             test_df,
             device=DEVICE,
             preparation_steps=[
-                # dh.set_to_hours,
+                dh.set_to_hours,
                 # dh.fill_if_missing,
                 # dh.add_cyclical_features,
                 # dh.add_onehot_features,
