@@ -687,7 +687,6 @@ class ModelHandler:
     ):
         perf_df = self.benchmark(data, models, [loss], avg_over="all")
         print(f"Performance was:\n {perf_df}")
-        # TODO when benchmark changes argmin() probably has to be done on different axis
         idx = perf_df.iloc[0].to_numpy().argmin()
         self.model_wrap = models[idx]
         print(f"selected {self.model_wrap.name}")
@@ -743,7 +742,6 @@ class ModelHandler:
                 bench[name] = df
         return pd.concat(bench.values(), keys=bench.keys(), axis=1)
 
-    # TODO Deprecated
     def run_training(
         self,  # Maybe use the datahandler as "data" which than provides all the data_loaders,for unifying the interface.
         train_data,
@@ -840,7 +838,7 @@ class ModelHandler:
         gc.collect()
         return temp_model_wrap
 
-    # TODO dataformat currently includes targets and features which differs from sklearn
+    # TODO dataformat currently includes targets and features which differs from sklearn -> is that Ok
     def fit(
         self,
         train_data: proloaf.tensorloader.TimeSeriesData,

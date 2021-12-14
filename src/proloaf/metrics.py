@@ -600,7 +600,7 @@ class PinnballLoss(Metric):
         # TODO doing this in a loop seems inefficient
         if avg_over == "all":
             for i, quantile in enumerate(quantiles):
-                # TODO move assertions, do this with tensore algebra
+                # TODO move assertions, do this with tensor algebra
                 assert 0 < quantile
                 assert quantile < 1
                 assert target.shape == predictions[:, :, i].shape

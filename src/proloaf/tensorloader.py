@@ -152,7 +152,6 @@ class TimeSeriesData(torch.utils.data.Dataset):
         return self
 
     def get_as_frame(self, idx) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        # TODO should the index be the first datapoint or the
         if not isinstance(idx, int):
             idx = self.data.get_loc(idx)
         hist = self.data.iloc[idx : idx + self.history_horizon]

@@ -180,8 +180,6 @@ def main(
             config_path=ARGS.config,
             main_path=work_dir,
         )
-        # TODO not implemented either
-        # confighandler.update_config_file(modelhandler.config)
 
     except KeyboardInterrupt:
         print("manual interrupt")
