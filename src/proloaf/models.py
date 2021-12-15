@@ -326,8 +326,8 @@ class Transformer(nn.Module):
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
 
-    def forward(self, src, device):
-        mask = self._generate_square_subsequent_mask(len(src)).to(device)
-        output = self.transformer_encoder(src,mask)
+    def forward(self, inputs_encoder, inputs_decoder, device):
+        mask = self._generate_square_subsequent_mask(len(inputs_decoder)).to(device)
+        output = self.transformer_encoder(inputs_decoder, mask)
         output = self.decoder(output)
         return output
