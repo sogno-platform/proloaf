@@ -219,6 +219,8 @@ def add_cyclical_features(df):
     ## source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
     df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
     df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
+    df['weekday_sin'] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
+    df['weekday_cos'] = np.cos((df.index.weekday) * (2.0 * np.pi / 7))
     df["mnth_sin"] = np.sin((df.index.month - 1) * (2.0 * np.pi / 12))
     df["mnth_cos"] = np.cos((df.index.month - 1) * (2.0 * np.pi / 12))
     return df
