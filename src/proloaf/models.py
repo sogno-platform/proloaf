@@ -306,3 +306,28 @@ class EncoderDecoder(nn.Module):
         states_encoder = self.encoder(inputs_encoder)
         outputs_decoder, states_decoder = self.decoder(inputs_decoder, states_encoder)
         return outputs_decoder, states_decoder
+
+class Transformer(nn.Module):
+    def __init__(self,feature_size=7,num_layers=3,dropout=0):
+        super(Transformer, self).__init__()
+
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=feature_size, nhead=7, dropout=dropout)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)        
+        self.decoder = nn.Linear(feature_size,1)
+        self.init_weights()
+
+    def init_weights(self):
+        initrange = 0.1    
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform_(-initrange, initrange)
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
+
+    def forward(self, src, device):
+        mask = self._generate_square_subsequent_mask(len(src)).to(device)
+        output = self.transformer_encoder(src,mask)
+        output = self.decoder(output)
+        return output
