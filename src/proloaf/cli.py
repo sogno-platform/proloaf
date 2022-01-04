@@ -236,7 +236,7 @@ def parse_with_loss(args=sys.argv[1:]):
     if ret.loss.lower() == "mis":
         options = dict(alpha=ret.loss_arguments)
     elif ret.loss.lower() == "quantilescore":
-        options = dict(quantiles=ret.loss_argumets)
+        options = dict(quantiles=ret.loss_arguments)
     else:
         options = {}
     return ret, options
