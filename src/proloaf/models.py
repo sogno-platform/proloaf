@@ -308,12 +308,21 @@ class EncoderDecoder(nn.Module):
         return outputs_decoder, states_decoder
 
 class Transformer(nn.Module):
-    def __init__(self,feature_size=7,num_layers=3,dropout=0):
+    def __init__(self,
+                 feature_size: int,
+                 num_layers: int=3,
+                 dropout: float=0.0,
+                 forecast_horizon: float=168,
+                 n_heads: int=6,
+                 ):
         super(Transformer, self).__init__()
 
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=feature_size, nhead=7, dropout=dropout)
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)        
-        self.decoder = nn.Linear(feature_size,1)
+        self.forecast_horizon = forecast_horizon
+
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=feature_size, nhead=n_heads, dropout=dropout,
+                                                        batch_first=True)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
+        self.decoder = nn.Linear(feature_size, 1)
         self.init_weights()
 
     def init_weights(self):
@@ -326,8 +335,14 @@ class Transformer(nn.Module):
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
 
-    def forward(self, inputs_encoder, inputs_decoder, device):
-        mask = self._generate_square_subsequent_mask(len(inputs_decoder)).to(device)
-        output = self.transformer_encoder(inputs_decoder, mask)
-        output = self.decoder(output)
-        return output
+    def forward(self, inputs_encoder, inputs_decoder, device='cuda'):
+        inputs_decoder = torch.cat(
+            (torch.zeros(inputs_decoder.shape[0], self.forecast_horizon, 1).to(device), inputs_decoder), 2).to(device)
+        inputs = torch.cat((inputs_encoder, inputs_decoder), 1).to(device)
+
+        mask = self._generate_square_subsequent_mask(inputs.shape[1]).to(device)
+
+        attention = self.transformer_encoder(inputs, mask)
+        output = self.decoder(attention)
+
+        return output[:, -self.forecast_horizon:, :], attention
