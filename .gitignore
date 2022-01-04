@@ -5,7 +5,6 @@
 .run
 __pycache__/
 oracles/
-targets/
 dist/
 runs/
 logs/
