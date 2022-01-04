@@ -138,8 +138,8 @@ class ModelWrapper:
         early_stopping_margin: float = 0.0,
         learning_rate: float = 1e-4,
         max_epochs: int = 100,
-        batch_size: int = 1,
-        history_horizon: int = 1,
+        forecast_horizon: int = 168,
+        n_heads: int = 6
     ):
         self.initialzed = False
         self.last_training = None
@@ -163,8 +163,8 @@ class ModelWrapper:
         self.early_stopping_margin = 0.0
         self.learning_rate = 1e-4
         self.max_epochs = 100
-        self.batch_size=1
-        self.history_horizon=1
+        self.forecast_horizon = 168
+        self.n_heads = 6
 
         self.update(
             name=name,
@@ -186,8 +186,8 @@ class ModelWrapper:
             early_stopping_margin=early_stopping_margin,
             learning_rate=learning_rate,
             max_epochs=max_epochs,
-            batch_size=batch_size,
-            history_horizon=history_horizon,
+            forecast_horizon=forecast_horizon,
+            n_heads=n_heads
         )
 
     def get_model_config(self):
@@ -237,8 +237,8 @@ class ModelWrapper:
         early_stopping_margin: float = None,
         learning_rate: float = None,
         max_epochs: int = None,
-        batch_size: int= None,
-        history_horizon: int= None,
+        forecast_horizon: int = None,
+        n_heads: int = None,
         **_,
     ):
         if name is not None:
@@ -277,10 +277,10 @@ class ModelWrapper:
             self.learning_rate = learning_rate
         if max_epochs is not None:
             self.max_epochs = max_epochs
-        if batch_size is not None:
-            self.batch_size = batch_size
-        if history_horizon is not None:
-            self.history_horizon = history_horizon
+        if forecast_horizon is not None:
+            self.forecast_horizon = forecast_horizon
+        if n_heads is not None:
+            self.n_heads = n_heads
 
         self.initialzed = False
         return self
@@ -333,8 +333,8 @@ class ModelWrapper:
             early_stopping_margin=self.early_stopping_margin,
             learning_rate=self.learning_rate,
             max_epochs=self.max_epochs,
-            batch_size=self.batch_size,
-            history_horizon=self.history_horizon,
+            forecast_horizon=self.forecast_horizon,
+            n_heads=self.n_heads,
         )
         # TODO include trainingparameters
         if self.model is not None:
@@ -570,8 +570,8 @@ class ModelHandler:
             early_stopping_margin=float(config.get("early_stopping_margin", 0.0)),
             learning_rate=float(config.get("learning_rate", 1e-4)),
             max_epochs=int(config.get("max_epochs", 100)),
-            batch_size=int(config.get("batch_size", 1)),
-            history_horizon=int(config.get("history_horizon", 1)),
+            forecast_horizon=config.get("forecast_horizon", 168),
+            n_heads=config.get("n_heads", 6),
         )
         self.to(device)
 
