@@ -343,7 +343,28 @@ class ModelWrapper:
         return temp_mh
 
     def init_model(self):
-        self.model = models.Transformer()
+        if self.core_net == 'simple_transformer':
+            self.model = models.Transformer(
+                feature_size=len(self.encoder_features),
+                num_layers=self.core_layers,
+                dropout=self.dropout_core,
+                forecast_horizon=self.forecast_horizon,
+                n_heads=self.n_heads,
+            )
+        else:
+            self.model = models.EncoderDecoder(
+                enc_size=len(self.encoder_features),
+                dec_size=len(self.decoder_features),
+                out_size=len(self.output_labels),
+                dropout_fc=self.dropout_fc,
+                dropout_core=self.dropout_core,
+                rel_linear_hidden_size=self.rel_linear_hidden_size,
+                rel_core_hidden_size=self.rel_core_hidden_size,
+                core_net=self.core_net,
+                relu_leak=self.relu_leak,
+                core_layers=self.core_layers,
+            )
+
         for param in self.model.parameters():
             torch.nn.init.uniform_(param.data, -0.08, 0.08)
         self.initialzed = True
