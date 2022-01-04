@@ -1089,8 +1089,6 @@ class TrainingRun:
         return {
             "optimizer_name": self.optimizer_name,
             "max_epochs": self.max_epochs,
-            "batch_size": self.batch_size,
-            "history_horizon": self.history_horizon,
             "early_stopping_patience": self.early_stopping.patience,
             "early_stopping_margin": self.early_stopping.delta,
             "learning_rate": self.learning_rate,
