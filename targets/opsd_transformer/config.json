@@ -15,7 +15,7 @@
     "validation_split": 0.8,
     "periodicity": 24,
     "optimizer_name": "adam",
-    "exploration": true,
+    "exploration": false,
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
@@ -106,7 +106,7 @@
     "learning_rate": 9.058952600601419e-5,
     "early_stopping_patience": 7,
     "early_stopping_margin": 0.0,
-    "model_class": "recurrent",
+    "model_class": "simple_transformer",
     "model_parameters":
         {
             "recurrent": {
@@ -122,8 +122,7 @@
                 "feature_size": 6,
                 "num_layers": 3,
                 "dropout": 0.0,
-                "n_heads": 6,
-                "device": "cuda"
+                "n_heads": 6
                 }
         }
 

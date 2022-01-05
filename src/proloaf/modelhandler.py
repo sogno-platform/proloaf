@@ -311,7 +311,6 @@ class ModelWrapper:
                 dropout=model_parameters.get("dropout"),
                 forecast_horizon=self.forecast_horizon,
                 n_heads=model_parameters.get("n_heads"),
-                device=model_parameters.get("device"),
             )
         elif self.model_class == "recurrent":
             self.model = models.EncoderDecoder(

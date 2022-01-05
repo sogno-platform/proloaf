@@ -314,12 +314,10 @@ class Transformer(nn.Module):
                  dropout: float=0.0,
                  forecast_horizon: float=168,
                  n_heads: int=6,
-                 device: str=None,
                  ):
         super(Transformer, self).__init__()
 
         self.forecast_horizon = forecast_horizon
-        self.device = device
 
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=feature_size, nhead=n_heads, dropout=dropout,
                                                         batch_first=True)
@@ -338,11 +336,13 @@ class Transformer(nn.Module):
         return mask
 
     def forward(self, inputs_encoder, inputs_decoder):
-        inputs_decoder = torch.cat(
-            (torch.zeros(inputs_decoder.shape[0], self.forecast_horizon, 1).to(self.device), inputs_decoder), 2).to(self.device)
-        inputs = torch.cat((inputs_encoder, inputs_decoder), 1).to(self.device)
+        device = (next(self.parameters()).device)
 
-        mask = self._generate_square_subsequent_mask(inputs.shape[1]).to(self.device)
+        inputs_decoder = torch.cat(
+            (torch.zeros(inputs_decoder.shape[0], self.forecast_horizon, 1).to(device), inputs_decoder), 2).to(device)
+        inputs = torch.cat((inputs_encoder, inputs_decoder), 1).to(device)
+
+        mask = self._generate_square_subsequent_mask(inputs.shape[1]).to(device)
 
         attention = self.transformer_encoder(inputs, mask)
         output = self.decoder(attention)
