@@ -139,7 +139,9 @@ class ModelWrapper:
         learning_rate: float = 1e-4,
         max_epochs: int = 100,
         forecast_horizon: int = 168,
-        n_heads: int = 6
+        n_heads: int = 6,
+        model_class: str = "recurrent",
+        model_parameters: Dict[str, Any] = {},
     ):
         self.initialzed = False
         self.last_training = None
@@ -165,6 +167,8 @@ class ModelWrapper:
         self.max_epochs = 100
         self.forecast_horizon = 168
         self.n_heads = 6
+        self.model_class = "recurrent"
+        self.model_parameters = {}
 
         self.update(
             name=name,
@@ -187,7 +191,9 @@ class ModelWrapper:
             learning_rate=learning_rate,
             max_epochs=max_epochs,
             forecast_horizon=forecast_horizon,
-            n_heads=n_heads
+            n_heads=n_heads,
+            model_class=model_class,
+            model_parameters=model_parameters,
         )
 
     def get_model_config(self):
@@ -239,6 +245,8 @@ class ModelWrapper:
         max_epochs: int = None,
         forecast_horizon: int = None,
         n_heads: int = None,
+        model_class: str =None,
+        model_parameters: Dict[str, Any] = None,
         **_,
     ):
         if name is not None:
@@ -281,6 +289,10 @@ class ModelWrapper:
             self.forecast_horizon = forecast_horizon
         if n_heads is not None:
             self.n_heads = n_heads
+        if model_class is not None:
+            self.model_class = model_class
+        if model_parameters is not None:
+            self.model_parameters = model_parameters
 
         self.initialzed = False
         return self
@@ -335,6 +347,8 @@ class ModelWrapper:
             max_epochs=self.max_epochs,
             forecast_horizon=self.forecast_horizon,
             n_heads=self.n_heads,
+            model_class=self.model_class,
+            model_parameters=self.model_parameters,
         )
         # TODO include trainingparameters
         if self.model is not None:
@@ -343,26 +357,27 @@ class ModelWrapper:
         return temp_mh
 
     def init_model(self):
-        if self.core_net == 'simple_transformer':
+        model_parameters = self.model_parameters.get(self.model_class)
+
+        if self.model_class == "simple_transformer":
             self.model = models.Transformer(
-                feature_size=len(self.encoder_features),
-                num_layers=self.core_layers,
-                dropout=self.dropout_core,
-                forecast_horizon=self.forecast_horizon,
-                n_heads=self.n_heads,
+                feature_size=model_parameters.get("feature_size"),
+                num_layers=model_parameters.get("num_layers"),
+                dropout=model_parameters.get("dropout"),
+                n_heads=model_parameters.get("n_heads"),
             )
-        else:
+        elif self.model_class == "recurrent":
             self.model = models.EncoderDecoder(
                 enc_size=len(self.encoder_features),
                 dec_size=len(self.decoder_features),
                 out_size=len(self.output_labels),
-                dropout_fc=self.dropout_fc,
-                dropout_core=self.dropout_core,
-                rel_linear_hidden_size=self.rel_linear_hidden_size,
-                rel_core_hidden_size=self.rel_core_hidden_size,
-                core_net=self.core_net,
-                relu_leak=self.relu_leak,
-                core_layers=self.core_layers,
+                dropout_fc=model_parameters.get("dropout_fc"),
+                dropout_core=model_parameters.get("dropout_core"),
+                rel_linear_hidden_size=model_parameters.get("rel_linear_hidden_size"),
+                rel_core_hidden_size=model_parameters.get("rel_core_hidden_size"),
+                core_net=model_parameters.get("core_net"),
+                relu_leak=model_parameters.get("relu_leak"),
+                core_layers=model_parameters.get("core_layers"),
             )
 
         for param in self.model.parameters():
@@ -593,6 +608,8 @@ class ModelHandler:
             max_epochs=int(config.get("max_epochs", 100)),
             forecast_horizon=config.get("forecast_horizon", 168),
             n_heads=config.get("n_heads", 6),
+            model_class=config.get("model_class", "recurrent"),
+            model_parameters=config.get("model_parameters"),
         )
         self.to(device)
 
