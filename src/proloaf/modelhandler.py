@@ -121,15 +121,8 @@ class ModelWrapper:
         self,
         name: str = "model",
         target_id: Union[str, int] = "target",
-        core_net: str = "torch.nn.LSTM",
-        relu_leak: float = 0.1,
         encoder_features: List[str] = None,
         decoder_features: List[str] = None,
-        core_layers: int = 1,
-        rel_linear_hidden_size: float = 1.0,
-        rel_core_hidden_size: float = 1.0,
-        dropout_fc: float = 0.4,
-        dropout_core: float = 0.3,
         scalers=None,
         training_metric: str = None,
         metric_options: Dict[str, Any] = {},
@@ -139,7 +132,6 @@ class ModelWrapper:
         learning_rate: float = 1e-4,
         max_epochs: int = 100,
         forecast_horizon: int = 168,
-        n_heads: int = 6,
         model_class: str = "recurrent",
         model_parameters: Dict[str, Any] = {},
     ):
@@ -148,15 +140,8 @@ class ModelWrapper:
         self.model = None  # model
         self.name = "model"
         self.target_id = "target"
-        self.core_net = "torch.nn.LSTM"
-        self.relu_leak = 0.1
         self.encoder_features = None
         self.decoder_features = None
-        self.core_layers = 1
-        self.rel_linear_hidden_size = 1.0
-        self.rel_core_hidden_size = 1.0
-        self.dropout_fc = 0.4
-        self.dropout_core = 0.3
         self.scalers = None
         self.set_loss(loss="nllgauss", loss_options={})
 
@@ -166,22 +151,14 @@ class ModelWrapper:
         self.learning_rate = 1e-4
         self.max_epochs = 100
         self.forecast_horizon = 168
-        self.n_heads = 6
         self.model_class = "recurrent"
         self.model_parameters = {}
 
         self.update(
             name=name,
             target_id=target_id,
-            core_net=core_net,
-            relu_leak=relu_leak,
             encoder_features=encoder_features,
             decoder_features=decoder_features,
-            core_layers=core_layers,
-            rel_linear_hidden_size=rel_linear_hidden_size,
-            rel_core_hidden_size=rel_core_hidden_size,
-            dropout_fc=dropout_fc,
-            dropout_core=dropout_core,
             scalers=scalers,
             training_metric=training_metric,
             metric_options=metric_options,
@@ -191,24 +168,24 @@ class ModelWrapper:
             learning_rate=learning_rate,
             max_epochs=max_epochs,
             forecast_horizon=forecast_horizon,
-            n_heads=n_heads,
             model_class=model_class,
             model_parameters=model_parameters,
         )
 
     def get_model_config(self):
         return {
-            "model_name": self.name,
-            "target_id": self.target_id,
-            "core_net": self.core_net,
-            "relu_leak": self.relu_leak,
-            "encoder_features": deepcopy(self.encoder_features),
-            "decoder_features": deepcopy(self.decoder_features),
-            "core_layers": self.core_layers,
-            "rel_linear_hidden_size": self.rel_linear_hidden_size,
-            "rel_core_hidden_size": self.rel_core_hidden_size,
-            "dropout_fc": self.dropout_fc,
-            "dropout_core": self.dropout_core,
+            # "model_name": self.name,
+            # "target_id": self.target_id,
+            # "core_net": self.core_net,
+            # "relu_leak": self.relu_leak,
+            # "encoder_features": deepcopy(self.encoder_features),
+            # "decoder_features": deepcopy(self.decoder_features),
+            # "core_layers": self.core_layers,
+            # "rel_linear_hidden_size": self.rel_linear_hidden_size,
+            # "rel_core_hidden_size": self.rel_core_hidden_size,
+            # "dropout_fc": self.dropout_fc,
+            # "dropout_core": self.dropout_core,
+            "model_parameters": self.model_parameters
         }
 
     def get_training_config(self):
@@ -226,15 +203,8 @@ class ModelWrapper:
         self,
         name: str = None,
         target_id: Union[str, int] = None,
-        core_net: str = None,
-        relu_leak: float = None,
         encoder_features: List[str] = None,
         decoder_features: List[str] = None,
-        core_layers: int = None,
-        rel_linear_hidden_size: float = None,
-        rel_core_hidden_size: float = None,
-        dropout_fc: float = None,
-        dropout_core: float = None,
         scalers=None,
         training_metric: str = None,
         metric_options: Dict[str, Any] = None,
@@ -244,7 +214,6 @@ class ModelWrapper:
         learning_rate: float = None,
         max_epochs: int = None,
         forecast_horizon: int = None,
-        n_heads: int = None,
         model_class: str =None,
         model_parameters: Dict[str, Any] = None,
         **_,
@@ -253,24 +222,10 @@ class ModelWrapper:
             self.name = name
         if target_id is not None:
             self.target_id = target_id
-        if core_net is not None:
-            self.core_net = core_net
-        if relu_leak is not None:
-            self.relu_leak = relu_leak
         if encoder_features is not None:
             self.encoder_features = deepcopy(encoder_features)
         if decoder_features is not None:
             self.decoder_features = deepcopy(decoder_features)
-        if core_layers is not None:
-            self.core_layers = core_layers
-        if rel_linear_hidden_size is not None:
-            self.rel_linear_hidden_size = rel_linear_hidden_size
-        if rel_core_hidden_size is not None:
-            self.rel_core_hidden_size = rel_core_hidden_size
-        if dropout_fc is not None:
-            self.dropout_fc = dropout_fc
-        if dropout_core is not None:
-            self.dropout_core = dropout_core
         if scalers is not None:
             self.scalers = scalers
         if training_metric is not None:
@@ -287,8 +242,6 @@ class ModelWrapper:
             self.max_epochs = max_epochs
         if forecast_horizon is not None:
             self.forecast_horizon = forecast_horizon
-        if n_heads is not None:
-            self.n_heads = n_heads
         if model_class is not None:
             self.model_class = model_class
         if model_parameters is not None:
@@ -328,15 +281,8 @@ class ModelWrapper:
         temp_mh = ModelWrapper(
             name=self.name,
             target_id=self.target_id,
-            core_net=self.core_net,
-            relu_leak=self.relu_leak,
             encoder_features=self.encoder_features,
             decoder_features=self.decoder_features,
-            core_layers=self.core_layers,
-            rel_linear_hidden_size=self.rel_linear_hidden_size,
-            rel_core_hidden_size=self.rel_core_hidden_size,
-            dropout_fc=self.dropout_fc,
-            dropout_core=self.dropout_core,
             scalers=self.scalers,
             training_metric=self._loss,
             metric_options=self._loss_options,
@@ -346,7 +292,6 @@ class ModelWrapper:
             learning_rate=self.learning_rate,
             max_epochs=self.max_epochs,
             forecast_horizon=self.forecast_horizon,
-            n_heads=self.n_heads,
             model_class=self.model_class,
             model_parameters=self.model_parameters,
         )
@@ -364,7 +309,9 @@ class ModelWrapper:
                 feature_size=model_parameters.get("feature_size"),
                 num_layers=model_parameters.get("num_layers"),
                 dropout=model_parameters.get("dropout"),
+                forecast_horizon=self.forecast_horizon,
                 n_heads=model_parameters.get("n_heads"),
+                device=model_parameters.get("device"),
             )
         elif self.model_class == "recurrent":
             self.model = models.EncoderDecoder(
@@ -589,15 +536,8 @@ class ModelHandler:
         self._model_wrap: ModelWrapper = ModelWrapper(
             name=config.get("model_name"),
             target_id=config.get("target_id"),
-            core_net=config.get("core_net"),
-            relu_leak=config.get("relu_leak"),
             encoder_features=config.get("encoder_features"),
             decoder_features=config.get("decoder_features"),
-            core_layers=config.get("core_layers"),
-            rel_linear_hidden_size=config.get("rel_linear_hidden_size"),
-            rel_core_hidden_size=config.get("rel_core_hidden_size"),
-            dropout_fc=config.get("dropout_fc"),
-            dropout_core=config.get("dropout_core"),
             scalers=scalers,
             training_metric=loss,
             metric_options=loss_kwargs,
@@ -607,7 +547,6 @@ class ModelHandler:
             learning_rate=float(config.get("learning_rate", 1e-4)),
             max_epochs=int(config.get("max_epochs", 100)),
             forecast_horizon=config.get("forecast_horizon", 168),
-            n_heads=config.get("n_heads", 6),
             model_class=config.get("model_class", "recurrent"),
             model_parameters=config.get("model_parameters"),
         )

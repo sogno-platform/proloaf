@@ -14,9 +14,8 @@
     "train_split": 0.6,
     "validation_split": 0.8,
     "periodicity": 24,
-    "core_net": "simple_transformer",
     "optimizer_name": "adam",
-    "exploration": false,
+    "exploration": true,
     "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
@@ -105,14 +104,8 @@
     "max_epochs": 1,
     "batch_size": 32,
     "learning_rate": 9.058952600601419e-5,
-    "core_layers": 1,
-    "rel_linear_hidden_size": 1.0,
-    "rel_core_hidden_size": 1.0,
-    "dropout_fc": 0.4,
-    "dropout_core": 0.3,
     "early_stopping_patience": 7,
     "early_stopping_margin": 0.0,
-    "n_heads": 6,
     "model_class": "recurrent",
     "model_parameters":
         {
@@ -129,8 +122,8 @@
                 "feature_size": 6,
                 "num_layers": 3,
                 "dropout": 0.0,
-                "forecast_horizon": 168,
-                "n_heads": 6
+                "n_heads": 6,
+                "device": "cuda"
                 }
         }
 
