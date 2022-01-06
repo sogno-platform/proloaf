@@ -21,6 +21,7 @@
 Provides handy plot functions to visualize predictions and performancec over selected timeseries
 """
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import pandas as pd
 import proloaf.metrics as metrics
@@ -72,8 +73,12 @@ def plot_timestep(
         ax.set_title(actual_time.iloc[0].strftime("%a, %Y-%m-%d"), fontsize=20)
         positions = range(0, len(pred), 2)
         labels = (
-            actual_time.dt.hour.to_numpy()
+            pd.to_datetime(actual_time).dt.to_period().to_numpy()
         )  # assuming hourly resolution in most of the evaluations
+        plt.setp( ax.xaxis.get_majorticklabels(), rotation=90)
+        mdates = matplotlib.dates.date2num(actual_time)
+        ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=20))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         new_labels = labels[positions]
         plt.xticks(positions, new_labels)
     except:
