@@ -138,6 +138,8 @@ class ModelWrapper:
         early_stopping_margin: float = 0.0,
         learning_rate: float = 1e-4,
         max_epochs: int = 100,
+        batch_size: int = 1,
+        history_horizon: int = 1,
     ):
         self.initialzed = False
         self.last_training = None
@@ -161,6 +163,8 @@ class ModelWrapper:
         self.early_stopping_margin = 0.0
         self.learning_rate = 1e-4
         self.max_epochs = 100
+        self.batch_size=1
+        self.history_horizon=1
 
         self.update(
             name=name,
@@ -182,6 +186,8 @@ class ModelWrapper:
             early_stopping_margin=early_stopping_margin,
             learning_rate=learning_rate,
             max_epochs=max_epochs,
+            batch_size=batch_size,
+            history_horizon=history_horizon,
         )
 
     def get_model_config(self):
@@ -206,6 +212,8 @@ class ModelWrapper:
             "early_stopping_margin": self.early_stopping_margin,
             "learning_rate": self.learning_rate,
             "max_epochs": self.max_epochs,
+            "batch_size": self.batch_size,
+            "history_horizon": self.history_horizon,
         }
 
     def update(
@@ -229,6 +237,8 @@ class ModelWrapper:
         early_stopping_margin: float = None,
         learning_rate: float = None,
         max_epochs: int = None,
+        batch_size: int= None,
+        history_horizon: int= None,
         **_,
     ):
         if name is not None:
@@ -267,6 +277,10 @@ class ModelWrapper:
             self.learning_rate = learning_rate
         if max_epochs is not None:
             self.max_epochs = max_epochs
+        if batch_size is not None:
+            self.batch_size = batch_size
+        if history_horizon is not None:
+            self.history_horizon = history_horizon
 
         self.initialzed = False
         return self
@@ -319,6 +333,8 @@ class ModelWrapper:
             early_stopping_margin=self.early_stopping_margin,
             learning_rate=self.learning_rate,
             max_epochs=self.max_epochs,
+            batch_size=self.batch_size,
+            history_horizon=self.history_horizon,
         )
         # TODO include trainingparameters
         if self.model is not None:
@@ -430,6 +446,8 @@ class ModelWrapper:
             learning_rate=self.learning_rate,
             loss_function=self.loss_metric,
             max_epochs=self.max_epochs,
+            batch_size=self.batch_size,
+            history_horizon=self.history_horizon,
             log_tb=log_tb,
             device=self._device,
         )
@@ -474,6 +492,7 @@ class ModelWrapper:
                 "The model has not been initialized. Use .init_model() to do that"
             )
         # XXX this returned array of numbers is not very readable, maybe a dict would be helpful
+        self.to(inputs_enc.device)
         val, _ = self.model(inputs_enc, inputs_dec)
         # print(f"{len(val) = }")
         # print(f"{val[0].size() = }")
@@ -560,6 +579,8 @@ class ModelHandler:
             early_stopping_margin=float(config.get("early_stopping_margin", 0.0)),
             learning_rate=float(config.get("learning_rate", 1e-4)),
             max_epochs=int(config.get("max_epochs", 100)),
+            batch_size=int(config.get("batch_size", 1)),
+            history_horizon=int(config.get("history_horizon", 1)),
         )
         self.to(device)
 
@@ -639,10 +660,11 @@ class ModelHandler:
         )
 
         print("Number of finished trials: ", len(study.trials))
-        # trials_df = study.trials_dataframe()
+        trials_df = study.trials_dataframe()
 
         if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
             os.mkdir(os.path.join(self.work_dir, self.config["log_path"]))
+        trials_df.to_csv(self.work_dir+self.config["log_path"]+"tuning-results_"+ self.model_wrap.name,index=False)
 
         print("Best trial:")
         trial = study.best_trial
@@ -812,6 +834,7 @@ class ModelHandler:
             # "hparam/relative_score": rel_score,
         }
         end_tensorboard(tb, hparams, values, self.work_dir, self.logname)
+        gc.collect()
         return temp_model_wrap
 
     # TODO dataformat currently includes targets and features which differs from sklearn
@@ -1015,6 +1038,8 @@ class TrainingRun:
         device: str = "cpu",
         log_df: pd.DataFrame = None,
         log_tb: torch.utils.tensorboard.SummaryWriter = None,
+        batch_size=1,
+        history_horizon=1,
     ):
         if id is None:
             self.id = TrainingRun._next_id
@@ -1044,12 +1069,14 @@ class TrainingRun:
     def get_config(self):
         return {
             "optimizer_name": self.optimizer_name,
-            "may_epochs": self.max_epochs,
+            "max_epochs": self.max_epochs,
+            "batch_size": self.batch_size,
+            "history_horizon": self.history_horizon,
             "early_stopping_patience": self.early_stopping.patience,
             "early_stopping_margin": self.early_stopping.delta,
             "learning_rate": self.learning_rate,
         }
-
+        
     def remove_data(self):
         self.train_dl = None
         self.validation_dl = None
