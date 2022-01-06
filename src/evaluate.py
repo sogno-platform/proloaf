@@ -81,7 +81,8 @@ if __name__ == "__main__":
         os.makedirs(OUTDIR)
 
     # Read load data
-    df = pd.read_csv(INFILE, sep=";")
+    df = pd.read_csv(INFILE, sep=";", index_col=0, parse_dates=True)
+    df = dh.fill_if_missing(df, periodicity=24)
 
     if "target_list" in PAR:
         if PAR["target_list"] is not None:
@@ -91,6 +92,8 @@ if __name__ == "__main__":
     with torch.no_grad():
         net = mh.ModelHandler.load_model(f"{INMODEL}.pkl")
         net.to(DEVICE)
+        df_new, _ = dh.scale_all(df, scalers=net.scalers, **PAR)
+        df_new.index = df.index
 
         train_df, test_df = dh.split(df, [SPLIT_RATIO])
 
@@ -188,8 +191,11 @@ if __name__ == "__main__":
         # plot forecast for sample time steps
         # the first and 24th timestep relative to the start of the Test-Dataset
         testhours = [0, 24]
-
-        actual_time = pd.to_datetime(test_data.data.index[PAR["history_horizon"] :])
+        df["Time"]=df.index
+        #actual_time = pd.to_datetime(
+        #    df.iloc[PAR["history_horizon"] + split_index:].index
+        #)
+        actual_time = pd.Series(pd.to_datetime(df.index), index=df.index, dtype=object)
         for i in testhours:
             inputs_enc, inputs_dec, targets = test_data[i]
             prediction = net.predict(inputs_enc.unsqueeze(0), inputs_dec.unsqueeze(0))
@@ -206,9 +212,9 @@ if __name__ == "__main__":
             actuals = actual_time[i : i + FORECAST_HORIZON]
             plot.plot_timestep(
                 targets.detach().squeeze().numpy(),
-                expected_values.detach().numpy(),
-                y_pred_upper.detach().numpy(),
-                y_pred_lower.detach().numpy(),
+                expected_values.detach().numpy()[0],
+                y_pred_upper.detach().numpy()[0],
+                y_pred_lower.detach().numpy()[0],
                 i,
                 OUTDIR,
                 PAR["cap_limit"],
