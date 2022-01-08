@@ -374,13 +374,15 @@ def end_tensorboard(
     # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
     # https://pytorch.org/docs/master/tensorboard.html
 
-    key = "model_parameters"
-    hparams = params.get(key)
-    del params[key]
 
-    params.update(next(iter(hparams.values())))
 
     if params:
+        key = "model_parameters"
+        hparams = params.get(key)
+        del params[key]
+
+        params.update(next(iter(hparams.values())))
+
         tb.add_hparams(params, values)
     tb.close()
     run_dir = os.path.join(work_dir, str("runs/" + logname))
