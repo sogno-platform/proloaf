@@ -229,7 +229,7 @@ def clean_up_tensorboard_dir(run_dir):
             shutil.move(
                 os.path.join(subdir, f), run_dir
             )  # moves the file out of the subdir
-        shutil.rmtree(subdir)  # removes the now empty subdir
+        # shutil.rmtree(subdir)  # removes the now empty subdir
         # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
 
 
@@ -343,9 +343,12 @@ def add_tb_element(
     tb.add_scalar("total_time", t1_stop - t0_start, next_epoch)
     tb.add_scalar("val_loss_steps", validation_loss, step_counter)
 
-    for name, weight in net.decoder.named_parameters():
+    for name, weight in net.named_parameters():
         tb.add_histogram(name, weight, next_epoch)
-        tb.add_histogram(f"{name}.grad", weight.grad, next_epoch)
+        try:
+            tb.add_histogram(f"{name}.grad", weight.grad, next_epoch)
+        except:
+            pass
         # .add_scalar(f'{name}.grad', weight.grad, epoch + 1)
 
 
@@ -370,6 +373,13 @@ def end_tensorboard(
     # tb.add_figure(f'{hour}th_hour-forecast')
     # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
     # https://pytorch.org/docs/master/tensorboard.html
+
+    key = "model_parameters"
+    hparams = params.get(key)
+    del params[key]
+
+    params.update(next(iter(hparams.values())))
+
     if params:
         tb.add_hparams(params, values)
     tb.close()

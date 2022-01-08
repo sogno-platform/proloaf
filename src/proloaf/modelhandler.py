@@ -245,7 +245,10 @@ class ModelWrapper:
         if model_class is not None:
             self.model_class = model_class
         if model_parameters is not None:
-            self.model_parameters = model_parameters
+            if self.model_parameters == {}:
+                self.model_parameters = model_parameters
+            else:
+                self.model_parameters[self.model_class].update(model_parameters[self.model_class])
 
         self.initialzed = False
         return self
@@ -794,8 +797,8 @@ class ModelHandler:
 
         # TODO readd rel_score
         values = {
-            "hparam/hp_total_time": temp_model_wrap.last_training.training_start_time
-            - temp_model_wrap.last_training.training_end_time,
+            "hparam/hp_total_time": temp_model_wrap.last_training.training_end_time
+            - temp_model_wrap.last_training.training_start_time,
             "hparam/score": temp_model_wrap.last_training.validation_loss,
             # "hparam/relative_score": rel_score,
         }
@@ -965,9 +968,20 @@ class ModelHandler:
             # trial object(and suggest methods) of optuna
             hparams = {}
             for key, hparam in tuning_settings.items():
+                if key == "model_parameters":
+                    continue
+
                 print("Creating parameter: ", key)
                 func_generator = getattr(trial, hparam["function"])
                 hparams[key] = func_generator(**(hparam["kwargs"]))
+
+            model_class = self.config.get("model_class")
+            hparams["model_parameters"] = {model_class: {}}
+
+            for key, hparam in tuning_settings["model_parameters"].get(model_class).items():
+                print("Creating parameter: ", key)
+                func_generator = getattr(trial, hparam["function"])
+                hparams["model_parameters"][model_class][key] = func_generator(**(hparam["kwargs"]))
 
             model_wrap = self.run_training(
                 train_data_loader,
