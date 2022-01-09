@@ -309,11 +309,12 @@ class ModelWrapper:
 
         if self.model_class == "simple_transformer":
             self.model = models.Transformer(
-                feature_size=model_parameters.get("feature_size"),
+                feature_size=len(self.encoder_features),
                 num_layers=model_parameters.get("num_layers"),
                 dropout=model_parameters.get("dropout"),
-                forecast_horizon=self.forecast_horizon,
                 n_heads=model_parameters.get("n_heads"),
+                encoder_features=self.encoder_features,
+                decoder_features=self.decoder_features,
             )
         elif self.model_class == "recurrent":
             self.model = models.EncoderDecoder(

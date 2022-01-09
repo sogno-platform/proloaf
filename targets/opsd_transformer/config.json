@@ -119,7 +119,6 @@
                 "relu_leak": 0.1
                 },
             "simple_transformer": {
-                "feature_size": 6,
                 "num_layers": 3,
                 "dropout": 0.0,
                 "n_heads": 6

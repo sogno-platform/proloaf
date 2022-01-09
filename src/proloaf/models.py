@@ -309,20 +309,23 @@ class EncoderDecoder(nn.Module):
 
 class Transformer(nn.Module):
     def __init__(self,
-                 feature_size: int,
+                 feature_size: int=0,
                  num_layers: int=3,
                  dropout: float=0.0,
-                 forecast_horizon: float=168,
-                 n_heads: int=6,
+                 n_heads: int=0,
+                 encoder_features: list = [],
+                 decoder_features: list = [],
                  ):
         super(Transformer, self).__init__()
 
-        self.forecast_horizon = forecast_horizon
+        self.encoder_features = encoder_features
+        self.decoder_features = decoder_features
 
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=feature_size, nhead=n_heads, dropout=dropout,
                                                         batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
         self.decoder = nn.Linear(feature_size, 1)
+
         self.init_weights()
 
     def init_weights(self):
@@ -335,16 +338,29 @@ class Transformer(nn.Module):
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
 
+    def prepare_input(self, inputs_encoder, inputs_decoder, device):
+        diff_enc_dec = len(self.encoder_features) - len(self.decoder_features)
+
+        inputs_decoder = torch.cat(
+            (torch.zeros(inputs_decoder.shape[0], inputs_decoder.shape[1], diff_enc_dec).to(device), inputs_decoder),
+            2
+        ).to(device)
+
+        inputs = torch.cat(
+            (inputs_encoder, inputs_decoder),
+            1
+        ).to(device)
+
+        return inputs
+
     def forward(self, inputs_encoder, inputs_decoder):
         device = (next(self.parameters()).device)
 
-        inputs_decoder = torch.cat(
-            (torch.zeros(inputs_decoder.shape[0], self.forecast_horizon, 1).to(device), inputs_decoder), 2).to(device)
-        inputs = torch.cat((inputs_encoder, inputs_decoder), 1).to(device)
+        inputs = self.prepare_input(inputs_encoder, inputs_decoder, device)
 
         mask = self._generate_square_subsequent_mask(inputs.shape[1]).to(device)
 
         attention = self.transformer_encoder(inputs, mask)
         output = self.decoder(attention)
 
-        return output[:, -self.forecast_horizon:, :], attention
+        return output[:, -inputs_decoder.shape[1]:, :], attention
