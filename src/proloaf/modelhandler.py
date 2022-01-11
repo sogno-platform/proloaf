@@ -313,6 +313,7 @@ class ModelWrapper:
                 num_layers=model_parameters.get("num_layers"),
                 dropout=model_parameters.get("dropout"),
                 n_heads=model_parameters.get("n_heads"),
+                out_size=len(self.output_labels),
                 encoder_features=self.encoder_features,
                 decoder_features=self.decoder_features,
             )

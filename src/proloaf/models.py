@@ -313,6 +313,7 @@ class Transformer(nn.Module):
                  num_layers: int=3,
                  dropout: float=0.0,
                  n_heads: int=0,
+                 out_size: int = 1,
                  encoder_features: list = [],
                  decoder_features: list = [],
                  ):
@@ -324,7 +325,7 @@ class Transformer(nn.Module):
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=feature_size, nhead=n_heads, dropout=dropout,
                                                         batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
-        self.decoder = nn.Linear(feature_size, 1)
+        self.decoder = nn.Linear(feature_size, out_size)
 
         self.init_weights()
 
