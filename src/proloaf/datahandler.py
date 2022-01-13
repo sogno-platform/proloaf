@@ -30,6 +30,7 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 import sklearn
+from sklearn.utils.validation import check_is_fitted
 import proloaf.tensorloader as tl
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
@@ -684,9 +685,46 @@ class MultiScaler(sklearn.base.TransformerMixin):
     ):
         self.feature_groups = feature_groups
         if scalers is None:
-            self.scalers = {}
+            self._init_scalers()
         else:
             self.scalers = scalers
+            self._mark_if_fitted()
+
+    @staticmethod
+    def _extract_scaler_from_config(scaler_dict: Dict) -> sklearn.base.TransformerMixin:
+        if scaler_dict[0] == "standard":
+            return StandardScaler()
+        elif scaler_dict[0] == "robust":
+            return RobustScaler(quantile_range=(scaler_dict[1], scaler_dict[2]))
+        elif scaler_dict[0] == "minmax":
+            return MinMaxScaler(feature_range=(scaler_dict[1], scaler_dict[2]))
+        else:
+            raise RuntimeError(
+                f"scaler could not be generated. {scaler_dict[0]} is not a known Identifier of a scaler."
+            )
+
+    def _init_scalers(self):
+        self.scalers = {}
+        for group in self.feature_groups:
+            if "features" not in group or not group["features"]:
+                print(
+                    f"Feature group {group.get('name', 'UNNAMED')} has no features and will be skipped."
+                )
+                continue
+            if group["scaler"] is None or group["scaler"][0] is None:
+                if group.get("name") != "aux":
+                    print(
+                        f"{group.get('name','UNNAMED')} features were not scaled, if this was unintentional check the config file."
+                    )
+                continue
+
+            self.scalers.update(
+                {
+                    feature: self._extract_scaler_from_config(group["scaler"])
+                    for feature in group["features"]
+                }
+            )
+        return self
 
     def fit(self, X: pd.DataFrame):
         """
@@ -697,42 +735,10 @@ class MultiScaler(sklearn.base.TransformerMixin):
         X: pandas.DataFrame
             Reference data to fit the scaler on.
         """
-        for group in self.feature_groups:
-            if "features" not in group or not group["features"]:
-                print(
-                    f"Feature group {group['name']} has not features and will be skipped."
-                )
-                continue
-            scaler = None
-            df_to_scale = X[group["features"]]
-
-            # if group["name"] in self.scalers:
-            #     scaler = self.scalers[group["name"]]
-            # else:
-            #
-            if group["scaler"] is None or group["scaler"][0] is None:
-                if group["name"] != "aux":
-                    print(
-                        group["name"]
-                        + " features were not scaled, if this was unintentional check the config file."
-                    )
-            elif group["scaler"][0] == "standard":
-                scaler = StandardScaler()
-            elif group["scaler"][0] == "robust":
-                scaler = RobustScaler(
-                    quantile_range=(group["scaler"][1], group["scaler"][2])
-                )
-            elif group["scaler"][0] == "minmax":
-                scaler = MinMaxScaler(
-                    feature_range=(group["scaler"][1], group["scaler"][2])
-                )
-            else:
-                raise RuntimeError(
-                    f"scaler could not be generated. {group['scaler']} is not a known Identifier of a scaler."
-                )
-            if scaler is not None:
-                scaler.fit(df_to_scale)
-            self.scalers[group["name"]] = scaler
+        for feature in X.columns:
+            if feature in self.scalers:
+                self.scalers[feature].fit(X[[feature]])
+        self.is_fitted_ = True
         return self
 
     def transform(self, X: pd.DataFrame, inplace: bool = False):
@@ -754,17 +760,9 @@ class MultiScaler(sklearn.base.TransformerMixin):
         """
         if not inplace:
             X = X.copy()
-        for group in self.feature_groups:
-            df_to_scale = X[group["features"]]
-            scaler = self.scalers.get(group["name"])
-            if scaler is None:
-                if group["name"] != "aux":
-                    print(
-                        f"Feature group {group['name']} was not transformed as there is no scaler for it."
-                    )
-                continue
-            X_new = scaler.transform(df_to_scale)
-            X[group["features"]] = X_new
+        for feature in X.columns:
+            if feature in self.scalers:
+                X[feature] = self.scalers[feature].transform(X[[feature]])
         return X
 
     def inverse_transform(self, X: pd.DataFrame, inplace=False):
@@ -786,21 +784,42 @@ class MultiScaler(sklearn.base.TransformerMixin):
         """
         if not inplace:
             X = X.copy()
-        for group in self.feature_groups:
-            df_to_scale = X[group["features"]]
-            scaler = self.scalers.get(group["name"])
-            if scaler is None and group["name"] != "aux":
-                print(
-                    f"Feature group {group['name']} was not transformed as there is no scaler for it."
-                )
-                continue
-            X_new = scaler.inverse_transform(df_to_scale)
-            X[group["features"]] = X_new
+        for feature in X.columns:
+            if feature in self.scalers:
+                X[feature] = self.scalers[feature].inverse_transform(X[[feature]])
+        return X
+
+    def manual_transform(
+        self, X: pd.DataFrame, scale_as: str, shift: bool = True, inplace=False
+    ) -> pd.DataFrame:
+        if not inplace:
+            X = X.copy()
+        scaler = self.scalers[scale_as]
+        offset = 0
+        if not shift:
+            # if we don't want to shift we reverse the shifting afterwards
+            # all scalers are linear in sklearn (but not all transformers are which is where this breaks down)
+            offset = scaler.transform([[0.0]])[0][0]
+        X[:] = scaler.transform(X) - offset
+        return X
+
+    def manual_inverse_transform(
+        self, X: pd.DataFrame, scale_as: str, shift: bool = True, inplace=False
+    ) -> pd.DataFrame:
+        if not inplace:
+            X = X.copy()
+
+        scaler = self.scalers[scale_as]
+        offset = 0
+        if not shift:
+            # if we don't want to shift we reverse the shifting afterwards
+            offset = scaler.inverse_transform([[0.0]])[0][0]
+        X[:] = scaler.inverse_transform(X) - offset
         return X
 
     def __call__(self, X: pd.DataFrame, inplace=False):
         """
-        Transforms the data using fitted scalers.
+        Transforms the data using fitted scalers if they are fitted or fits them otherwise.
 
         Parameters
         ----------
@@ -822,6 +841,14 @@ class MultiScaler(sklearn.base.TransformerMixin):
             # XXX if inplace=True this can cause undefined behaviour
             # if some scalers are already fitted and others are not.
             return self.fit_transform(X, inplace=inplace)
+
+    def _mark_if_fitted(self):
+        for sc in self.scalers.values():
+            try:
+                check_is_fitted(sc)
+            except sklearn.exceptions.NotFittedError:
+                return
+        self.is_fitted_ = True
 
 
 def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers=None, **_):
