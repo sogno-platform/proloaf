@@ -307,61 +307,74 @@ class EncoderDecoder(nn.Module):
         outputs_decoder, states_decoder = self.decoder(inputs_decoder, states_encoder)
         return outputs_decoder, states_decoder
 
+
 class Transformer(nn.Module):
-    def __init__(self,
-                 feature_size: int=0,
-                 num_layers: int=3,
-                 dropout: float=0.0,
-                 n_heads: int=0,
-                 out_size: int = 1,
-                 encoder_features: list = [],
-                 decoder_features: list = [],
-                 ):
+    def __init__(
+        self,
+        feature_size: int = 0,
+        num_layers: int = 3,
+        dropout: float = 0.0,
+        n_heads: int = 0,
+        out_size: int = 1,
+        encoder_features: list = [],
+        decoder_features: list = [],
+    ):
         super(Transformer, self).__init__()
 
         self.encoder_features = encoder_features
         self.decoder_features = decoder_features
 
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=feature_size, nhead=n_heads, dropout=dropout,
-                                                        batch_first=True)
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
+        self.encoder_layer = nn.TransformerEncoderLayer(
+            d_model=feature_size, nhead=n_heads, dropout=dropout, batch_first=True
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            self.encoder_layer, num_layers=num_layers
+        )
         self.decoder = nn.Linear(feature_size, out_size)
 
         self.init_weights()
 
     def init_weights(self):
-        initrange = 0.1    
+        initrange = 0.1
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        mask = (
+            mask.float()
+            .masked_fill(mask == 0, float("-inf"))
+            .masked_fill(mask == 1, float(0.0))
+        )
         return mask
 
     def prepare_input(self, inputs_encoder, inputs_decoder, device):
         diff_enc_dec = len(self.encoder_features) - len(self.decoder_features)
 
         inputs_decoder = torch.cat(
-            (torch.zeros(inputs_decoder.shape[0], inputs_decoder.shape[1], diff_enc_dec).to(device), inputs_decoder),
-            2
+            (
+                torch.zeros(
+                    inputs_decoder.shape[0], inputs_decoder.shape[1], diff_enc_dec
+                ).to(device),
+                inputs_decoder,
+            ),
+            2,
         ).to(device)
 
-        inputs = torch.cat(
-            (inputs_encoder, inputs_decoder),
-            1
-        ).to(device)
+        inputs = torch.cat((inputs_encoder, inputs_decoder), 1).to(device)
 
         return inputs
 
     def forward(self, inputs_encoder, inputs_decoder):
-        device = (next(self.parameters()).device)
+        device = next(self.parameters()).device
 
         inputs = self.prepare_input(inputs_encoder, inputs_decoder, device)
 
         mask = self._generate_square_subsequent_mask(inputs.shape[1]).to(device)
+        print(inputs.shape)
+        print(mask.shape)
 
         attention = self.transformer_encoder(inputs, mask)
         output = self.decoder(attention)
 
-        return output[:, -inputs_decoder.shape[1]:, :], attention
+        return output[:, -inputs_decoder.shape[1] :, :], attention

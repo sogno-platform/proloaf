@@ -214,7 +214,7 @@ class ModelWrapper:
         learning_rate: float = None,
         max_epochs: int = None,
         forecast_horizon: int = None,
-        model_class: str =None,
+        model_class: str = None,
         model_parameters: Dict[str, Any] = None,
         **_,
     ):
@@ -248,7 +248,9 @@ class ModelWrapper:
             if self.model_parameters == {}:
                 self.model_parameters = model_parameters
             else:
-                self.model_parameters[self.model_class].update(model_parameters[self.model_class])
+                self.model_parameters[self.model_class].update(
+                    model_parameters[self.model_class]
+                )
 
         self.initialzed = False
         return self
@@ -305,6 +307,8 @@ class ModelWrapper:
         return temp_mh
 
     def init_model(self):
+        print(f"{self.model_class = }")
+        print(f"{self.model_parameters = }")
         model_parameters = self.model_parameters.get(self.model_class)
 
         if self.model_class == "simple_transformer":
@@ -980,10 +984,14 @@ class ModelHandler:
             model_class = self.config.get("model_class")
             hparams["model_parameters"] = {model_class: {}}
 
-            for key, hparam in tuning_settings["model_parameters"].get(model_class).items():
+            for key, hparam in (
+                tuning_settings["model_parameters"].get(model_class).items()
+            ):
                 print("Creating parameter: ", key)
                 func_generator = getattr(trial, hparam["function"])
-                hparams["model_parameters"][model_class][key] = func_generator(**(hparam["kwargs"]))
+                hparams["model_parameters"][model_class][key] = func_generator(
+                    **(hparam["kwargs"])
+                )
 
             model_wrap = self.run_training(
                 train_data_loader,
