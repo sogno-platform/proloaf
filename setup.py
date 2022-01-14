@@ -28,12 +28,12 @@ except ImportError:
 from setuptools import find_packages
 
 if __name__ == "__main__":
-    with open('README.md') as f:
+    with open("README.md") as f:
         long_description = f.read()
 
     setup(
         name="proloaf",
-        version="0.2.0",
+        version="0.2.1",
         author="Gonca Gürses-Tran",
         author_email="gguerses@eonerc.rwth-aachen.de",
         url="https://github.com/sogno-platform/proloaf",
@@ -54,7 +54,7 @@ if __name__ == "__main__":
             "numpy",
             "pandas",
             "matplotlib",
-            "torch",
+            "torch>1.9.0",
             "scikit-learn",
             "datetime",
             "pyparsing>=2.2.1,<3",
