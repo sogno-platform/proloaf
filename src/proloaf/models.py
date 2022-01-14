@@ -325,7 +325,10 @@ class Transformer(nn.Module):
         self.decoder_features = decoder_features
 
         self.encoder_layer = nn.TransformerEncoderLayer(
-            d_model=feature_size, nhead=n_heads, dropout=dropout, batch_first=True
+            d_model=feature_size,
+            nhead=n_heads,
+            dropout=dropout,
+            batch_first=True,
         )
         self.transformer_encoder = nn.TransformerEncoder(
             self.encoder_layer, num_layers=num_layers
@@ -371,8 +374,6 @@ class Transformer(nn.Module):
         inputs = self.prepare_input(inputs_encoder, inputs_decoder, device)
 
         mask = self._generate_square_subsequent_mask(inputs.shape[1]).to(device)
-        print(inputs.shape)
-        print(mask.shape)
 
         attention = self.transformer_encoder(inputs, mask)
         output = self.decoder(attention)
