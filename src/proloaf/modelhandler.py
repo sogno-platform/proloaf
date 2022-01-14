@@ -786,7 +786,11 @@ class ModelHandler:
         # to track the validation loss as the model trains
 
         config = deepcopy(self.config)
+        model_parameters = hparams.pop("model_parameters")
         config.update(hparams)
+        if model_parameters is not None:
+            for model_class, params in model_parameters.items():
+                config["model_parameters"][model_class].update(params)
         temp_model_wrap: ModelWrapper = (
             self.model_wrap.copy().update(**hparams).init_model()
         ).to(self._device)
@@ -982,16 +986,17 @@ class ModelHandler:
                 hparams[key] = func_generator(**(hparam["kwargs"]))
 
             model_class = self.config.get("model_class")
-            hparams["model_parameters"] = {model_class: {}}
 
-            for key, hparam in (
-                tuning_settings["model_parameters"].get(model_class).items()
-            ):
-                print("Creating parameter: ", key)
-                func_generator = getattr(trial, hparam["function"])
-                hparams["model_parameters"][model_class][key] = func_generator(
-                    **(hparam["kwargs"])
-                )
+            if "model_parameters" in tuning_settings:
+                hparams["model_parameters"] = {model_class: {}}
+                for key, hparam in (
+                    tuning_settings["model_parameters"].get(model_class).items()
+                ):
+                    print("Creating parameter: ", key)
+                    func_generator = getattr(trial, hparam["function"])
+                    hparams["model_parameters"][model_class][key] = func_generator(
+                        **(hparam["kwargs"])
+                    )
 
             model_wrap = self.run_training(
                 train_data_loader,
