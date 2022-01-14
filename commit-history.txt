@@ -54,6 +54,8 @@ a042b336626aa82913253d314723796b9831160e Merge branch 'develop' into 'master'
 ca62ddf419311b0a9c5bc1c889cc12fd9a39f7df Update setup.py for openstf
 3e53f7069be89860855bd6bc8d06eefa9541fccc put dash instead
 44cc07fa06ba5b6e825e5bf2f91f9783037a3a6c Update names in setup.py
+af11b66b9b52d8e24eb242e73483d5d44c5b8c43 edit evaluate.py for correct plots per timestep
+a2ed93562c25502e0556f311eac7d45b64670a56 Update plot.py to have the correct axis on the timesteps
 
 I, Markus Mirz hereby sign-off-by all of my past commits to this repo subject to the Developer Certificate of Origin (DCO), Version 1.1. In the past I have used emails: mmirz@eonerc.rwth-aachen.de
 
