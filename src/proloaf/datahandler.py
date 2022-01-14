@@ -680,14 +680,19 @@ class MultiScaler(sklearn.base.TransformerMixin):
 
     def __init__(
         self,
-        feature_groups: List[Dict],
+        feature_groups: List[Dict] = None,
         scalers: Dict[str, sklearn.base.TransformerMixin] = None,
-    ):
+    ):  
+        if feature_groups is None:
+            feature_groups = []
         self.feature_groups = feature_groups
-        if scalers is None:
-            self._init_scalers()
-        else:
-            self.scalers = scalers
+        self._init_scalers()
+        if scalers is not None:
+            print(
+                "This is an experimental feature and might lead to unexpected behaviour without error"
+            )
+            # TODO make sure input scalers are same type and parameters as definend in feature groups
+            self.scalers.update(scalers)
             self._mark_if_fitted()
 
     @staticmethod

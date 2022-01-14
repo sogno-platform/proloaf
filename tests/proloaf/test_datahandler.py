@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from proloaf.datahandler import MultiScaler, scale_all
 from sklearn.utils.validation import check_is_fitted
+from sklearn.exceptions import NotFittedError
 
 
 @pytest.fixture
@@ -58,6 +59,28 @@ class TestMultiScaler:
         for sc in scaler.scalers.values():
             check_is_fitted(sc)
         check_is_fitted(scaler)
+
+    def test_fit_prefit_scalers(self, feature_groups, dataframe):
+        aux_scaler = MultiScaler(feature_groups)
+        aux_scaler.fit(dataframe)
+        scaler = MultiScaler(feature_groups, scalers=aux_scaler.scalers)
+        for sc in scaler.scalers.values():
+            check_is_fitted(sc)
+        check_is_fitted(scaler)
+
+    def test_fit_prefit_scalers(self, feature_groups, dataframe):
+        aux_scaler = MultiScaler(feature_groups)
+        aux_scaler.fit(dataframe)
+        scaler = MultiScaler(
+            feature_groups, scalers={"feat1": aux_scaler.scalers["feat1"]}
+        )
+        with pytest.raises(NotFittedError):
+            check_is_fitted(scaler)
+
+    def test_not_fit(self, feature_groups, dataframe):
+        scaler = MultiScaler(feature_groups)
+        with pytest.raises(NotFittedError):
+            check_is_fitted(scaler)
 
     def test_manual_transform(self, multi_scaler_fit, dataframe):
         direct_result = multi_scaler_fit.transform(dataframe)[["feat2"]]
