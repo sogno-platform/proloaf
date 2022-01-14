@@ -786,7 +786,7 @@ class ModelHandler:
         # to track the validation loss as the model trains
 
         config = deepcopy(self.config)
-        model_parameters = hparams.pop("model_parameters")
+        model_parameters = hparams.pop("model_parameters", None)
         config.update(hparams)
         if model_parameters is not None:
             for model_class, params in model_parameters.items():
