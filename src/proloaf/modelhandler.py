@@ -788,7 +788,9 @@ class ModelHandler:
         config = deepcopy(self.config)
         model_parameters = hparams.pop("model_parameters", None)
         config.update(hparams)
+
         if model_parameters is not None:
+            hparams["model_parameters"] = model_parameters
             for model_class, params in model_parameters.items():
                 config["model_parameters"][model_class].update(params)
         temp_model_wrap: ModelWrapper = (
