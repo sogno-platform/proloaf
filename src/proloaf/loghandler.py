@@ -374,14 +374,12 @@ def end_tensorboard(
     # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
     # https://pytorch.org/docs/master/tensorboard.html
 
-
-
     if params:
         key = "model_parameters"
-        hparams = params.get(key)
-        del params[key]
-
-        params.update(next(iter(hparams.values())))
+        hparams = params.pop(key, None)
+        #TODO this just puts the hyperparameters of the first modeltype, even if a different type is trained
+        if hparams:
+            params.update(next(iter(hparams.values())))
 
         tb.add_hparams(params, values)
     tb.close()
