@@ -6,6 +6,7 @@ variables:
 workflow:
     rules:
         - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE
+        - if: $CI_COMMIT_BRANCH == "92-need-to-update-docs-api-reference" && $CI_COMMIT_MESSAGE
         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "api"
         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "web"
 
@@ -39,7 +40,7 @@ prep-docs:
   image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
   script:
     - pip3 install --no-cache-dir pdoc
-    - pdoc -o ./docs/static/reference/proloaf -t . -d numpy ../proloaf
+    - pdoc -o ./docs/static/reference/proloaf -t . -d numpy ./src
     - ls -l ./docs/static/reference/proloaf
   artifacts:
     expire_in: 1 day
