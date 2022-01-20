@@ -40,6 +40,7 @@ prep-docs:
   image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
   script:
     - pip3 install --no-cache-dir pdoc
+    - pip3 install -e .
     - pdoc -o ./docs/static/reference/proloaf -t . -d numpy ./src
     - ls -l ./docs/static/reference/proloaf
   artifacts:
