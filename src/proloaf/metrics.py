@@ -1095,8 +1095,10 @@ class Mse(Metric):
 
 
 class Rmse(Metric):
-    def __init__(self, **options):
-        super().__init__(**options)
+    def __init__(self, alpha=None):
+        if alpha is None:
+            alpha = Metric.alpha
+        super().__init__(alpha=alpha)
         self.input_labels = ["expected_value"]
 
     def get_quantile_prediction(
