@@ -22,6 +22,7 @@ Provides implementations of different loss functions, as well as functions for e
 """
 from __future__ import annotations
 import sys
+from autopage import ErrorStrategy
 import numpy as np
 import torch
 from abc import ABC, abstractstaticmethod
@@ -561,7 +562,7 @@ class PinnballLoss(Metric):
         target: torch.tensor,
         predictions: torch.tensor,
         quantiles: List[float],
-        avg_over: Literal["all"] = "all",
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -576,7 +577,7 @@ class PinnballLoss(Metric):
         quantiles : List[float]
             Quantiles that we are estimating for
         avg_over: str
-            Allways "all" for pinnball loss.
+            One of "time", "sample", "all", averages the the results over the coresponding axis.
         Returns
         -------
         float
@@ -591,25 +592,153 @@ class PinnballLoss(Metric):
         # assert (len(predictions) == (len(quantiles) + 1))
         # quantiles = options
 
-        if avg_over != "all":
-            raise NotImplementedError(
-                "Pinball_loss does not support loss over the horizon or per sample."
-            )
-        loss = 0.0
-        target = target.squeeze(dim=2)
-        # TODO doing this in a loop seems inefficient
+        # if avg_over != "all":
+        #     raise NotImplementedError(
+        #         "Pinball_loss does not support loss over the horizon or per sample."
+        #     )
+        errors = target - predictions
+        quantiles_tensor = torch.tensor([[quantiles]], device=predictions.device)
+        upper = quantiles_tensor * errors
+        lower = (quantiles_tensor - 1) * errors
+        loss = torch.sum(torch.max(upper, lower), dim=2)
+        if avg_over == "time":
+            return torch.mean(loss, dim=1)
+        if avg_over == "sample":
+            return torch.mean(loss, dim=0)
         if avg_over == "all":
-            for i, quantile in enumerate(quantiles):
-                # TODO move assertions, do this with tensor algebra
-                assert 0 < quantile
-                assert quantile < 1
-                assert target.shape == predictions[:, :, i].shape
-                errors = target - predictions[:, :, i]
-                loss += torch.mean(
-                    torch.max(quantile * errors, (quantile - 1) * errors)
-                )
+            return torch.mean(loss)
 
-        return loss
+
+class SmoothedPinnballLoss(Metric):
+    """Calculates an approximated pinball loss or quantile loss against the specified quantiles.
+    To avoid discontinous gradients it has been modified to return a quandratic error instead when close to the correct value
+     as described in https://ieeexplore.ieee.org/document/8832203
+
+    Parameters
+    -------
+    quantiles: List[float], default = None
+        List of values between 0 and 1, the quantiles that predicted by the model.
+        Defaults to None in wich case the quantiles are set to [1-alpha, alpha].
+        For information on the global default see 'Metrics.set_global_default(...)'
+    eps: float, default = 1e-6
+        Determines the size around the target value that yields a quadratic loss
+    """
+
+    def __init__(
+        self,
+        quantiles: List[float] = None,
+        eps: float = 1.0e-6,
+    ):
+        if quantiles is None:
+            quantiles = [1.0 - Metric.alpha / 2, Metric.alpha / 2, 0.5]
+        super().__init__(quantiles=quantiles, eps=eps)
+        self.input_labels = [f"quant[{quant}]" for quant in quantiles]
+
+    def get_quantile_prediction(
+        self, predictions: torch.tensor, quantiles: Optional[List[float]] = None, **_
+    ) -> QuantilePrediction:
+        if quantiles is None:
+            return QuantilePrediction(predictions, self.options.get("quantiles"))
+        else:
+            return QuantilePrediction(
+                predictions, self.options.get("quantiles")
+            ).select_quantiles(quantiles, inplace=True)
+
+    def from_quantiles(
+        self,
+        target: torch.tensor,
+        quantile_prediction: QuantilePrediction,
+        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        **kwargs,
+    ):
+        """
+        Calculates the value of the metric based on interval and expectation value over the timeframe.
+
+        Parameters
+        ----------
+        target: torch.tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+        quantile_prediction: QuantilePrediction
+            A prediction for several quantiles.
+        Returns
+        -------
+        torch.tensor
+            Value of the metric, which depending on the value of 'avg_over'
+            is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
+        """
+        # if alpha is not None:
+        #     quantiles = [1 - alpha, alpha]
+        # else:
+        #     quantiles = None
+        return self(
+            target,
+            quantile_prediction.values,
+            quantiles=quantile_prediction.quantiles,
+            avg_over=avg_over,
+        )
+
+    @staticmethod
+    def func(
+        target: torch.tensor,
+        predictions: torch.tensor,
+        quantiles: List[float],
+        eps: float = 1e-6,
+        avg_over: Literal["all"] = "all",
+        **_,
+    ):
+        """
+        Calculates smoothed pinball loss or quantile loss against the specified quantiles
+
+        Parameters
+        ----------
+        target : torch.tensor
+            The true values of the target variable. Dimensions are (sample number, timestep, 1).
+        predictions : torch.tensor
+            The predicted values for each quantile. Dimensions are (sample number, timestep, quantile).
+        quantiles : List[float]
+            Quantiles that we are estimating for
+        avg_over: str, default = "all"
+            One of "time", "sample", "all", averages the the results over the coresponding axis.
+        Returns
+        -------
+        float
+            The total quantile loss (the lower the better)
+
+        Raises
+        ------
+        NotImplementedError
+            When 'avg_over' is set to anything but "all", as pinball_loss does not support loss over the horizon or per sample.
+        """
+
+        # assert (len(predictions) == (len(quantiles) + 1))
+        # quantiles = options
+        loss = SmoothedPinnballLoss._huber_metric(
+            predictions=predictions, target=target, eps=eps
+        )
+
+        mask_greater = predictions >= target
+        mask_lesser = predictions < target
+        quantiles_tensor = torch.tensor([[quantiles]], device=predictions.device)
+
+        loss[mask_greater] = ((1 - quantiles_tensor) * loss)[mask_greater]
+        loss[mask_lesser] = (quantiles_tensor * loss)[mask_lesser]
+
+        loss = torch.sum(loss, dim=2)
+        if avg_over == "time":
+            return torch.mean(loss, dim=1)
+        if avg_over == "sample":
+            return torch.mean(loss, dim=0)
+        if avg_over == "all":
+            return torch.mean(loss)
+
+    @staticmethod
+    def _huber_metric(predictions, target, eps):
+        errors = target - predictions
+        mask_in = torch.abs(errors) <= eps
+        mask_out = torch.abs(errors) > eps
+        errors[mask_in] = (errors[mask_in] ** 2) / eps
+        errors[mask_out] = torch.abs(errors[mask_out]) - eps / 2
+        return errors
 
 
 # TODO Is this not basically Pinnball loss?

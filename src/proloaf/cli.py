@@ -173,10 +173,23 @@ def parse_with_loss(args=sys.argv[1:]):
         metavar=" q1 q2",
         nargs="+",
         type=float,
-        const="QuantileScore",
+        const="PinnballLoss",
         help="train with pinball loss and MSE with q1 and q2 being the upper and lower quantiles",
         action=flag_and_store,
     )
+
+    losses.add_argument(
+        "--smoothed_quantiles",
+        dest_const="loss",
+        dest="loss_arguments",
+        metavar=" q1 q2",
+        nargs="+",
+        type=float,
+        const="SmoothedPinnballLoss",
+        help="train with pinball loss and MSE with q1 and q2 being the upper and lower quantiles",
+        action=flag_and_store,
+    )
+
     losses.add_argument(
         "--crps",
         "--crps_gaussian",
