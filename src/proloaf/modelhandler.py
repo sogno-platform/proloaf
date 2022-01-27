@@ -992,7 +992,7 @@ class ModelHandler:
             if "model_parameters" in tuning_settings:
                 hparams["model_parameters"] = {model_class: {}}
                 for key, hparam in (
-                    tuning_settings["model_parameters"].get(model_class).items()
+                    tuning_settings["model_parameters"].get(model_class, {}).items()
                 ):
                     print("Creating parameter: ", key)
                     func_generator = getattr(trial, hparam["function"])
