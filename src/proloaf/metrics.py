@@ -736,7 +736,7 @@ class SmoothedPinnballLoss(Metric):
         errors = target - predictions
         mask_in = torch.abs(errors) <= eps
         mask_out = torch.abs(errors) > eps
-        errors[mask_in] = (errors[mask_in] ** 2) / eps
+        errors[mask_in] = (errors[mask_in] ** 2) / (2 * eps)
         errors[mask_out] = torch.abs(errors[mask_out]) - eps / 2
         return errors
 
