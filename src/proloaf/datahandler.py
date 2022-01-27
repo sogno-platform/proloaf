@@ -219,8 +219,8 @@ def add_cyclical_features(df):
     ## source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
     df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
     df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
-    df['weekday_sin'] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
-    df['weekday_cos'] = np.cos((df.index.weekday) * (2.0 * np.pi / 7))
+    df["weekday_sin"] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
+    df["weekday_cos"] = np.cos((df.index.weekday) * (2.0 * np.pi / 7))
     df["mnth_sin"] = np.sin((df.index.month - 1) * (2.0 * np.pi / 12))
     df["mnth_cos"] = np.cos((df.index.month - 1) * (2.0 * np.pi / 12))
     return df
@@ -423,7 +423,13 @@ def custom_interpolate(df, periodicity=1):
                 start == end and end + 1 <= df.shape[0] and start - 1 >= 0
             ):  # if single point, take average of the nearby ones
                 t = start
-                df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
+                try:
+                    df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
+                except TypeError as err:
+                    if df.iloc[t - 1, col] == df.iloc[t + 1, col]:
+                        df.iloc[t, col] = df.iloc[t - 1, col]
+                    else:
+                        raise err
             elif start == end and (
                 end + 1 > df.shape[0] or start - 1 <= 0
             ):  # if single point, but the single point is at the beginning or end of the series, take the nearby one
@@ -684,7 +690,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self,
         feature_groups: List[Dict] = None,
         scalers: Dict[str, sklearn.base.TransformerMixin] = None,
-    ):  
+    ):
         if feature_groups is None:
             feature_groups = []
         self.feature_groups = feature_groups
