@@ -19,6 +19,7 @@ MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
 from proloaf import metrics
+from proloaf import models
 import proloaf.loghandler as log
 import proloaf.confighandler as ch
 import proloaf.datahandler as dh
@@ -36,28 +37,6 @@ import optuna
 from matplotlib import cm
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from time import perf_counter
-
-
-# def create_mean_saliency_map(saliency_maps):
-#     # create mean over all saliency maps
-#     print('create mean saliency map over all timesteps')
-#     saliency_maps_tensor1 = torch.zeros(length, history_horizon, num_features1)
-#     saliency_maps_tensor2 = torch.zeros(length, forecast_horizon, num_features2)
-#
-#     for i, timestep in enumerate(saliency_maps):
-#         saliency_maps_tensor1[i] = timestep[0]
-#
-#     for i, timestep in enumerate(saliency_maps):
-#         saliency_maps_tensor2[i] = timestep[1]
-#
-#     mean_saliency_map = (torch.mean(saliency_maps_tensor1, 0), torch.mean(saliency_maps_tensor2, 0))
-#     fig, ax = create_saliency_heatmap_plot(mean_saliency_map)  # todo fix this
-#
-#     print('Done')
-#
-#     fig.savefig(interpretation_plot_path + '/mean_heatmap')
-#     print('mean saliency map saved in ' + interpretation_plot_path)
-#     fig.show()
 
 
 def create_reference(dataset: tl.TimeSeriesData, timestep, batch_size):
@@ -95,18 +74,12 @@ def create_reference(dataset: tl.TimeSeriesData, timestep, batch_size):
 
 
 def create_saliency_plot(
-             timestep,
              datetime,
              saliency_map,
-             target_prediction,
-             net_prediction,
-             encoder_input,
-             decoder_input,
              plot_path
 ):
     # function assumes 1 target
     # todo: throw error message if more than 1 target variable
-    # todo: get all current function arguments and perturbated predictions from class instance attributes
     # todo: fix plot feature axes
 
     history_horizon = dataset.history_horizon
@@ -118,13 +91,7 @@ def create_saliency_plot(
     plt.rc('axes', labelsize=30)  # fontsize of the x and y labels
     plt.rc('axes', titlesize=30)  # fontsize of the title
 
-    fig1, ax1 = plt.subplots(1, figsize=(14, 14))
     fig2, ax2 = plt.subplots(1, figsize=(20, 14))
-
-    ax1.plot(net_prediction[0, :, 0].cpu(), label='original prediction')
-    ax1.plot(target_prediction[0, :, 0].cpu(), label='target')
-    # mean_perturbated_prediction = torch.mean(perturbated_prediction[0].detach().squeeze(2), dim=0).cpu().numpy()
-    # ax1.plot(mean_perturbated_prediction, label='mean prediction \nof all perturbated inputs')
 
     # saliency heatmap
 
@@ -191,8 +158,6 @@ def create_saliency_plot(
     feature_ticks = np.arange(len(features))
     ax2.set_yticks(feature_ticks)
     ax2.set_yticklabels(features)
-    ax1.set_xticks(np.arange(forecast_horizon))
-    ax1.set_xticklabels(plot_datetime[history_horizon:])
 
     # rotate tick labels and set alignment
     plt.setp(ax2.get_xticklabels(), rotation=45, ha="right",
@@ -202,89 +167,39 @@ def create_saliency_plot(
     ax2.set_xlabel('Time')
     ax2.set_ylabel('Features')
     cbar = fig2.colorbar(im)  # add colorbar
-    ax1.legend()
 
     # layout
     fig2.tight_layout()
-    fig1.tight_layout()
-
-    # create folder for timestep
-
-    if not os.path.exists(plot_path + str(timestep)):
-        os.mkdir(plot_path + str(timestep))
-    timestep_plot_path = plot_path + str(timestep)
 
     # save heatmap
-    fig2.savefig(timestep_plot_path + '/heatmap' + str(timestep))
-
-    # save predictions
-    fig1.savefig(timestep_plot_path + '/predictions' + str(timestep))
-
-    # todo: fix border cut off issue
-    # inputs 1
-
-    for i in range(len(encoder_features)):
-        fig, ax = plt.subplots()
-        feature_name = encoder_features[i]
-        feature = encoder_input[0, :, i]
-        ax.set_xlabel('time')
-        ax.set_ylabel(feature_name)
-        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-                 rotation_mode="anchor")
-        ax.plot(feature.cpu())
-
-        input_plot_path = timestep_plot_path + '/' + 'encoder_inputs/'
-        if not os.path.exists(input_plot_path):
-            os.mkdir(input_plot_path)
-
-        fig.savefig(input_plot_path + feature_name)
-        plt.close(fig)
-
-    # inputs 2
-
-    for i in range(len(decoder_features)):
-        fig, ax = plt.subplots()
-        feature_name = decoder_features[i]
-        feature = decoder_input[0, :, i]
-        ax.set_xlabel('time')
-        ax.set_ylabel(feature_name)
-        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-                 rotation_mode="anchor")
-        ax.plot(feature.cpu())
-
-        input_plot_path = timestep_plot_path + '/' + 'decoder_inputs/'
-        if not os.path.exists(input_plot_path):
-            os.mkdir(input_plot_path)
-        fig.savefig(input_plot_path + feature_name)
-        plt.close(fig)
-    print('all plots saved in ' + plot_path)
+    fig2.savefig(plot_path + '/heatmap')
 
 
-# def save_interpretation_tensors(saliency_maps,
-#                                 perturbated_predictions,
-#                                 perturbated_input1,
-#                                 perturbated_input2,
-#                                 encoder_input,
-#                                 inputs2,
-#                                 rmse,
-#                                 path,
-#                                 trial_id):
-#     # todo this function should only save the saliency map tensors
-#     torch.save(saliency_maps, path + 'saliency_maps_' + str(trial_id))
-#     torch.save(perturbated_predictions, path + 'perturbated_predictions_' + str(trial_id))
-#     torch.save(perturbated_input1, path + 'perturbated_input1_' + str(trial_id))
-#     torch.save(perturbated_input2, path + 'perturbated_input2_' + str(trial_id))
-#     torch.save(inputs1, path + 'inputs1_' + str(trial_id))
-#     torch.save(inputs2, path + 'inputs2_' + str(trial_id))
-#     torch.save(rmse, path + 'rmse_' + str(trial_id))
+def save_tensors(
+         saliency_map,
+         rmse,
+         save_path
+):
+
+    torch.save(saliency_map, save_path + '/saliency_map')
+    torch.save(rmse, save_path + '/rmse')
 
 
-# def load_interpretation_tensors(path, trial_id):
-#     # todo this function should only load the saliency map
-#     saliency_maps = torch.load(path + 'saliency_maps_' + str(trial_id))
-#     perturbated_predictions = torch.load(path + 'perturbated_predictions_' + str(trial_id))
-#
-#     return saliency_maps, perturbated_predictions
+def load_tensors(load_path):
+
+    temp_saliency_map = torch.load(load_path + '/saliency_map')
+    return temp_saliency_map
+
+
+def get_perturbated_output(
+        saliency_map,
+        forecasting_model:models.EncoderDecoder,
+        timestep,
+        encoder_inputs,
+        decoder_inputs
+):
+    # todo write this function
+    return 0
 
 
 def mask_weights_loss(mask_encoder, mask_decoder):  # penalizes high mask parameter values
@@ -354,6 +269,7 @@ def objective(trial):
                                requires_grad=True),
                     torch.full((CONFIG["forecast_horizon"], len(dataset.decoder_features)), fill_value=mask_init_value, device=DEVICE,
                                requires_grad=True))
+
     optimizer = torch.optim.Adam(saliency_map, lr=learning_rate)
 
     stop_counter = 0
@@ -378,14 +294,14 @@ def objective(trial):
 
         # get prediction
         forecasting_model.model.train()
-        perturbated_predictions = forecasting_model.predict(
+        perturbated_prediction = forecasting_model.predict(
             perturbated_input1,
             perturbated_input2
         ).to(DEVICE)
         loss, rmse = loss_function(
             criterion,
             prediction,
-            perturbated_predictions,
+            perturbated_prediction,
             saliency_map
         )
 
@@ -427,12 +343,15 @@ def objective(trial):
 
     # trial_id = trial.number
     trial.set_user_attr("saliency map", saliency_map)
+    trial.set_user_attr("rmse", rmse.detach())
+    trial.set_user_attr("perturbated_prediction", perturbated_prediction.detach())
 
     return loss
 
 
 if __name__ == "__main__":
     # todo: rework interpreter as class structure
+    # todo: put all classes and functions in /src
     # todo write parser with cli.py wich reads station name
     # todo write an interpreter config file for the settings.
     # todo Throw message if interpreter config doesn't exist and create dummy config automatically
@@ -464,7 +383,7 @@ if __name__ == "__main__":
                 config_path=CONFIG["exploration_path"],
                 main_path=MAIN_PATH,
             )
-    # create necessary folders ##todo put this in a seperate create_folder function
+
     path = os.path.join(MAIN_PATH, INTERPRETATION_PATH)
     if not os.path.exists(path):
         os.mkdir(path)
@@ -472,13 +391,6 @@ if __name__ == "__main__":
     model_interpretation_path = os.path.join(path, model_name + '/')
     if not os.path.exists(model_interpretation_path):
         os.mkdir(model_interpretation_path)
-    interpretation_plot_path = os.path.join(model_interpretation_path, 'plots/')
-    if not os.path.exists(interpretation_plot_path):
-        os.mkdir(interpretation_plot_path)
-    tensor_path = os.path.join(model_interpretation_path,
-                               'Tensors/')  # todo "Tensors" folder should be "saliency map" folder
-    if not os.path.exists(tensor_path):
-        os.mkdir(tensor_path)
 
     # todo has this got to be in the main function? maybe put at beginning of document
     cuda_id = CONFIG["cuda_id"]
@@ -501,7 +413,6 @@ if __name__ == "__main__":
 
     # get scaler
     scaler = dh.MultiScaler(CONFIG["feature_groups"])
-    # df, scalers = dh.scale_all(df, feature_groups=CONFIG["feature_groups"])
 
     dataset = tl.TimeSeriesData(  # todo: preperation steps needed?
         df,
@@ -519,7 +430,7 @@ if __name__ == "__main__":
 
     dataloader = dataset.make_data_loader(shuffle=False).to(DEVICE)
 
-    print('timesteps:', len(dataset), '\n',  # todo add line breaks
+    print('timesteps:', len(dataset), '\n',
           'number of encoder features:', len(dataset.encoder_features), '\n',
           'number of decoder features:', len(dataset.decoder_features), '\n',
           'number of targets:', len(dataset.target_id), '\n',
@@ -551,13 +462,15 @@ if __name__ == "__main__":
                               index=timesteps)
     for timestep in timesteps:
 
+        # create path for timestep
+        timestep_plot_path = model_interpretation_path + str(timestep)
+        if not os.path.exists(timestep_plot_path):
+            os.mkdir(timestep_plot_path)
+
         t1_start = perf_counter()
         print('\n\ntimestep: ', timestep)
         datetime = pd.to_datetime(
             time_column.iloc[timestep:timestep + CONFIG["history_horizon"] + CONFIG["forecast_horizon"]])
-        tensor_save_path = os.path.join(tensor_path, str(timestep) + '/')  # todo: should be saliency map path
-        if not os.path.exists(tensor_save_path):
-            os.mkdir(tensor_save_path)
         # get original inputs and predictions
         encoder_input = torch.unsqueeze(dataset[timestep][0], 0).to(DEVICE)
         decoder_input = torch.unsqueeze(dataset[timestep][1], 0).to(DEVICE)
@@ -580,22 +493,19 @@ if __name__ == "__main__":
         best_trial_id = study.best_trial.number
         # saliency_map, perturbated_prediction = load_interpretation_tensors(tensor_save_path, best_trial_id)
         saliency_map = study.best_trial.user_attrs['saliency map']
-        # todo: get perturbed predictions (function call)
+        rmse_p = study.best_trial.user_attrs['rmse'] # rmse of perturbated prediction and target
+        perturbated_prediction = study.best_trial.user_attrs['perturbated_prediction']
+
+        # todo: get perturbed predictions
         # save plot for best saliency map
-        create_saliency_plot(timestep,
-                             datetime,
-                             saliency_map,
-                             target,
-                             prediction,
-                             encoder_input,
-                             decoder_input,
-                             interpretation_plot_path)
+        create_saliency_plot(
+                         datetime,
+                         saliency_map,
+                         timestep_plot_path
+        )
         t1_stop = perf_counter()
         print("Elapsed time: ", t1_stop - t1_start)
 
-        # calculate rmse of perturbated prediction and original prediction in respect to target value # todo: uncomment this part after getting perturbed predictions
-        # rmse_perturbated = criterion(target, torch.unsqueeze(
-        #     torch.unsqueeze(torch.mean(perturbated_prediction[0], dim=0), dim=0), dim=0)).cpu().detach().numpy()
         # rmse_original = criterion(target, prediction).cpu().detach().numpy()
         # rmse_diff = rmse_perturbated - rmse_original  # difference in rmse scores between perturbated and original prediction
         # data = {
@@ -605,6 +515,8 @@ if __name__ == "__main__":
         # results_df.loc[timestep] = data
         # save_path = model_interpretation_path
         # results_df.to_csv(save_path + 'rmse.csv', sep=';', index=True)
+
+        save_tensors(saliency_map, rmse_p, timestep_plot_path)
 
     t0_stop = perf_counter()
     print("Total elapsed time: ", t0_stop - t0_start)
