@@ -125,7 +125,12 @@ class TimeSeriesData(torch.utils.data.Dataset):
         return self
 
     def clear_preparation_steps(self):
+        if self.frame_prepared:
+            raise AttributeError(
+                "The preparationsteps were already applied to the Dataframe and can not be removed anymore"
+            )
         self.preparation_steps = None
+        self.tensor_prepared = False
         return self
 
     @staticmethod
