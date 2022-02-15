@@ -134,6 +134,8 @@ class ModelWrapper:
         forecast_horizon: int = 168,
         model_class: str = "recurrent",
         model_parameters: Dict[str, Any] = {},
+        batch_size: int = 1,
+        history_horizon: int = 1,
     ):
         self.initialzed = False
         self.last_training = None
@@ -153,6 +155,8 @@ class ModelWrapper:
         self.forecast_horizon = 168
         self.model_class = "recurrent"
         self.model_parameters = {}
+        self.batch_size = 1
+        self.history_horizon = 1
 
         self.update(
             name=name,
@@ -170,6 +174,8 @@ class ModelWrapper:
             forecast_horizon=forecast_horizon,
             model_class=model_class,
             model_parameters=model_parameters,
+            batch_size=batch_size,
+            history_horizon=history_horizon,
         )
 
     def get_model_config(self):
@@ -216,6 +222,8 @@ class ModelWrapper:
         forecast_horizon: int = None,
         model_class: str = None,
         model_parameters: Dict[str, Any] = None,
+        batch_size: int = None,
+        history_horizon: int = None,
         **_,
     ):
         if name is not None:
@@ -251,6 +259,10 @@ class ModelWrapper:
                 self.model_parameters[self.model_class].update(
                     model_parameters[self.model_class]
                 )
+        if batch_size is not None:
+            self.batch_size = batch_size
+        if history_horizon is not None:
+            self.history_horizon = history_horizon
 
         self.initialzed = False
         return self
@@ -299,6 +311,8 @@ class ModelWrapper:
             forecast_horizon=self.forecast_horizon,
             model_class=self.model_class,
             model_parameters=self.model_parameters,
+            batch_size=self.batch_size,
+            history_horizon=self.history_horizon,
         )
         # TODO include trainingparameters
         if self.model is not None:
@@ -428,7 +442,6 @@ class ModelWrapper:
             batch_size=batch_size,
             loss_function=self.loss_metric,
             max_epochs=self.max_epochs,
-            batch_size=self.batch_size,
             history_horizon=self.history_horizon,
             log_tb=log_tb,
             device=self._device,
@@ -557,6 +570,8 @@ class ModelHandler:
             forecast_horizon=config.get("forecast_horizon", 168),
             model_class=config.get("model_class", "recurrent"),
             model_parameters=config.get("model_parameters"),
+            batch_size=int(config.get("batch_size", 1)),
+            history_horizon=int(config.get("history_horizon", 1)),
         )
         self.to(device)
 
@@ -640,7 +655,22 @@ class ModelHandler:
 
         if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
             os.mkdir(os.path.join(self.work_dir, self.config["log_path"]))
-        trials_df.to_csv(self.work_dir+self.config["log_path"]+"tuning-results_"+ self.model_wrap.name,index=False)
+        if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
+            os.mkdir(
+                os.path.join(
+                    self.work_dir,
+                    self.config["log_path"],
+                    f"tuning-results_{self.model_wrap.name}",
+                )
+            )
+        trials_df.to_csv(
+            os.path.join(
+                self.work_dir,
+                self.config["log_path"],
+                f"tuning-results_{self.model_wrap.name}",
+            ),
+            index=False,
+        )
 
         print("Best trial:")
         trial = study.best_trial
@@ -1006,6 +1036,7 @@ class ModelHandler:
                 hparams=hparams,
                 trial_id=trial.number,
             )
+            model_wrap.last_training.remove_data()
             trial.set_user_attr("wrapped_model", model_wrap)
             trial.set_user_attr("training_run", model_wrap.last_training)
             # Handle pruning based on the intermediate value.
@@ -1075,13 +1106,18 @@ class TrainingRun:
         return {
             "optimizer_name": self.optimizer_name,
             "max_epochs": self.max_epochs,
+            "batch_size": self.batch_size,
+            "history_horizon": self.history_horizon,
+            "forecast_horizon": self.forecast_horizon,
             "early_stopping_patience": self.early_stopping.patience,
             "early_stopping_margin": self.early_stopping.delta,
             "learning_rate": self.learning_rate,
         }
-        
+
     def remove_data(self):
+        self.train_ds = None
         self.train_dl = None
+        self.validation_ds = None
         self.validation_dl = None
         return self
 
