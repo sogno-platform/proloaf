@@ -5,7 +5,9 @@
     "evaluation_path": "./oracles/eval_opsd_transformer/",
     "log_path": "./logs/",
     "model_name": "opsd_transformer",
-    "target_id": ["AT_load_actual_entsoe_transparency"],
+    "target_id": [
+        "AT_load_actual_entsoe_transparency"
+    ],
     "target_list": null,
     "start_date": null,
     "history_horizon": 73,
@@ -16,12 +18,15 @@
     "periodicity": 24,
     "optimizer_name": "adam",
     "exploration": true,
-    "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
         {
             "name": "main",
-            "scaler": ["minmax", -1.0, 1.0],
+            "scaler": [
+                "minmax",
+                -1.0,
+                1.0
+            ],
             "features": [
                 "AT_load_actual_entsoe_transparency",
                 "DE_load_actual_entsoe_transparency",
@@ -103,27 +108,24 @@
     ],
     "max_epochs": 1,
     "batch_size": 32,
-    "learning_rate": 9.058952600601419e-5,
+    "learning_rate": 9.058952600601419e-05,
     "early_stopping_patience": 7,
     "early_stopping_margin": 0.0,
     "model_class": "simple_transformer",
-    "model_parameters":
-        {
-            "recurrent": {
-                "core_net": "torch.nn.LSTM",
-                "core_layers": 1,
-                "dropout_fc": 0.4,
-                "dropout_core": 0.3,
-                "rel_linear_hidden_size": 1.0,
-                "rel_core_hidden_size": 1.0,
-                "relu_leak": 0.1
-                },
-            "simple_transformer": {
-                "num_layers": 3,
-                "dropout": 0.0,
-                "n_heads": 6
-                }
+    "model_parameters": {
+        "recurrent": {
+            "core_net": "torch.nn.LSTM",
+            "core_layers": 1,
+            "dropout_fc": 0.4,
+            "dropout_core": 0.3,
+            "rel_linear_hidden_size": 1.0,
+            "rel_core_hidden_size": 1.0,
+            "relu_leak": 0.1
+        },
+        "simple_transformer": {
+            "num_layers": 3,
+            "dropout": 0.0,
+            "n_heads": 6
         }
-
-
+    }
 }

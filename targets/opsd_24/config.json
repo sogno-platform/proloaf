@@ -15,10 +15,8 @@
     "cap_limit": 1,
     "train_split": 0.6,
     "validation_split": 0.8,
-    "core_net": "torch.nn.LSTM",
     "optimizer_name": "adam",
     "exploration": false,
-    "relu_leak": 0.1,
     "cuda_id": null,
     "feature_groups": [
         {
@@ -144,11 +142,16 @@
     "max_epochs": 100,
     "batch_size": 28,
     "learning_rate": 9.9027931032814e-05,
-    "core_layers": 1,
-    "rel_linear_hidden_size": 1.0,
-    "rel_core_hidden_size": 1.0,
-    "dropout_fc": 0.4,
-    "dropout_core": 0.3,
-    "best_loss": -2.121183055288652,
-    "best_score": 0.4597637355327606
+    "model_parameters": {
+        "recurrent": {
+            "core_net": "torch.nn.LSTM",
+            "core_layers": 1,
+            "dropout_fc": 0.4,
+            "dropout_core": 0.3,
+            "rel_linear_hidden_size": 1.0,
+            "rel_core_hidden_size": 1.0,
+            "relu_leak": 0.1
+        }
+    },
+    "model_class": "recurrent"
 }

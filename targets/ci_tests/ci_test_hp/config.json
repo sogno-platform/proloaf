@@ -5,7 +5,9 @@
     "evaluation_path": "./oracles/eval_gc2017_test_hp/",
     "log_path": "./logs/",
     "model_name": "gc17ct_GRU_gnll_test_hp",
-    "target_id": ["demand"],
+    "target_id": [
+        "demand"
+    ],
     "target_list": null,
     "start_date": null,
     "history_horizon": 40,
@@ -144,21 +146,20 @@
     "batch_size": 47,
     "learning_rate": 3.4885205571560794e-05,
     "model_class": "recurrent",
-    "model_parameters":
-        {
-            "recurrent": {
-                "core_net": "torch.nn.GRU",
-                "core_layers": 3,
-                "dropout_fc": 0.4,
-                "dropout_core": 0.3,
-                "rel_linear_hidden_size": 1.0,
-                "rel_core_hidden_size": 1.0,
-                "relu_leak": 0.1
-                },
-            "simple_transformer": {
-                "num_layers": 3,
-                "dropout": 0.0,
-                "n_heads": 6
-                }
+    "model_parameters": {
+        "recurrent": {
+            "core_net": "torch.nn.GRU",
+            "core_layers": 3,
+            "dropout_fc": 0.4,
+            "dropout_core": 0.3,
+            "rel_linear_hidden_size": 1.0,
+            "rel_core_hidden_size": 1.0,
+            "relu_leak": 0.1
+        },
+        "simple_transformer": {
+            "num_layers": 3,
+            "dropout": 0.0,
+            "n_heads": 6
         }
+    }
 }
