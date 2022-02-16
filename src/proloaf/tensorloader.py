@@ -21,16 +21,9 @@
 Provides structures for storing and loading data (e.g. training, validation or test data)
 """
 from __future__ import annotations
-import numpy as np
+from typing import Union, Tuple, Callable, Iterable
 import pandas as pd
-import torch
-from typing import List, Union, Tuple, Callable, Iterable
-import proloaf.datahandler as dh
-from time import sleep
-from torch.utils.data.dataloader import DataLoader
-from event_logging.event_logging import create_event_logger
-
-logger = create_event_logger(__name__)
+import torch.utils.data
 
 
 class TimeSeriesData(torch.utils.data.Dataset):
@@ -411,7 +404,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
         return self
 
 
-class TensorDataLoader(DataLoader):
+class TensorDataLoader(torch.utils.data.dataloader.DataLoader):
     """torch.DataLoader with an additional `to(device)´ method"""
 
     def to(self, device):
