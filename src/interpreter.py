@@ -38,9 +38,60 @@ from matplotlib import cm
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from time import perf_counter
 
+def create_mean_saliency_map(saliency_maps):
+    """
+    calculates the mean saliency map over several saliency maps from different time steps and creates a plot.
+    The Plot is saved in oracles/interpretation/"model_name"/
+
+    Parameters
+    ----------
+    saliency_maps: array of saliency map Tensors
+    """
+    ## create mean over all saliency maps
+    print('create mean saliency map over all timesteps')
+    saliency_maps_tensor1 = torch.zeros(length, history_horizon, num_features1)
+    saliency_maps_tensor2 = torch.zeros(length, forecast_horizon, num_features2)
+
+    for i, timestep in enumerate(saliency_maps):
+        saliency_maps_tensor1[i] = timestep[0]
+
+    for i, timestep in enumerate(saliency_maps):
+        saliency_maps_tensor2[i] = timestep[1]
+
+    mean_saliency_map = (torch.mean(saliency_maps_tensor1, 0), torch.mean(saliency_maps_tensor2, 0))
+    fig, ax = create_saliency_heatmap_plot(mean_saliency_map)
+    
+    print('Done')
+
+    fig.savefig(interpretation_plot_path + '/mean_heatmap')
+    print('mean saliency map saved in '+ interpretation_plot_path)
+    fig.show()
+
 
 def create_reference(dataset: tl.TimeSeriesData, timestep, batch_size):
-    # todo: add function description
+    """
+    Creates the references for the saliency map optimization process.
+    Random noise is drawn from a gaussian standard distribution with a mean of zero and the standard deviation
+    of the original feature.
+    The references are created by adding random noise to each time step of the original feature.
+    For each feature a number of references are created, set by the batch_size parameter
+
+    Parameters
+    ----------
+    dataloader: Tensor
+                original data, created by the make_dataloader function
+    timestep:   integer
+                timestep, at which the references are to be created
+    batch_size: integer
+                number of references to be created per feature
+
+    Returns
+    -------
+    features1_references: Tensor
+        References for the encoder features
+    features2_references: Tensor
+        References for the decoder features
+    """
     # creates reference for a certain timestep
     history_horizon = dataset.history_horizon
     forecast_horizon = dataset.forecast_horizon
@@ -78,6 +129,14 @@ def create_saliency_plot(
              saliency_map,
              plot_path
 ):
+    """
+    Creates the saliency map plot, a plot with the prediction targets and predictions, and plots for the original inputs.
+    The saliency map plot is split into an encoder(history horizon) part and a decoder(forecast horizon part) on the time axis.
+    Features are grouped into 3 groups being:
+        1 only Encoder
+        2 Encoder and Decoder
+        3 only Decoder
+    """
     # function assumes 1 target
     # todo: throw error message if more than 1 target variable
     # todo: fix plot feature axes
@@ -180,13 +239,18 @@ def save_tensors(
          rmse,
          save_path
 ):
-
+    """
+    Saves relevant Tensors locally for future use
+    """
     torch.save(saliency_map, save_path + '/saliency_map')
     torch.save(rmse, save_path + '/rmse')
 
 
 def load_tensors(load_path):
-
+    """
+    loads locally saved saliency map and perturbated predictions from the 
+    given path 
+    """
     temp_saliency_map = torch.load(load_path + '/saliency_map')
     return temp_saliency_map
 
@@ -203,6 +267,10 @@ def get_perturbated_output(
 
 
 def mask_weights_loss(mask_encoder, mask_decoder):  # penalizes high mask parameter values
+    """
+    penalizes high mask parameter values by calculating the frobenius 
+    norm and dividing by the maximal possible norm
+    """
     max_norm_encoder = torch.norm(torch.ones(mask_encoder.shape))
     max_norm_decoder = torch.norm(torch.ones(mask_decoder.shape))
     mask_encoder_matrix_norm = torch.norm(mask_encoder) / max_norm_encoder  # frobenius norm
@@ -212,8 +280,10 @@ def mask_weights_loss(mask_encoder, mask_decoder):  # penalizes high mask parame
 
 
 def mask_interval_loss(mask_encoder, mask_decoder):
-    # encourage to keep in interval 0 to 1
-    # loss function is zero when mask value is between zero and 1, otherwise high
+    """
+    this function encourages the mask values to stay in interval 0 to 1.
+    The loss function is zero when the mask value is between zero and 1, otherwise it takes a value linearly rising with the mask norm
+    """
 
     tresh_plus = nn.Threshold(1, 0)  # thresh for >1
     tresh_zero = nn.Threshold(0, 0)  # thresh for <0
@@ -236,6 +306,13 @@ def loss_function(
         lambda1=0.1,
         lambda2=1e10,
 ):
+    """
+    Calculates the loss function for the mask optimization process.
+    A batch here is the number of reference values created for each feature.
+    The smallest destroying region loss is calculated by adding up the criterion loss 
+    and the weighted mask weight and mask interval losses.
+    """
+
     mask_encoder = mask[0]
     mask_decoder = mask[1]
     batch_size = perturbated_predictions.shape[0]
@@ -256,6 +333,15 @@ def loss_function(
 
 # creates saliency map for one timestep:
 def objective(trial):
+    """
+    Ojective function for the optuna optimizer, used for hyperparameter optimization.
+    The learning rate and mask initialization value are subject to hyperparameter optimization.
+    For each trial the objection function finds the saliency map with gradient descent,
+    by updating the saliency map parameters according to the calculated loss.
+    Stop counters help to speed up the process, by ending the trial, if the loss doesn't decrease fast enough.
+    For each trial the saliency map and other relevant tensors are saved, 
+    so the tensors of the best trial can be loaded at the end of the hyperparameter search.
+    """
     torch.autograd.set_detect_anomaly(True)
 
     learning_rate = trial.suggest_loguniform("learning rate", low=1e-5, high=0.01)
