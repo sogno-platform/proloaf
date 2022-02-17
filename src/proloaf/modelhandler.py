@@ -68,8 +68,6 @@ class EarlyStopping:
     Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
 
-    # implement early stopping
-    # Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     def __init__(self, patience=7, verbose=False, delta=0):
         self.patience = patience
         self.verbose = verbose
@@ -119,6 +117,47 @@ class EarlyStopping:
 
 
 class ModelWrapper:
+    """Bundles a forcasting Model with the information needed to train it. It exposes methods similar to a SciKit-Learn regressor,
+    due to differen input types they also differ in name to avoid missuse.
+
+    Parameters
+    ----------
+    name: str, default = "model"
+        Any name for the model
+    target_id: Union[str, int], default = "target",
+        Name of the data column that should be predicted
+    encoder_features: List[str], default = None
+        Features the encoder of the model needs, for documentation only (will change in the future)
+    decoder_features: List[str] = None,
+        Features the encoder of the model needs, for documentation only (will change in the future)
+    scalers: sklearn.transformer, default = None,
+        scaler(s) that has/have been used on the data, for documentation only (will change in the future)
+    training_metric: str, default = "nllgaus",
+        Name of the Metric used for training
+    metric_options: Dict[str, Any], default = None
+        Arguments used for initialization of the training metric
+    optimizer_name: str: default = "adam"
+        Name of the optimizer used in in Training. Names correspond to lowercase class names of optimizers in [torch.optim](https://pytorch.org/docs/stable/optim.html)
+    early_stopping_patience: int, default = 7
+        Number of optimization steps without improvement until training is terminated
+    early_stopping_margin: float, default = 0.0
+        Minimum difference of performance to be regarded an improvement.
+    learning_rate: float, default = 1e-4,
+        Learning rate used during training
+    max_epochs: int, default = 100
+        Maximum number of epochs done during training. One epoch corresponds to one go thorugh all the training data.
+    forecast_horizon: int, default = 168
+        Number of timesteps in the future that are to be predicted.
+    model_class: str, default = "recurrent",
+        Identifier of which class is to be used as model
+    model_parameters: Dict[str, Any], default = None,
+        Parameters used as keyword arguments during model creation
+    batch_size: int = 1,
+        Number of samples in each batch during Training
+    history_horizon: int = 1,
+        Number of timesteps in the past that are considered when making a prediciton.
+    """
+
     def __init__(
         self,
         name: str = "model",
@@ -127,7 +166,7 @@ class ModelWrapper:
         decoder_features: List[str] = None,
         scalers=None,
         training_metric: str = None,
-        metric_options: Dict[str, Any] = {},
+        metric_options: Dict[str, Any] = None,
         optimizer_name: str = "adam",
         early_stopping_patience: int = 7,
         early_stopping_margin: float = 0.0,
@@ -135,13 +174,13 @@ class ModelWrapper:
         max_epochs: int = 100,
         forecast_horizon: int = 168,
         model_class: str = "recurrent",
-        model_parameters: Dict[str, Any] = {},
+        model_parameters: Dict[str, Any] = None,
         batch_size: int = 1,
         history_horizon: int = 1,
     ):
         self.initialzed = False
         self.last_training = None
-        self.model = None  # model
+        self.model = None
         self.name = "model"
         self.target_id = "target"
         self.encoder_features = None
@@ -181,6 +220,13 @@ class ModelWrapper:
         )
 
     def get_model_config(self):
+        """Get the model specfic attributes of the wrapper.
+
+        Returns
+        -------
+        Dict[str, Union[str,Dict]]
+            Parameters corresponding to the wrapped model.
+        """
         return {
             # "model_name": self.name,
             # "target_id": self.target_id,
@@ -193,10 +239,18 @@ class ModelWrapper:
             # "rel_core_hidden_size": self.rel_core_hidden_size,
             # "dropout_fc": self.dropout_fc,
             # "dropout_core": self.dropout_core,
-            "model_parameters": self.model_parameters
+            "model_class": self.model_class,
+            "model_parameters": self.model_parameters,
         }
 
     def get_training_config(self):
+        """Get the training specfic attributes of the wrapper.
+
+        Returns
+        -------
+        Dict[str, Union[str,int,float]]
+            Parameters corresponding to the traingin setup.
+        """
         return {
             "optimizer_name": self.optimizer_name,
             "early_stopping_patience": self.early_stopping_patience,
@@ -228,6 +282,16 @@ class ModelWrapper:
         history_horizon: int = None,
         **_,
     ):
+
+        """Change any attribute of the modelwrapper.
+        Unknown keyword arguments are silently discarded.
+        It is not possible to set attributes to None.
+
+        Paramers
+        --------
+        See. Class description
+
+        """
         if name is not None:
             self.name = name
         if target_id is not None:
@@ -278,6 +342,17 @@ class ModelWrapper:
         raise AttributeError("Can't set loss manually, use .set_loss() instead")
 
     def set_loss(self, loss: str, loss_options=None):
+        """Change the Metric used for training.
+        If you do not retrain afterwards this will lead to unexpected behaviour,
+        as model output and metric input do not represent the same thing.
+
+        Parameters
+        ----------
+        loss: str
+            String identifier of the desired metric
+        loss_options: Dict[str,Any]
+            Keyword arguments for intializing the metric
+        """
         if not isinstance(loss, str):
             raise AttributeError(
                 "Set the loss using the string identifier of the metric."
@@ -286,6 +361,7 @@ class ModelWrapper:
             self._loss = None
             self._loss_options = None
             self.output_labels = None
+            return self
         if loss_options is None:
             loss_options = {}
         self._loss = loss
@@ -293,8 +369,8 @@ class ModelWrapper:
         self.output_labels = deepcopy(self.loss_metric.input_labels)
         return self
 
-    def wrap(self, model: torch.nn.Module):  # , previous_loss: float = None):
-        self.model = model
+    # def wrap(self, model: torch.nn.Module):  # , previous_loss: float = None):
+    #     self.model = model
 
     def copy(self):
         temp_mh = ModelWrapper(
@@ -323,8 +399,9 @@ class ModelWrapper:
         return temp_mh
 
     def init_model(self):
-        logger.info(f"{self.model_class = }")
-        logger.info(f"{self.model_parameters = }")
+        """Initializes the wrapped model."""
+        print(f"{self.model_class = }")
+        print(f"{self.model_parameters = }")
         model_parameters = self.model_parameters.get(self.model_class)
 
         if self.model_class == "simple_transformer":
@@ -356,7 +433,13 @@ class ModelWrapper:
         self.initialzed = True
         return self
 
-    def to(self, device):
+    def to(self, device: Union[str, int]):
+        """Moves the model to a specific device.
+        Parameters
+        ----------
+        device: Union[str,int]
+            Name or id of the device where the model should be moved.
+        """
         self._device = device
         if self.model:
             self.model.to(device)
@@ -371,64 +454,22 @@ class ModelWrapper:
         batch_size: int = None,
     ):
         """
-        Train the given model.
-
-        Train the provided model using the given parameters for up to the specified number of epochs, with early stopping.
-        Log the training data (optionally using TensorBoard's SummaryWriter)
-        Finally, determine the score of the resulting best net.
+        Train the wrapped model using the given parameters specified in the ModelWrapper.
+        Log the training data optionally using TensorBoard's SummaryWriter
 
         Parameters
         ----------
-        train_data_loader : proloaf.tensorloader.CustomTensorDataLoader
-            The training data loader
-        validation_data_loader : proloaf.tensorloader.CustomTensorDataLoader
-            The validation data loader
-        test_data_loader : proloaf.tensorloader.CustomTensorDataLoader
-            The test data loader
-        net : proloaf.models.EncoderDecoder
-            The model to be trained
-        learning_rate : float, optional
-            The specified optimizer's learning rate
-        batch_size :  int scalar, optional
-            The size of a batch for the tensor data loader
-        forecast_horizon : int scalar, optional
-            The length of the forecast horizon in hours
-        dropout_fc : float scalar, optional
-            The dropout probability for the decoder
-        dropout_core : float scalar, optional
-            The dropout probability for the core_net
-        log_df : pandas.DataFrame, optional
-            A DataFrame in which the results and parameters of the training are logged
-        optimizer_name : string, optional, default "adam"
-            The name of the torch.optim optimizer to be used. Currently only the following
-            strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
-        max_epochs : int scalar, optional
-            The maximum number of training epochs
-        logging_tb : bool, default = True
-            Specifies whether TensorBoard's SummaryWriter class should be used for logging during the training
-        loss_options : dict, default={}
-            Contains extra options if the loss functions mis or quantile score are used.
-        exploration : bool
-            todo
-        trial_id : string , default "main_run"
-            separate the trials per study and store all in one directory for better handling in tensorboard
-        hparams : dict, default = {}, equals standard list of hyperparameters (batch_size, learning_rate)
-            dict of customized hyperparameters
-        config : dict, default = {}
-            dict of model configurations
+        train_data : proloaf.tensorloader.TimeSeriesData
+            The training data
+        validation_data : proloaf.tensorloader.TimeSeriesData
+            The validation data
+        logging_tb : SummaryWriter, default = None
+            If specied this TensorBoard SummaryWriter will be used for logging during the training
+        trial_id : Any , default = None
+            Identifier for a specific training run. Will be consecutive number if not specified
         Returns
         -------
-        proloaf.models.EncoderDecoder
-            The trained model
-        pandas.DataFrame
-            A DataFrame in which the results and parameters of the training have been logged
-        float
-            The minimum validation loss of the trained model
-        float or torch.Tensor
-            The score returned by the performance test. The data type depends on which metric was used.
-            The current implementation calculates the Mean Interval Score and returns either a float, or 1d-Array with the MIS along the horizon.
-            A lower score is generally better
-        TODO: update
+        self
         """
         if self.model is None:
             raise AttributeError("Model was not initialized")
@@ -464,18 +505,14 @@ class ModelWrapper:
         self, inputs_enc: torch.Tensor, inputs_dec: torch.Tensor
     ) -> torch.Tensor:
         """
-        Get the predictions for the given model and data
+        Get the predictions for the wrapped model
 
         Parameters
         ----------
-        net : proloaf.models.EncoderDecoder
-            The model with which to calculate the predictions
-        data_loader : proloaf.tensorloader.CustomTensorDataLoader
-            Contains the input data and targets
-        horizon : int
-            The horizon for the prediction
-        number_of_targets : int
-            The number of targets
+        inputs_enc : torch.Tensor
+            Contains the input data for the encoder
+        inputs_dec : torch.Tensor
+            Contains the input data for the decoder
 
         Returns
         -------
@@ -491,13 +528,18 @@ class ModelWrapper:
         # XXX this returned array of numbers is not very readable, maybe a dict would be helpful
         self.to(inputs_enc.device)
         val, _ = self.model(inputs_enc, inputs_dec)
-        # logger.info(f"{len(val) = }")
-        # logger.info(f"{val[0].size() = }")
         return val
 
-    def add_scalers(self, scalers):
-        self.scalers = scalers
-        return self
+    # def add_scalers(self, scalers):
+    #     """Note the scalers used in preparation.
+
+    #     Parameters
+    #     ----------
+    #     scalers: sklearn.transformer
+
+    #     """
+    #     self.scalers = scalers
+    #     return self
 
 
 class ModelHandler:
@@ -506,6 +548,9 @@ class ModelHandler:
 
     Parameters
     ----------
+    config: Dict[str,Any]
+        Dictonary with all definitions
+
     TODO
     patience : int, default = 7
         How long to wait after last time validation loss improved.
@@ -530,7 +575,7 @@ class ModelHandler:
         loss: str = "nllgauss",
         loss_kwargs: dict = {},
         device: str = "cpu",
-        log_df=None,
+        # log_df=None,
         logname: str = "",
     ):
         self.work_dir = (
