@@ -27,6 +27,9 @@ from typing import List, Union, Tuple, Callable, Iterable
 import proloaf.datahandler as dh
 from time import sleep
 from torch.utils.data.dataloader import DataLoader
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TimeSeriesData(torch.utils.data.Dataset):
@@ -245,11 +248,11 @@ class TimeSeriesData(torch.utils.data.Dataset):
         # target_id: Union[str, int] = None,
     ):
         if self.tensor_prepared:
-            print("tensor prepared")
+            logger.info("tensor prepared")
             return self
 
         if not self.frame_prepared:
-            print("frame not prepared")
+            logger.info("frame not prepared")
             df = self.data.copy()
             df = self._apply_prep_to_frame(self.data, self.preparation_steps)
         else:

@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "formatters": {
+    "default": {
+      "format": "%(asctime)s - %(module)s - %(levelname)s - %(message)s",
+      "datefmt": "%m/%d/%Y %I:%M:%S"
+    }
+  },
+  "filters": {
+    "default": {
+      "name": ""
+    }
+  },
+  "handlers": {
+    "console": {
+      "class": "logging.StreamHandler",
+      "formatter": "default",
+      "level": "INFO",
+      "filters": [
+        "default"
+      ],
+      "stream": "ext://sys.stdout"
+    },
+    "file": {
+      "class": "logging.FileHandler",
+      "formatter": "default",
+      "level": "DEBUG",
+      "filename": "../event_logging/eventlog.log",
+      "filters": [
+        "default"
+      ]
+    }
+  },
+  "loggers": {
+    "train": {
+      "level": "DEBUG",
+      "filters": null,
+      "handlers": [
+        "console",
+        "file"
+      ]
+    },
+    "eval": {
+      "level": "DEBUG",
+      "filters": null,
+      "handlers": [
+        "console",
+        "file"
+      ]
+    },
+    "prep": {
+      "level": "DEBUG",
+      "filters": null,
+      "handlers": [
+        "console",
+        "file"
+      ]
+    },
+    "proloaf": {
+      "level": "DEBUG",
+      "filters": null,
+      "handlers": [
+        "console",
+        "file"
+      ]
+    },
+    "proloaf.datahandler": {
+      "level": "DEBUG",
+      "filters": null
+    },
+    "proloaf.loghandler": {
+      "level": "DEBUG",
+      "filters": null
+    },
+    "proloaf.modelhandler": {
+      "level": "DEBUG",
+      "filters": null
+    },
+    "proloaf.models": {
+      "level": "DEBUG",
+      "filters": null
+    },
+    "proloaf.tensorloader": {
+      "level": "DEBUG",
+      "filters": null
+    }
+  }
+}

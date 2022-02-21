@@ -42,9 +42,11 @@ from copy import deepcopy
 import pandas as pd
 from sklearn.utils import validation
 import torch
+import logging
+import logging.config
+import logging.handlers
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-print(MAIN_PATH)
 sys.path.append(MAIN_PATH)
 
 # Do relative imports below this
@@ -77,6 +79,15 @@ def main(
     log_path: str = None,
     device: str = "cpu",
 ):
+    # create event logger
+    event_log_conf = read_config(
+        config_path=os.path.join(work_dir, 'event_logging', 'config', 'event_logging_conf.json')
+    )
+    logging.config.dictConfig(event_log_conf)
+    logger = logging.getLogger('train')
+
+    logger.info('Current working directory is {:s}'.format(work_dir))
+
     # Read load data
     config = deepcopy(config)
     log_df = log.init_logging(model_name=station_name, work_dir=work_dir, config=config)
@@ -154,12 +165,12 @@ def main(
             )
         except FileNotFoundError:
             ref_model_1 = None
-            print(
+            logging.info(
                 "No old version of the trained model was found for the new one to compare to"
             )
         except Exception:
             ref_model_1 = None
-            print(
+            logging.warning(
                 "An older version of this model was found but could not be loaded, this is likely due to diverignig ProLoaF versions."
             )
         if ref_model_1 is not None:
@@ -182,7 +193,7 @@ def main(
         )
 
     except KeyboardInterrupt:
-        print("manual interrupt")
+        logging.error("manual interrupt")
 
     finally:
         if log_df is not None:

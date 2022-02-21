@@ -30,6 +30,7 @@ import sys
 import tempfile
 import optuna
 import torch
+import logging
 from typing import Any, Callable, Union, List, Dict, Literal
 from copy import deepcopy
 
@@ -46,6 +47,8 @@ from proloaf.loghandler import (
 )
 from proloaf.cli import query_true_false
 from proloaf.confighandler import write_config
+
+logger = logging.getLogger(__name__)
 
 
 class EarlyStopping:
@@ -87,7 +90,7 @@ class EarlyStopping:
             self.save_checkpoint(val_loss, model)
         elif score < self.best_score - self.delta:
             self.counter += 1
-            print(f"EarlyStopping counter: {self.counter} out of {self.patience}")
+            logger.info(f"EarlyStopping counter: {self.counter} out of {self.patience}")
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
@@ -107,7 +110,7 @@ class EarlyStopping:
             The model being trained
         """
         if self.verbose:
-            print(
+            logger.info(
                 f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ..."
             )
         temp_dir = tempfile.mktemp()
@@ -321,8 +324,8 @@ class ModelWrapper:
         return temp_mh
 
     def init_model(self):
-        print(f"{self.model_class = }")
-        print(f"{self.model_parameters = }")
+        logger.info(f"{self.model_class = }")
+        logger.info(f"{self.model_parameters = }")
         model_parameters = self.model_parameters.get(self.model_class)
 
         if self.model_class == "simple_transformer":
@@ -489,8 +492,8 @@ class ModelWrapper:
         # XXX this returned array of numbers is not very readable, maybe a dict would be helpful
         self.to(inputs_enc.device)
         val, _ = self.model(inputs_enc, inputs_dec)
-        # print(f"{len(val) = }")
-        # print(f"{val[0].size() = }")
+        # logger.info(f"{len(val) = }")
+        # logger.info(f"{val[0].size() = }")
         return val
 
     def add_scalers(self, scalers):
@@ -536,7 +539,7 @@ class ModelHandler:
             if work_dir is not None
             else os.path.dirname(os.path.abspath(sys.argv[0]))
         )
-        print(self.work_dir)
+        logger.info(self.work_dir)
         self.config = deepcopy(config)
         # if isinstance(reference_model, ModelWrapper):
         #     self.reference_model = reference_model
@@ -635,9 +638,10 @@ class ModelHandler:
         -------
         TODO: complete
         """
-        print(
-            "Max. number of iteration trials for hyperparameter tuning: ",
-            self.tuning_config["number_of_tests"],
+        logger.info(
+            "Max. number of iteration trials for hyperparameter tuning: {!s}".format(
+                self.tuning_config["number_of_tests"]
+            )
         )
         study = self.make_study()
         study.optimize(
@@ -650,7 +654,7 @@ class ModelHandler:
             timeout=self.tuning_config.get("timeout", None),
         )
 
-        print("Number of finished trials: ", len(study.trials))
+        logger.info("Number of finished trials: {!s}".format(len(study.trials)))
         trials_df = study.trials_dataframe()
 
         if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
@@ -672,12 +676,12 @@ class ModelHandler:
             index=False,
         )
 
-        print("Best trial:")
         trial = study.best_trial
-        print("  Value: ", trial.value)
-        print("  Params: ")
+        logger.info("Best trial:\n",
+                    " Value: {!s}\n".format(trial.value),
+                    " Params: \n")
         for key, value in trial.params.items():
-            print("    {}: {}".format(key, value))
+            logger.info("    {}: {}".format(key, value))
 
         self.config.update(trial.params)
         self.model_wrap = trial.user_attrs["wrapped_model"]
@@ -690,10 +694,10 @@ class ModelHandler:
         loss: metrics.Metric,
     ):
         perf_df = self.benchmark(data, models, [loss], avg_over="all")
-        print(f"Performance was:\n {perf_df}")
+        logger.info(f"Performance was:\n {perf_df}")
         idx = perf_df.iloc[0].to_numpy().argmin()
         self.model_wrap = models[idx]
-        print(f"selected {self.model_wrap.name}")
+        logger.info(f"selected {self.model_wrap.name}")
         return self.model_wrap
 
     @staticmethod
@@ -710,7 +714,7 @@ class ModelHandler:
             bench = {}
             for model in models:
                 dataloader = data.make_data_loader(batch_size=None, shuffle=False)
-                print(f"benchmarking {model.name}")
+                logger.info(f"benchmarking {model.name}")
                 for inputs_enc, inputs_dec, targets in dataloader:
                     quantiles = model.loss_metric.get_quantile_prediction(
                         predictions=model.predict(inputs_enc, inputs_dec),
@@ -857,7 +861,7 @@ class ModelHandler:
     ):
         if exploration is None:
             exploration = self.config.get("exploration", False)
-        print(f"{exploration = }")
+        logger.info(f"{exploration = }")
         if exploration:
             if not self.tuning_config:
                 raise AttributeError(
@@ -1013,7 +1017,7 @@ class ModelHandler:
                 if key == "model_parameters":
                     continue
 
-                print("Creating parameter: ", key)
+                logger.info("Creating parameter: {!s}".format(key))
                 func_generator = getattr(trial, hparam["function"])
                 hparams[key] = func_generator(**(hparam["kwargs"]))
 
@@ -1024,7 +1028,7 @@ class ModelHandler:
                 for key, hparam in (
                     tuning_settings["model_parameters"].get(model_class, {}).items()
                 ):
-                    print("Creating parameter: ", key)
+                    logger.info("Creating parameter: {!s}".fo0rmat(key))
                     func_generator = getattr(trial, hparam["function"])
                     hparams["model_parameters"][model_class][key] = func_generator(
                         **(hparam["kwargs"])
@@ -1230,7 +1234,7 @@ class TrainingRun:
             inputs_enc, inputs_dec, targets = next(iter(self.train_dl))
             self.log_tb.add_graph(self.model, [inputs_enc, inputs_dec])
         self.training_start_time = perf_counter()
-        print("Begin training...")
+        logger.info("Begin training...")
         self.model.train()
         for epoch in range(self.max_epochs):
             t1_start = perf_counter()
@@ -1240,10 +1244,10 @@ class TrainingRun:
                 self.validate()
                 self.early_stopping(self.validation_loss, self.model)
             else:
-                print(
+                logger.info(
                     "No validation data was provided, thus no validation was performed"
                 )
-            print(
+            logger.info(
                 "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
                     epoch + 1,
                     self.max_epochs,
@@ -1266,7 +1270,7 @@ class TrainingRun:
                 )
 
             if self.early_stopping.early_stop:
-                print(
+                logger.info(
                     f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
                 )
                 # load the last checkpoint with the best model
@@ -1308,14 +1312,14 @@ def update(
     if exploration:
         if interactive:
             if query_true_false("Overwrite config with new parameters?"):
-                print("study best value: ", study.best_value)
-                print("current loss: ", loss)
+                logger.info("study best value: {!s}".format(study.best_value))
+                logger.info("current loss: {!s}".format(loss))
                 config.update(study.best_trial.params)
                 config["exploration"] = not query_true_false(
                     "Parameters tuned and updated. Do you wish to turn off hyperparameter tuning for future training?"
                 )
 
-    print(
+    logger.info(
         "Model improvement achieved. Save {}-file in {}.".format(
             model_name, config["output_path"]
         )
@@ -1381,7 +1385,7 @@ def save(
             min_net = achieved_net
 
     if min_net is not None:
-        print("saving model")
+        logger.info("saving model")
         if not os.path.exists(
             os.path.join(work_dir, config["output_path"])
         ):  # make output folder if it doesn't exist

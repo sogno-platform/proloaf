@@ -25,7 +25,9 @@ import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import logging
 
+logger = logging.getLogger(__name__)
 
 class Encoder(nn.Module):
     """
@@ -67,26 +69,14 @@ class Encoder(nn.Module):
                 dropout=dropout_core,
             )
         except:
-            print()
-            print(
-                "The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:",
-                file=sys.stderr,
+            logger.critical(
+                "The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:\n",
+                "input_size: int, number of features at any point in the sequence.\n",
+                "hidden_size: int, size of the produced state vector that encodes the recurred data.\n",
+                "batch_first: bool, specifying that the data is of shape (batch_size, sequence_length, num_features), always True.\n",
+                "num_layers: int, number of layers of the core_net.\n",
+                "dropout: float, internal dropout ratio.\n"
             )
-            print(
-                "input_size: int, number of features at any point in the sequence.",
-                file=sys.stderr,
-            )
-            print(
-                "hidden_size: int, size of the produced state vector that encodes the recurred data.",
-                file=sys.stderr,
-            )
-            print(
-                "batch_first: bool, specifying that the data is of shape (batch_size, sequence_length, num_features), always True.",
-                file=sys.stderr,
-            )
-            print("num_layers: int, number of layers of the core_net.", file=sys.stderr)
-            print("dropout: float, internal dropout ratio.", file=sys.stderr)
-            print()
             exit()
 
     def forward(self, inputs):
@@ -161,26 +151,16 @@ class Decoder(nn.Module):
                 dropout=dropout_core,
             )
         except:
-            print()
-            print(
-                "The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:",
-                file=sys.stderr,
+
+            logger.critical(
+                "The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:\n",
+                "input_size: int, number of features at any point in the sequence.\n",
+                "hidden_size: int, size of the produced state vector that encodes the recurred data.\n",
+                "batch_first: bool, specifying that the data is of shape (batch_size, sequence_length, num_features), always True.\n",
+                "num_layers: int, number of layers of the core_net.\n",
+                "dropout: float, internal dropout ratio.\n"
             )
-            print(
-                "input_size: int, number of features at any point in the sequence.",
-                file=sys.stderr,
-            )
-            print(
-                "hidden_size: int, size of the produced state vector that encodes the recurred data.",
-                file=sys.stderr,
-            )
-            print(
-                "batch_first: bool, specifying that the data is of shape (batch_size, sequence_length, num_features), always True.",
-                file=sys.stderr,
-            )
-            print("num_layers: int, number of layers of the core_net.", file=sys.stderr)
-            print("dropout: float, internal dropout ratio.", file=sys.stderr)
-            print()
+
             exit()
         self.fc1 = nn.Linear(core_size, hidden_size)
         self.dropout = nn.Dropout(p=dropout_fc)

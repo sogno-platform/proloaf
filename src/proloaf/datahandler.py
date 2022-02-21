@@ -30,12 +30,14 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 import sklearn
+import logging
 from sklearn.utils.validation import check_is_fitted
 import proloaf.tensorloader as tl
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
+logger = logging.getLogger(__name__)
 
 def load_raw_data_xlsx(files, path):
     """
@@ -67,13 +69,13 @@ def load_raw_data_xlsx(files, path):
         + ('end_column')
 
     """
-    print("Importing XLSX Data...")
+    logger.info("Importing XLSX Data...")
 
     combined_files = []
     individual_files = []
 
     for xlsx_file in files:
-        print("importing " + xlsx_file["file_name"])
+        logger.info("importing " + xlsx_file["file_name"])
         # if isinstance(file_name, str):
         #     file_name = [file_name,'UTC']
         date_column = xlsx_file["date_column"]
@@ -153,13 +155,13 @@ def load_raw_data_csv(files, path):
 
     """
 
-    print("Importing CSV Data...")
+    logger.info("Importing CSV Data...")
 
     combined_files = []
     individual_files = []
 
     for csv_file in files:
-        print("Importing " + csv_file["file_name"] + " ...")
+        logger.info("Importing " + csv_file["file_name"] + " ...")
         date_column = csv_file["date_column"]
         raw_data = pd.read_csv(
             path + csv_file["file_name"],
@@ -186,7 +188,7 @@ def load_raw_data_csv(files, path):
                     raw_data[date_column], format="%Y-%m-%d %H:%M:%S"
                 ).dt.tz_localize(None)
 
-        print("...Importing finished. ")
+        logger.info("...Importing finished. ")
         raw_data.rename(columns={date_column: "Time"}, inplace=True)
 
         if csv_file["combine"]:
@@ -255,7 +257,7 @@ def add_onehot_features(df):
     df[hours.columns] = hours
     df[month.columns] = month
     df[weekday.columns] = weekday
-    # print(df.head())
+    # logger.info(df.head())
     return df
 
 
@@ -297,9 +299,9 @@ def check_nans(df):
 
     """
     if not df.isnull().values.any():
-        print("No missing data \n")
+        logger.info("No missing data \n")
     else:
-        print("Missing data detected \n")
+        logger.info("Missing data detected \n")
 
     return
 
@@ -350,9 +352,9 @@ def load_dataframe(data_path):
     def parser(x):
         return pd.datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
 
-    print("> Load data from '{}'... ".format(data_path), end="")
+    logger.info("> Load data from '{}'... ".format(data_path), end="")
     df = pd.read_excel(data_path, parse_dates=[0], date_parser=parser)
-    print("done!")
+    logger.info("done!")
 
     return df
 
@@ -485,11 +487,11 @@ def fill_if_missing(df, periodicity=1):
         A pandas.DataFrame with no NaN values
     """
     if df.isnull().values.any():
-        print("Some values are NaN. They are being filled...")
+        logger.info("Some values are NaN. They are being filled...")
         df = custom_interpolate(df, periodicity)
-        print("...interpolation finished! No missing data left.")
+        logger.info("...interpolation finished! No missing data left.")
     else:
-        print("No missing data \n")
+        logger.info("No missing data \n")
     return df
 
 
@@ -696,7 +698,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.feature_groups = feature_groups
         self._init_scalers()
         if scalers is not None:
-            print(
+            logger.warning(
                 "This is an experimental feature and might lead to unexpected behaviour without error"
             )
             # TODO make sure input scalers are same type and parameters as definend in feature groups
@@ -720,13 +722,13 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.scalers = {}
         for group in self.feature_groups:
             if "features" not in group or not group["features"]:
-                print(
+                logger.info(
                     f"Feature group {group.get('name', 'UNNAMED')} has no features and will be skipped."
                 )
                 continue
             if group["scaler"] is None or group["scaler"][0] is None:
                 if group.get("name") != "aux":
-                    print(
+                    logger.info(
                         f"{group.get('name','UNNAMED')} features were not scaled, if this was unintentional check the config file."
                     )
                 continue
@@ -914,7 +916,7 @@ def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers=None, *
             scaler = None
             if group["scaler"] is None or group["scaler"][0] is None:
                 if group["name"] != "aux":
-                    print(
+                    logger.warning(
                         group["name"]
                         + " features were not scaled, if this was unintentional check the config file."
                     )
@@ -1026,7 +1028,7 @@ def constructDf(
 def split(df: pd.DataFrame, splits: List[float]):
     split_index = [int(len(df) * split) for split in splits]
     intervals = zip([None, *split_index], [*split_index, None])
-    print(intervals)
+    logger.info(intervals)
     # intervals = zip(split_index, split_index)
     # print(list())
     return [df[a:b] for a, b in intervals]
@@ -1087,8 +1089,8 @@ def transform(
     df_val = df.iloc[split_index:subsplit_index]
     df_test = df.iloc[subsplit_index:]
 
-    print("Size training set: \t{}".format(df_train.shape[0]))
-    print("Size validation set: \t{}".format(df_val.shape[0]))
+    logger.info("Size training set: \t{}".format(df_train.shape[0]))
+    logger.info("Size validation set: \t{}".format(df_val.shape[0]))
 
     # shape input data that is measured in the Past and can be fetched from UDW/LDW
     if 0 in df_train.shape:

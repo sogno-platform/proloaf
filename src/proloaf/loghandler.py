@@ -23,10 +23,13 @@ Provides functions for logging training results and reading and writing those lo
 
 import pandas as pd
 import shutil
+import logging
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
 from proloaf.confighandler import *
+
+logger = logging.getLogger(__name__)
 
 # Loads a logfile if one exists, else creates a pd dataframe (create log)
 def create_log(log_path=None, station_path=None) -> pd.DataFrame:
@@ -61,18 +64,18 @@ def create_log(log_path=None, station_path=None) -> pd.DataFrame:
             ]
         ]
     except:
-        print("--- Couldn't load log feature set from config file ---")
+        logger.error("--- Couldn't load log feature set from config file ---")
         return None
 
     try:
-        print("--- Loading existing log file ---")
+        logger.info("--- Loading existing log file ---")
         log_df = pd.read_csv(log_path, sep=";", index_col=0)
         features_to_add_list = [x for x in feature_list if x not in list(log_df.head())]
         if features_to_add_list:
             log_df = pd.concat([log_df, pd.DataFrame(columns=features_to_add_list)])
 
     except:
-        print("--- No existing log file found, creating... ---")
+        logger.info("--- No existing log file found, creating... ---")
         log_df = pd.DataFrame(columns=feature_list)
 
     return log_df
@@ -131,7 +134,7 @@ def log_data(
         The DataFrame that has been written to
     """
     if log_df is not None:
-        print("--saving to log--")
+        logger.info("--saving to log--")
         # Fetch all data that is of interest
         logdata_complete = {
             "time_stamp": pd.Timestamp.now(),
@@ -195,7 +198,7 @@ def write_log_to_csv(log_df, path=None, model_name=None):
         if path and model_name:
             if not os.path.exists(path):
                 os.makedirs(path)
-            print("saving log")
+            logger.info("saving log")
             log_df.to_csv(os.path.join(path, model_name), sep=";")
 
 
@@ -312,7 +315,7 @@ def log_tensorboard(
     run_dir = os.path.join(work_dir, "runs", logname)
     tb = SummaryWriter(log_dir=run_dir)
 
-    print("Tensorboard log here:\t", tb.log_dir)
+    logger.info("Tensorboard log here:\t {!s}".format(tb.log_dir))
     return tb
 
 
