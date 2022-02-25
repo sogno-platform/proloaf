@@ -42,9 +42,7 @@ from copy import deepcopy
 import pandas as pd
 from sklearn.utils import validation
 import torch
-import logging
-import logging.config
-import logging.handlers
+
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
@@ -60,6 +58,7 @@ import proloaf.tensorloader as tl
 # TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
 from proloaf.confighandler import read_config, get_existing_score
 from proloaf.cli import parse_with_loss
+from proloaf.cli import create_event_logger
 
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
@@ -67,6 +66,8 @@ torch.manual_seed(1)
 
 warnings.filterwarnings("ignore")
 
+#create event logger
+logger = create_event_logger('train')
 
 def main(
     infile: str,
@@ -79,12 +80,6 @@ def main(
     log_path: str = None,
     device: str = "cpu",
 ):
-    # create event logger
-    event_log_conf = read_config(
-        config_path=os.path.join(work_dir, 'event_logging', 'config', 'event_logging_conf.json')
-    )
-    logging.config.dictConfig(event_log_conf)
-    logger = logging.getLogger('train')
 
     logger.info('Current working directory is {:s}'.format(work_dir))
 

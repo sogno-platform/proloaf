@@ -25,9 +25,10 @@ import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import logging
+from proloaf.cli import create_event_logger
 
-logger = logging.getLogger(__name__)
+logger = create_event_logger(__name__)
+
 
 class Encoder(nn.Module):
     """
@@ -151,7 +152,6 @@ class Decoder(nn.Module):
                 dropout=dropout_core,
             )
         except:
-
             logger.critical(
                 "The given core_net could not be constructed. It needs to have arguments with similar names to torch.nn.GRU:\n",
                 "input_size: int, number of features at any point in the sequence.\n",

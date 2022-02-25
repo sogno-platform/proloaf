@@ -30,14 +30,15 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 import sklearn
-import logging
 from sklearn.utils.validation import check_is_fitted
 import proloaf.tensorloader as tl
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
+from proloaf.cli import create_event_logger
 
-logger = logging.getLogger(__name__)
+logger = create_event_logger(__name__)
+
 
 def load_raw_data_xlsx(files, path):
     """

@@ -51,7 +51,9 @@ import proloaf.tensorloader as tl
 import proloaf.metrics as metrics
 import proloaf.plot as plot
 import proloaf.modelhandler as mh
+from proloaf.cli import create_event_logger
 
+logger = create_event_logger('evaluate')
 
 if __name__ == "__main__":
     ARGS = parse_basic()
@@ -224,7 +226,7 @@ if __name__ == "__main__":
         results_total_per_forecast.to_csv(
             os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
         )
-        print(results_total_per_forecast)
+        logger.info('Results toal per forecast:\n{!s}'.format(results_total_per_forecast))
         inputs_enc, inputs_dec, targets = test_data[0]
         prediction = net.predict(
             inputs_enc=inputs_enc.unsqueeze(dim=0),
@@ -246,4 +248,4 @@ if __name__ == "__main__":
         torch.save(y_pred_upper, "RNN_best_upper_limits.pt")
         torch.save(y_pred_lower, "RNN_best_lower_limits.pt")
         torch.save(targets, "RNN_best_true_values.pt")
-    print("Done!!")
+    logger.info("Done!!")

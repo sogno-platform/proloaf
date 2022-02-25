@@ -30,11 +30,14 @@ stay the same
 import json
 import sys
 import os
-
+from proloaf.cli import create_event_logger
 main_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(main_path)
 
 par = {}
+
+logger = create_event_logger(__name__)
+
 if __name__ == '__main__':
     # Read configs
 
@@ -50,10 +53,10 @@ if __name__ == '__main__':
     # stay the same.
 
     elif sys.argv[1] == '--new':
-        print(CONFIG_PATH + ' has been reset before writing')
+        logger.info('{!s} has been reset before writing').format(CONFIG_PATH)
         par = {}
     else:
-        print('No option selected. Use either --mod or --new (WARNING: --new erases the old config file)')
+        logger.info('No option selected. Use either --mod or --new (WARNING: --new erases the old config file)')
 
     # INSERT MODIFICATIONS FOR THE CONFIG HERE
     # ============================================

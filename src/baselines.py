@@ -54,6 +54,9 @@ import proloaf.baselinehandler as baselines
 
 from proloaf.confighandler import read_config
 from proloaf.cli import parse_with_loss
+from proloaf.cli import create_event_logger
+
+logger = create_event_logger(__name__)
 
 class flag_and_store(argparse._StoreAction):
     def __init__(self, option_strings, dest, dest_const, const,
@@ -236,7 +239,7 @@ def main(infile, target_id):
                     grid_search = PAR['exploration'],
                     train_limit=LIMIT_HISTORY
                 )
-            else: print('Loaded existing fitted ARIMA model from ',OUTDIR)
+            else: logger.info('Loaded existing fitted ARIMA model from {!s}'.format(OUTDIR))
             ARIMA_expected_values, ARIMA_y_pred_upper, ARIMA_y_pred_lower = \
                 baselines.make_forecasts(
                     endog_train = df_train[target],
@@ -268,7 +271,7 @@ def main(infile, target_id):
                     train_limit=LIMIT_HISTORY,
                     grid_search = PAR['exploration']
                 )
-            else: print('Loaded existing fitted SARIMA model from ',OUTDIR)
+            else: logger.info('Loaded existing fitted SARIMA model from {!s}'.format(OUTDIR))
             SARIMA_expected_values, SARIMA_y_pred_upper, SARIMA_y_pred_lower = \
                 baselines.make_forecasts(
                     endog_train = df_train[target],
@@ -303,7 +306,7 @@ def main(infile, target_id):
                     lag=PERIODICITY*SEASONALITY,
                     grid_search=False
                 )
-            else: print('Loaded existing fitted ARIMAX model from ',OUTDIR)
+            else: logger.info('Loaded existing fitted ARIMAX model from {!s}'.format(OUTDIR))
             ARIMAX_expected_values, ARIMAX_y_pred_upper, ARIMAX_y_pred_lower = \
                 baselines.make_forecasts(
                     endog_train=df_train[target],
@@ -337,7 +340,7 @@ def main(infile, target_id):
                     m=SEASONALITY,
                     grid_search = False
                 )
-            else: print('Loaded existing fitted SARIMAX model from ',OUTDIR)
+            else: logger.info('Loaded existing fitted SARIMAX model from {!s}'.format(OUTDIR))
             SARIMAX_expected_values, SARIMAX_y_pred_upper, SARIMAX_y_pred_lower = \
                 baselines.make_forecasts(
                     endog_train=df_train[target],
@@ -485,20 +488,21 @@ def main(infile, target_id):
             bins=80,
         )
 
-        print(
-            metrics.results_table(
-                "baselines",
-                results,
-                save_to_disc=OUTDIR,
+        logger.info(
+            'results: \n {!s}'.format(
+                metrics.results_table(
+                    "baselines",
+                    results,
+                    save_to_disc=OUTDIR,
+                )
             )
         )
 
 
     except KeyboardInterrupt:
-        print()
-        print('manual interrupt')
+        logger.info('\nmanual interrupt')
     finally:
-        print(','.join(baseline_method) +' fitted and evaluated')
+        logger.info(','.join(baseline_method) +' fitted and evaluated')
 
 if __name__ == '__main__':
     ARGS, LOSS_OPTIONS = parse_with_loss()

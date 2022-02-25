@@ -30,7 +30,6 @@ import sys
 import tempfile
 import optuna
 import torch
-import logging
 from typing import Any, Callable, Union, List, Dict, Literal
 from copy import deepcopy
 
@@ -46,10 +45,10 @@ from proloaf.loghandler import (
     end_tensorboard,
 )
 from proloaf.cli import query_true_false
+from proloaf.cli import create_event_logger
 from proloaf.confighandler import write_config
 
-logger = logging.getLogger(__name__)
-
+logger = create_event_logger(__name__)
 
 class EarlyStopping:
     """

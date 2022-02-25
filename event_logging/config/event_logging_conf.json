@@ -15,7 +15,7 @@
     "console": {
       "class": "logging.StreamHandler",
       "formatter": "default",
-      "level": "INFO",
+      "level": "DEBUG",
       "filters": [
         "default"
       ],
@@ -25,44 +25,37 @@
       "class": "logging.FileHandler",
       "formatter": "default",
       "level": "DEBUG",
-      "filename": "../event_logging/eventlog.log",
+      "filename": "./eventlog.log",
       "filters": [
         "default"
       ]
     }
   },
+  "root": {
+    "level": "DEBUG",
+      "filters": null,
+      "handlers": [
+        "console",
+        "file"
+      ]
+  },
+
   "loggers": {
     "train": {
       "level": "DEBUG",
-      "filters": null,
-      "handlers": [
-        "console",
-        "file"
-      ]
+      "filters": null
     },
-    "eval": {
+    "evaluate": {
       "level": "DEBUG",
-      "filters": null,
-      "handlers": [
-        "console",
-        "file"
-      ]
+      "filters": null
     },
-    "prep": {
+    "preprocess": {
       "level": "DEBUG",
-      "filters": null,
-      "handlers": [
-        "console",
-        "file"
-      ]
+      "filters": null
     },
     "proloaf": {
       "level": "DEBUG",
-      "filters": null,
-      "handlers": [
-        "console",
-        "file"
-      ]
+      "filters": null
     },
     "proloaf.datahandler": {
       "level": "DEBUG",

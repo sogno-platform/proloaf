@@ -44,6 +44,9 @@ from proloaf.confighandler import read_config
 from proloaf.cli import parse_basic
 
 import proloaf.datahandler as dh
+from proloaf.cli import create_event_logger
+
+logger = create_event_logger('preprocess')
 
 if __name__ == "__main__":
 

@@ -3,15 +3,17 @@ import os
 from copy import deepcopy
 from proloaf.cli import parse_basic
 from proloaf.confighandler import read_config, write_config
-
+from proloaf.cli import create_event_logger
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 ARGS = parse_basic()
 
+logger = create_event_logger(__name__)
+
 
 def patch_main_0_1_to_0_2(main_path, config_path):
     config = read_config(config_path=config_path, main_path=main_path)
-    print(f"patching: {config_path}")
+    logger.info(f"patching: {config_path}")
     new_config = deepcopy(config)
     # move model specfic configuration into modelparameters and add selection
     recurrent_model_keys = [
@@ -29,8 +31,9 @@ def patch_main_0_1_to_0_2(main_path, config_path):
     if "model_parameters" not in new_config:
         new_config["model_parameters"] = {"recurrent": recurrent_model_config}
     else:
-        print(
-            "The input config was aleady (partially) converted before, the patcher tried its best to get a working config, definetly check it afterwards by hand."
+        logger.info(
+            "The input config was aleady (partially) converted before,"
+            + " the patcher tried its best to get a working config, definetly check it afterwards by hand."
         )
         if "recurrent" not in new_config["model_parameters"]:
             new_config["model_parameters"]["recurrent"] = recurrent_model_config

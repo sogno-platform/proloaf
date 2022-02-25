@@ -27,9 +27,9 @@ from typing import List, Union, Tuple, Callable, Iterable
 import proloaf.datahandler as dh
 from time import sleep
 from torch.utils.data.dataloader import DataLoader
-import logging
+from proloaf.cli import create_event_logger
 
-logger = logging.getLogger(__name__)
+logger = create_event_logger(__name__)
 
 
 class TimeSeriesData(torch.utils.data.Dataset):

@@ -42,11 +42,15 @@ from statsmodels.tsa.stattools import *
 from arch import arch_model
 from joblib import Parallel, delayed
 from pmdarima.arima import auto_arima
+from proloaf.cli import create_event_logger
 # ======================================
 # =======================================
 # save baseline model
 # =============================================================================
 from proloaf import plot
+
+logger = create_event_logger(__name__)
+
 
 def test_stationarity(timeseries,maxlag):
     # source: https://towardsdatascience.com/end-to-end-time-series-analysis-and-forecasting-a-trio-of-sarimax-lstm-and-prophet-part-1-306367e57db8

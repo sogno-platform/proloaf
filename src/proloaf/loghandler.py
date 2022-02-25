@@ -23,13 +23,13 @@ Provides functions for logging training results and reading and writing those lo
 
 import pandas as pd
 import shutil
-import logging
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
 from proloaf.confighandler import *
+from proloaf.cli import create_event_logger
 
-logger = logging.getLogger(__name__)
+logger = create_event_logger(__name__)
 
 # Loads a logfile if one exists, else creates a pd dataframe (create log)
 def create_log(log_path=None, station_path=None) -> pd.DataFrame:
