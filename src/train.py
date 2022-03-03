@@ -58,7 +58,7 @@ import proloaf.tensorloader as tl
 # TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
 from proloaf.confighandler import read_config, get_existing_score
 from proloaf.cli import parse_with_loss
-from proloaf.cli import create_event_logger
+from event_logging.event_logging import create_event_logger
 
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
@@ -68,6 +68,7 @@ warnings.filterwarnings("ignore")
 
 #create event logger
 logger = create_event_logger('train')
+
 
 def main(
     infile: str,
@@ -160,12 +161,12 @@ def main(
             )
         except FileNotFoundError:
             ref_model_1 = None
-            logging.info(
+            logger.info(
                 "No old version of the trained model was found for the new one to compare to"
             )
         except Exception:
             ref_model_1 = None
-            logging.warning(
+            logger.warning(
                 "An older version of this model was found but could not be loaded, this is likely due to diverignig ProLoaF versions."
             )
         if ref_model_1 is not None:
@@ -188,7 +189,7 @@ def main(
         )
 
     except KeyboardInterrupt:
-        logging.error("manual interrupt")
+        logger.error("manual interrupt")
 
     finally:
         if log_df is not None:

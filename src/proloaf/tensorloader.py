@@ -27,7 +27,7 @@ from typing import List, Union, Tuple, Callable, Iterable
 import proloaf.datahandler as dh
 from time import sleep
 from torch.utils.data.dataloader import DataLoader
-from proloaf.cli import create_event_logger
+from event_logging.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 

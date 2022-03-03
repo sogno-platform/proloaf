@@ -51,7 +51,7 @@ import proloaf.tensorloader as tl
 import proloaf.metrics as metrics
 import proloaf.plot as plot
 import proloaf.modelhandler as mh
-from proloaf.cli import create_event_logger
+from event_logging.event_logging import create_event_logger
 
 logger = create_event_logger('evaluate')
 

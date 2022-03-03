@@ -42,7 +42,7 @@ from statsmodels.tsa.stattools import *
 from arch import arch_model
 from joblib import Parallel, delayed
 from pmdarima.arima import auto_arima
-from proloaf.cli import create_event_logger
+from event_logging.event_logging import create_event_logger
 # ======================================
 # =======================================
 # save baseline model

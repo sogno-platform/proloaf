@@ -3,7 +3,7 @@
   "formatters": {
     "default": {
       "format": "%(asctime)s - %(module)s - %(levelname)s - %(message)s",
-      "datefmt": "%m/%d/%Y %I:%M:%S"
+      "datefmt": "%m/%d/%Y %H:%M:%S"
     }
   },
   "filters": {
@@ -25,14 +25,14 @@
       "class": "logging.FileHandler",
       "formatter": "default",
       "level": "DEBUG",
-      "filename": "./eventlog.log",
+      "filename": "eventlog.log",
       "filters": [
         "default"
       ]
     }
   },
   "root": {
-    "level": "DEBUG",
+    "level": "INFO",
       "filters": null,
       "handlers": [
         "console",

@@ -35,7 +35,7 @@ import proloaf.tensorloader as tl
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
-from proloaf.cli import create_event_logger
+from event_logging.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 

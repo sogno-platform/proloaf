@@ -24,9 +24,6 @@ Provides various functions to run command line interface.
 import sys
 import argparse
 import proloaf.metrics as metrics
-import logging
-import logging.config
-import logging.handlers
 import os
 from proloaf import confighandler as ch
 
@@ -304,52 +301,3 @@ def query_true_false(question, default="yes"):
             return valid[choice]
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
-
-
-def create_event_logger(
-        name: str,
-        config_path: os.path = os.path.join(MAIN_PATH, 'event_logging', 'config', 'event_logging_conf.json')
-        ) -> logging.Logger:
-    """
-    Creates an event logger for a specific python file.
-    The configuration for the logger should be made in the event logging config file in .json format.
-    Ideally, new loggers for a file should be added under their file name in the config file
-        and this function should then be called via create_event_logger(__name__).
-    If there is no logger configured for a file, a default logger is created.
-    To avoid double logs, only set handlers in the "root" section, or turn off propagation,
-     by setting the propagate attribute to False.
-    For further information how to create and adjust the logging configuration see:
-    https://docs.python.org/3/howto/logging.html#loggers
-
-    Parameters
-    ----------
-    config_path: Path
-        The path to the .json config file for logging
-    name: String
-        the name of the logger in the config; ideally the __name__ of the file.
-
-    Returns
-    -------
-    Object of the Logger class
-    """
-    try:
-        event_log_conf = ch.read_config(
-            config_path=config_path
-        )
-        logging.config.dictConfig(event_log_conf)
-
-    except FileNotFoundError:
-        logging.basicConfig(level=logging.DEBUG)
-        logger = logging.getLogger()
-        logger.warning('Configuration file could not be found at the given path. Default logger was created.')
-    else:
-        if name not in event_log_conf["loggers"]:
-            logging.basicConfig(level=logging.DEBUG)
-            logger = logging.getLogger()
-            logger.warning(
-                'Logger name "{:s}" could not be found in the logging config. Default logger was created'.format(name)
-            )
-        else:
-            logger = logging.getLogger(name)
-
-    return logger

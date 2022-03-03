@@ -27,7 +27,7 @@ from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
 from proloaf.confighandler import *
-from proloaf.cli import create_event_logger
+from event_logging.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 

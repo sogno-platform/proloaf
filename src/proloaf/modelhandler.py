@@ -45,8 +45,8 @@ from proloaf.loghandler import (
     end_tensorboard,
 )
 from proloaf.cli import query_true_false
-from proloaf.cli import create_event_logger
 from proloaf.confighandler import write_config
+from event_logging.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 
