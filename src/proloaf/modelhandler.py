@@ -22,7 +22,7 @@
 Provides functions and classes for using the models to get predictions
 and testing model performance.
 """
-
+from __future__ import annotations
 import numpy as np
 import pandas as pd
 import os
