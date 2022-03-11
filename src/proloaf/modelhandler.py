@@ -569,7 +569,7 @@ class ModelHandler:
         Device on which the model should be trained. Values are equivalent to the ones used in PyTorch.
     logname: str, default = "log"
         Name under which the tensorboard log is saved after training.
-    
+
     Notes
     -----
     Reference: https://scikit-learn.org/stable/developers/develop.html
@@ -592,11 +592,10 @@ class ModelHandler:
             if work_dir is not None
             else os.path.dirname(os.path.abspath(sys.argv[0]))
         )
-        
+
         self.config = deepcopy(config)
         self.logname = logname
         self.tuning_config = deepcopy(tuning_config)
-
 
         self._model_wrap: ModelWrapper = ModelWrapper(
             name=config.get("model_name"),
@@ -606,7 +605,7 @@ class ModelHandler:
             scalers=scalers,
             training_metric=loss,
             metric_options=loss_kwargs,
-            optimizer_name=config.get("optimizer_name","adam"),
+            optimizer_name=config.get("optimizer_name", "adam"),
             early_stopping_patience=int(config.get("early_stopping_patience", 7)),
             early_stopping_margin=float(config.get("early_stopping_margin", 0.0)),
             learning_rate=float(config.get("learning_rate", 1e-4)),
@@ -627,7 +626,7 @@ class ModelHandler:
 
     def get_config(self):
         """Get full updated config of this Modelhandler.
-        
+
         Returns
         -------
         Dict[str,Any]
@@ -650,12 +649,12 @@ class ModelHandler:
 
     def to(self, device):
         """Move the handled model to the specified device.
-        
+
         Parameters
         ----------
         device: Union[str,int]
             Device on which the model should be trained. Values are equivalent to the ones used in PyTorch.
-    
+
         """
         self._device = device
         if self.model_wrap:
@@ -679,10 +678,10 @@ class ModelHandler:
         - Possible hyperparameters are: target_id, encoder_features, decoder_features,
           optimizer_name, early_stopping_patience,early_stopping_margin,learning_rate
           max_epochs,model_class,forecast_horizon, batch_size, and every model_parameters
-        
+
         Parameters
         ----------
-        train_data: proloaf.tensorloader.TimeSeriesData 
+        train_data: proloaf.tensorloader.TimeSeriesData
             Prepared data for training.
         validation_data: proloaf.tensorloader.TimeSeriesData
             Prepared data for validation after each epoch.
@@ -745,9 +744,9 @@ class ModelHandler:
         data: proloaf.tensorloader.TimeSeriesData,
         models: List[ModelWrapper],
         loss: metrics.Metric,
-    ): 
+    ):
         """Select the best model from a list of models.
-        
+
         Parameters
         ----------
         data: proloaf.tensorloader.TimeSeriesData
@@ -777,7 +776,7 @@ class ModelHandler:
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
     ) -> pd.DataFrame:
         """Benchmark a list of models. Calculates all the metrics for all models.
-        
+
         Parameters
         ----------
         data: proloaf.tensorloader.TimeSeriesData
@@ -848,7 +847,7 @@ class ModelHandler:
     ):
         """
         Train the internal model using the given data.
-        
+
         Parameters
         ----------
         train_data : proloaf.tensorloader.TimeSeriesData
@@ -859,7 +858,7 @@ class ModelHandler:
             Parameter updates for model and training
         trial_id : Any , default = None
             Identifier for a specific training run. Will be consecutive number if not specified
-        
+
         Returns
         -------
         ModelWrapper
@@ -965,12 +964,12 @@ class ModelHandler:
     @staticmethod
     def load_model(path: str = None) -> ModelWrapper:
         """Loads model from given path.
-        
+
         Parameters
         ----------
         path: str
             path to the saved model
-        
+
         """
         inst = torch.load(path)
         if not isinstance(inst, ModelWrapper):
@@ -1009,7 +1008,7 @@ class ModelHandler:
 
     @staticmethod
     def make_study(
-        direction: Union[Literal["minimize"], Literal["maximize"]]="minimize",
+        direction: Union[Literal["minimize"], Literal["maximize"]] = "minimize",
         pruner: optuna.pruners.BasePruner = optuna.pruners.MedianPruner(),
     ):
         """
@@ -1044,12 +1043,12 @@ class ModelHandler:
 
     def tuning_objective(
         self,
-        tuning_settings: Dict[str,Any],
+        tuning_settings: Dict[str, Any],
         train_data: proloaf.tensorloader.TimeSeriesData,
         validation_data: proloaf.tensorloader.TimeSeriesData,
     ):
         """
-        Creates a callable to evaluate a parameter configuration. 
+        Creates a callable to evaluate a parameter configuration.
         The callable initializes the trial depending on the tuning_config.
         It then trains a model with the created parameters and returns the validation error.
 
@@ -1114,25 +1113,77 @@ class ModelHandler:
 
 
 class TrainingRun:
+    """Class representing a single training of a PyTorch model.
+
+    Parameters
+    ----------
+    model: torch.nn.Module,
+        PyTorch model to be trained.
+    loss_function: Callable[[torch.Tensor, torch.Tensor], float],
+        Callable that returns the loss from a prediction and real values. Lower is better.
+    train_data: proloaf.tensorloader.TimeSeriesData,
+        Data used for training the model
+    validation_data: proloaf.tensorloader.TimeSeriesData, default = None
+        Data used for validating model performance. If None is provided no validatin will be performed.
+    optimizer_name: str, default = "adam"
+        Lowercase class name of the `torch.optim` class to be used as optimizer.
+    learning_rate: float, default = 1e-4
+        Multiplier for the stepsize in the gradient descend.
+    max_epochs: int = 100,
+        maximum number of of iterations over the whole dataset.
+    early_stopping_patience: int = 7,
+        Number of epochs without improvement before stopping the training.
+    early_stopping_margin: float = 0,
+        Minimum improvement to be considered in early stopping.
+    batch_size: int, default = 100,
+        Number of samples per batch. Defaults to all samples in a single batch.
+    history_horizon: int, default = 24
+        Timesteps of data given to the encoder.
+    forecast_horizon: int = None,
+        Timesteps of data given to the decoder.
+    id: Union[str, int] = None,
+        identifier for a training run, consecutive number by default, only stored in memory (reset on each restart).
+    device: str = "cpu",
+        Device the training is run on. See `torch.Tensor.to(...)` for additional inforamtion.
+    log_tb: torch.utils.tensorboard.SummaryWriter, default = None,
+        Tensorboard writer to log the training. If none Training will not be logged.
+
+    Attributes
+    ----------
+    optimizer: torch.optim.Optimizer
+        Optimizer object that is/was used for training.
+    step_counter: int
+        Number of optimization steps performed.
+    training_start_time: datetime.datetime
+        Time the training was started or None if not trained.
+    training_end_time: datetime.datetime
+        Time the training finished or None if no training finished.
+    validation_loss: float
+        Error on the training dataset.
+    training_loss:float
+        Error during training.
+
+    All the parameters are saved in attributes of the same name.
+    """
+
     _next_id = 0
 
     def __init__(
         self,
         model: torch.nn.Module,
-        optimizer_name: str,
-        learning_rate: float,
         loss_function: Callable[[torch.Tensor, torch.Tensor], float],
-        max_epochs: int,
-        early_stopping_patience: int,
-        early_stopping_margin: float,
-        batch_size: int = None,
-        train_data: proloaf.tensorloader.TimeSeriesData = None,
+        train_data: proloaf.tensorloader.TimeSeriesData,
         validation_data: proloaf.tensorloader.TimeSeriesData = None,
-        history_horizon: int = None,
-        forecast_horizon: int = None,
+        optimizer_name: str = "adam",
+        learning_rate: float = 1e-4,
+        max_epochs: int = 100,
+        early_stopping_patience: int = 7,
+        early_stopping_margin: float = 0.0,
+        batch_size: int = None,
+        history_horizon: int = 24,
+        forecast_horizon: int = 24,
         id: Union[str, int] = None,
         device: str = "cpu",
-        log_df: pd.DataFrame = None,
         log_tb: torch.utils.tensorboard.SummaryWriter = None,
         batch_size=1,
         history_horizon=1,
@@ -1161,13 +1212,19 @@ class TrainingRun:
         self.early_stopping = EarlyStopping(
             patience=early_stopping_patience, delta=early_stopping_margin
         )
-        self.log_df = log_df
         self.log_tb = log_tb
         self.training_start_time = None
         self.training_end_time = None
         self.to(device)
 
     def get_config(self):
+        """Get a dict with all relevant attributes from the config.
+
+        Returns
+        -------
+        Dict[str,Any]
+            Part of the config related to the training.
+        """
         return {
             "optimizer_name": self.optimizer_name,
             "max_epochs": self.max_epochs,
@@ -1180,6 +1237,9 @@ class TrainingRun:
         }
 
     def remove_data(self):
+        """Remove the data from this TrainingRun.
+        This saves memory and disk space when saving, it can not be rerun afterwards without setting new data.
+        """
         self.train_ds = None
         self.train_dl = None
         self.validation_ds = None
@@ -1194,7 +1254,7 @@ class TrainingRun:
 
         Parameters
         ----------
-        name : string or None, default = 'adam'
+        optimizer_name : string or None, default = 'adam'
             The name of the torch.optim optimizer to be used. The following
             strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
 
@@ -1241,11 +1301,13 @@ class TrainingRun:
         return self
 
     def reset(self):
+        """Reset the Training. The model state will not be reset."""
         self.step_counter = 0
         self.validation_loss = np.inf
         self.training_loss = np.inf
 
     def step(self):
+        """Perform optimization of a single run thorugh all batches."""
         self.training_loss = 0.0
 
         self.model.train()
@@ -1263,6 +1325,7 @@ class TrainingRun:
         return self
 
     def validate(self):
+        """Validate model performance on an unseen dataset."""
         with torch.no_grad():
             self.model.eval()
             self.validation_loss = 0.0
@@ -1274,6 +1337,9 @@ class TrainingRun:
         return self
 
     def train(self):
+        """Run the whole training process including validation if validation data was provided.
+        The training will be stopped early if the validation loss stops improving.
+        """
         if not self.train_dl:
             if not self.train_ds:
                 raise AttributeError("No training data provided")
@@ -1345,6 +1411,9 @@ class TrainingRun:
         return self
 
     def to(self, device: str):
+        """Model and data to specified device. See `torch.tensor.to(...)`
+        for more details.
+        """
         self.device = device
         if self.model:
             self.model.to(device)
@@ -1353,116 +1422,3 @@ class TrainingRun:
         if self.validation_ds:
             self.validation_ds.to(device)
         return self
-
-
-###################################################### REFACTORED ABOVE #############################################################################
-
-
-def update(
-    model_name,
-    achieved_score,
-    config,
-    loss,
-    exploration=True,
-    study=None,
-    interactive=False,
-):
-    config["best_score"] = achieved_score
-    config["best_loss"] = loss
-
-    if exploration:
-        if interactive:
-            if query_true_false("Overwrite config with new parameters?"):
-                logger.info("study best value: {!s}".format(study.best_value))
-                logger.info("current loss: {!s}".format(loss))
-                config.update(study.best_trial.params)
-                config["exploration"] = not query_true_false(
-                    "Parameters tuned and updated. Do you wish to turn off hyperparameter tuning for future training?"
-                )
-
-    logger.info(
-        "Model improvement achieved. Save {}-file in {}.".format(
-            model_name, config["output_path"]
-        )
-    )
-
-
-def save(
-    work_dir,
-    model_name,
-    out_model,
-    old_score,
-    achieved_score,
-    achieved_loss,
-    achieved_net,
-    config={},
-    config_path="",
-    study=None,
-    trial=None,
-    interactive=False,
-):
-    """
-    description
-
-    long_description
-
-    Notes
-    -----
-
-
-    Parameters
-    ----------
-    TODO: complete this list
-    work_dir : string
-        TODO
-    config : dict, default = {}
-        dict of model configurations
-    config_path : string, default = " "
-        TODO
-    Returns
-    -------
-    min_net
-    TODO: complete
-    """
-    min_net = None
-    if old_score > achieved_score:
-        if config["exploration"]:
-            update(
-                model_name=model_name,
-                achieved_score=achieved_score,
-                config=config,
-                exploration=config["exploration"],
-                study=study,
-                interactive=interactive,
-                loss=achieved_loss,
-            )
-        min_net = achieved_net
-    else:
-        if query_true_false(
-            "Existing model for this target did not improve in current run. "
-            "Do you still want to overwrite the existing model?"
-        ):
-            # user has selected to overwrite existing model file
-            min_net = achieved_net
-
-    if min_net is not None:
-        logger.info("saving model")
-        if not os.path.exists(
-            os.path.join(work_dir, config["output_path"])
-        ):  # make output folder if it doesn't exist
-            os.makedirs(os.path.join(work_dir, config["output_path"]))
-        torch.save(min_net, out_model)
-
-        # drop unnecessary helper vars before using PAR to save config
-        config.pop("hyper_params", None)
-        config.pop("trial_id", None)
-        config.pop("n_trials", None)
-
-        write_config(
-            config,
-            model_name=model_name,
-            config_path=config_path,
-            main_path=work_dir,
-        )
-
-    return min_net
