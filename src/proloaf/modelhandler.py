@@ -567,9 +567,7 @@ class ModelHandler:
         Keyword arguments that are provided to the metric during its initialization. Depends on the chosen loss.
     device: Union[str,int], default = "cpu"
         Device on which the model should be trained. Values are equivalent to the ones used in PyTorch.
-    logname: str, default = "log"
-        Name under which the tensorboard log is saved after training.
-
+    
     Notes
     -----
     Reference: https://scikit-learn.org/stable/developers/develop.html
@@ -584,9 +582,7 @@ class ModelHandler:
         loss: str = "nllgauss",
         loss_kwargs: dict = {},
         device: str = "cpu",
-        # log_df=None,
-        logname: str = "log",
-    ):
+      ):
         self.work_dir = (
             work_dir
             if work_dir is not None
@@ -594,7 +590,6 @@ class ModelHandler:
         )
 
         self.config = deepcopy(config)
-        self.logname = logname
         self.tuning_config = deepcopy(tuning_config)
 
         self._model_wrap: ModelWrapper = ModelWrapper(
@@ -895,8 +890,7 @@ class ModelHandler:
             "hparam/score": temp_model_wrap.last_training.validation_loss,
             # "hparam/relative_score": rel_score,
         }
-        end_tensorboard(tb, hparams, values, self.work_dir, self.logname)
-        gc.collect()
+        end_tensorboard(tb, hparams, values, self.work_dir)
         return temp_model_wrap
 
     # TODO dataformat currently includes targets and features which differs from sklearn -> is that Ok
@@ -1351,7 +1345,7 @@ class TrainingRun:
 
         if not self.validation_dl:
             if self.validation_ds:
-                self.validation_dl = self.train_ds.make_data_loader(
+                self.validation_dl = self.validations_ds.make_data_loader(
                     history_horizon=self.history_horizon,
                     forecast_horizon=self.forecast_horizon,
                     batch_size=self.batch_size,

@@ -360,7 +360,7 @@ def end_tensorboard(
     params,
     values,
     work_dir,
-    logname,
+    logname = "",
 ):
     """
     Wrap up TensorBoard's SummaryWriter
