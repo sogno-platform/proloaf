@@ -22,7 +22,6 @@ Provides implementations of different loss functions, as well as functions for e
 """
 from __future__ import annotations
 import sys
-from autopage import ErrorStrategy
 import numpy as np
 import torch
 from abc import ABC, abstractstaticmethod
@@ -292,8 +291,8 @@ class Metric(ABC):
 
         Returns
         -------
-        (torch.tensor, torch.tensor, torch.tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        QuantilePrediciton
+            Prediciton for the specified qunatiles.
         """
         raise NotImplementedError(
             f"get_prediction is not available for {self.__class__}"
