@@ -544,23 +544,32 @@ class ModelWrapper:
 
 class ModelHandler:
     """
-    Utility wrapper for the model, implementing sklearns Predictor interface in addition to providing methods for initializing and handling the forecasting model.
+    Utility wrapper for the model, implementing sklearns Predictor interface
+    in addition to providing methods for initializing and handling the
+    forecasting model.
 
     Parameters
     ----------
     config: Dict[str,Any]
-        Dictonary with all definitions
-
-    TODO
-    patience : int, default = 7
-        How long to wait after last time validation loss improved.
-    verbose : bool, default = False
-        If True, prints a message for each validation loss improvement.
-    delta : float, default = 0.0
-        Minimum change in the monitored quantity to qualify as an improvement.
-    model : proloaf.models.EncoderDecoder
-        The model which is to be used for forecasting, if one was perpared separately. It is however recommended to initialize and train the model using the modelhandler.
-
+        Dictonary with definitions for model and training, keys are see example config files for possible setup.
+    work_dir: str, default = directory of excuted script (argv[0]).
+        Folder that is used as reference for relative pathes in the config.
+    tuning_config: Dict[str,Any], default = None
+        Dict defining what parameters should be tunned and which sampling functions
+        are to be used. If none is provided it can be pointed to from the basic config.
+        See example file for syntax.
+    scalers : proloaf.datahandler.MultiScaler, default = None
+        Scalers with which the dataset is scaled before training. Currently this is for storage only,
+        the scaler will not automatically be applied to the data during prediciton.
+    loss: str, default = nllgauss
+        Lowercase name of the metric used as loss during training. Available metrics can be found in `proloaf.metrics`
+    loss_kwargs: Dict[str,Any], default = {}
+        Keyword arguments that are provided to the metric during its initialization. Depends on the chosen loss.
+    device: Union[str,int], default = "cpu"
+        Device on which the model should be trained. Values are equivalent to the ones used in PyTorch.
+    logname: str, default = "log"
+        Name under which the tensorboard log is saved after training.
+    
     Notes
     -----
     Reference: https://scikit-learn.org/stable/developers/develop.html
@@ -576,31 +585,19 @@ class ModelHandler:
         loss_kwargs: dict = {},
         device: str = "cpu",
         # log_df=None,
-        logname: str = "",
+        logname: str = "log",
     ):
         self.work_dir = (
             work_dir
             if work_dir is not None
             else os.path.dirname(os.path.abspath(sys.argv[0]))
         )
-        logger.info(self.work_dir)
+        
         self.config = deepcopy(config)
-        # if isinstance(reference_model, ModelWrapper):
-        #     self.reference_model = reference_model
-        #     # rename model if name is specified
-        # else:
-        #     self.reference_model = ModelWrapper(
-        #         name=self.config.get("model_name", "temp_model"),
-        #         target_id=self.config["target_id"],
-        #         training_metric=loss,
-        #         metric_options=loss_kwargs,
-        #         scalers=scalers,
-        #     )
-        #     if isinstance(reference_model, torch.nn.Module):
-        #         self.reference_model.model = reference_model
         self.logname = logname
         self.tuning_config = deepcopy(tuning_config)
-        # self.set_loss(loss, **loss_kwargs)
+
+
         self._model_wrap: ModelWrapper = ModelWrapper(
             name=config.get("model_name"),
             target_id=config.get("target_id"),
@@ -609,7 +606,7 @@ class ModelHandler:
             scalers=scalers,
             training_metric=loss,
             metric_options=loss_kwargs,
-            optimizer_name=config.get("adam"),
+            optimizer_name=config.get("optimizer_name","adam"),
             early_stopping_patience=int(config.get("early_stopping_patience", 7)),
             early_stopping_margin=float(config.get("early_stopping_margin", 0.0)),
             learning_rate=float(config.get("learning_rate", 1e-4)),
@@ -629,6 +626,13 @@ class ModelHandler:
                 )
 
     def get_config(self):
+        """Get full updated config of this Modelhandler.
+        
+        Returns
+        -------
+        Dict[str,Any]
+            Configuration of this Modelhandler
+        """
         config = deepcopy(self.config)
         config.update(self.model_wrap.get_model_config())
         config.update(self.model_wrap.get_training_config())
@@ -645,6 +649,14 @@ class ModelHandler:
             self._model_wrap.to(self._device)
 
     def to(self, device):
+        """Move the handled model to the specified device.
+        
+        Parameters
+        ----------
+        device: Union[str,int]
+            Device on which the model should be trained. Values are equivalent to the ones used in PyTorch.
+    
+        """
         self._device = device
         if self.model_wrap:
             self.model_wrap.to(device)
@@ -656,31 +668,28 @@ class ModelHandler:
         validation_data: proloaf.tensorloader.TimeSeriesData,
     ):
         """
-        TODO: description
+        Explores the searchspace of hyperparameters defined during initialization by training
+        multiple models and comparing them. The best configuration is then used to update the config.
 
         ToDo: long_description
 
         Notes
         -----
         Hyperparameter exploration
-
-        - Any training parameter is considered a hyperparameter as long as it is specified in
-            either config.json or tuning.json. The latter is the standard file where the (so far)
-            best found configuration is saved and should usually not be manually adapted unless
-            new tests are for some reason not comparable to older ones (e.g. after changing the loss function).
-        - Possible hyperparameters are: target_column, encoder_features, decoder_features,
-            max_epochs, learning_rate, batch_size, shuffle, history_horizon, forecast_horizon,
-            train_split, validation_split, core_net, relu_leak, dropout_fc, dropout_core,
-            rel_linear_hidden_size, rel_core_hidden_size, optimizer_name, cuda_id
-
+        - Possible hyperparameters are: target_id, encoder_features, decoder_features,
+          optimizer_name, early_stopping_patience,early_stopping_margin,learning_rate
+          max_epochs,model_class,forecast_horizon, batch_size, and every model_parameters
+        
         Parameters
         ----------
-        TODO: complete
-        config : dict, default = {}
-            dict of model configurations
+        train_data: proloaf.tensorloader.TimeSeriesData 
+            Prepared data for training.
+        validation_data: proloaf.tensorloader.TimeSeriesData
+            Prepared data for validation after each epoch.
+
         Returns
         -------
-        TODO: complete
+        self
         """
         logger.info(
             "Max. number of iteration trials for hyperparameter tuning: {!s}".format(
@@ -691,8 +700,8 @@ class ModelHandler:
         study.optimize(
             self.tuning_objective(
                 self.tuning_config["settings"],
-                train_data_loader=train_data,
-                validation_data_loader=validation_data,
+                train_data=train_data,
+                validation_data=validation_data,
             ),
             n_trials=self.tuning_config["number_of_tests"],
             timeout=self.tuning_config.get("timeout", None),
@@ -736,7 +745,23 @@ class ModelHandler:
         data: proloaf.tensorloader.TimeSeriesData,
         models: List[ModelWrapper],
         loss: metrics.Metric,
-    ):
+    ): 
+        """Select the best model from a list of models.
+        
+        Parameters
+        ----------
+        data: proloaf.tensorloader.TimeSeriesData
+            Data on which the Models are benchmarked
+        models: List[ModelWrapper]
+            List of models from which the best is selected
+        loss: proloaf.metrics.Metric
+            Loss metric used as perfomance criterion
+
+        Returns
+        -------
+        ModelWrapper
+            The most performant model
+        """
         perf_df = self.benchmark(data, models, [loss], avg_over="all")
         logger.info(f"Performance was:\n {perf_df}")
         idx = perf_df.iloc[0].to_numpy().argmin()
@@ -750,8 +775,28 @@ class ModelHandler:
         models: List[ModelWrapper],
         test_metrics: List[metrics.Metric],
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-    ):
-        np.empty(shape=(len(data), len(test_metrics), len(models)), dtype=np.float)
+    ) -> pd.DataFrame:
+        """Benchmark a list of models. Calculates all the metrics for all models.
+        
+        Parameters
+        ----------
+        data: proloaf.tensorloader.TimeSeriesData
+            Data on which the Models are benchmarked
+        models: List[ModelWrapper]
+            List of models from which the best is selected
+        test_metrics: List[proloaf.metrics.Metric]
+            All the metrics that should be calculated
+        avg_over: Union["time","sample","all"], default = "all"
+            Axis over which the metrics should be averaged
+            - "time": Metric will be calculated for each sample separately
+            - "sample": Metric will be calculated for each timestep separately
+            - "all": Metric will averaged over the whole dataset
+
+        Returns
+        -------
+        pandas.DataFrame
+            Perfromances of the models
+        """
 
         with torch.no_grad():
             # TODO currently only the first batch is used
@@ -796,70 +841,29 @@ class ModelHandler:
 
     def run_training(
         self,  # Maybe use the datahandler as "data" which than provides all the data_loaders,for unifying the interface.
-        train_data,
-        validation_data,
+        train_data: proloaf.tensorloader.TimeSeriesData,
+        validation_data: proloaf.tensorloader.TimeSeriesData,
         trial_id=None,
         hparams={},
     ):
         """
-        Train the given model.
-
-        Train the provided model using the given parameters for up to the specified number of epochs, with early stopping.
-        Log the training data (optionally using TensorBoard's SummaryWriter)
-        Finally, determine the score of the resulting best net.
-
+        Train the internal model using the given data.
+        
         Parameters
         ----------
-        train_data_loader : proloaf.tensorloader.CustomTensorDataLoader
-            The training data loader
-        validation_data_loader : proloaf.tensorloader.CustomTensorDataLoader
-            The validation data loader
-        test_data_loader : proloaf.tensorloader.CustomTensorDataLoader
-            The test data loader
-        net : proloaf.models.EncoderDecoder
-            The model to be trained
-        learning_rate : float, optional
-            The specified optimizer's learning rate
-        batch_size :  int scalar, optional
-            The size of a batch for the tensor data loader
-        forecast_horizon : int scalar, optional
-            The length of the forecast horizon in hours
-        dropout_fc : float scalar, optional
-            The dropout probability for the decoder
-        dropout_core : float scalar, optional
-            The dropout probability for the core_net
-        log_df : pandas.DataFrame, optional
-            A DataFrame in which the results and parameters of the training are logged
-        optimizer_name : string, optional, default "adam"
-            The name of the torch.optim optimizer to be used. Currently only the following
-            strings are accepted as arguments: 'adagrad', 'adam', 'adamax', 'adamw', 'rmsprop', or 'sgd'
-        max_epochs : int scalar, optional
-            The maximum number of training epochs
-        logging_tb : bool, default = True
-            Specifies whether TensorBoard's SummaryWriter class should be used for logging during the training
-        loss_options : dict, default={}
-            Contains extra options if the loss functions mis or quantile score are used.
-        exploration : bool
-            todo
-        trial_id : string , default "main_run"
-            separate the trials per study and store all in one directory for better handling in tensorboard
-        hparams : dict, default = {}, equals standard list of hyperparameters (batch_size, learning_rate)
-            dict of customized hyperparameters
-        config : dict, default = {}
-            dict of model configurations
+        train_data : proloaf.tensorloader.TimeSeriesData
+            The training data
+        validation_data : proloaf.tensorloader.TimeSeriesData
+            The validation data
+        hparams : Dict[str,Any], default = {}
+            Parameter updates for model and training
+        trial_id : Any , default = None
+            Identifier for a specific training run. Will be consecutive number if not specified
+        
         Returns
         -------
-        proloaf.models.EncoderDecoder
+        ModelWrapper
             The trained model
-        pandas.DataFrame
-            A DataFrame in which the results and parameters of the training have been logged
-        float
-            The minimum validation loss of the trained model
-        float or torch.Tensor
-            The score returned by the performance test. The data type depends on which metric was used.
-            The current implementation calculates the Mean Interval Score and returns either a float, or 1d-Array with the MIS along the horizon.
-            A lower score is generally better
-        TODO: update
         """
         # to track the validation loss as the model trains
 
@@ -901,8 +905,24 @@ class ModelHandler:
         self,
         train_data: proloaf.tensorloader.TimeSeriesData,
         validation_data: proloaf.tensorloader.TimeSeriesData,
-        exploration: bool = None,
+        exploration: bool = False,
     ):
+        """
+        Train a prediciton model with or without hyperparameter tuning
+
+        Parameters
+        ----------
+        train_data: proloaf.tensorloader.TimeSeriesData
+            The training data
+        validation_data: proloaf.tensorloader.TimeSeriesData
+            The validation data
+        exploration: bool , default = False
+            If True hyperparameters are optimized
+
+        Returns
+        -------
+        self
+        """
         if exploration is None:
             exploration = self.config.get("exploration", False)
         logger.info(f"{exploration = }")
@@ -926,21 +946,16 @@ class ModelHandler:
 
         Parameters
         ----------
-        net : proloaf.models.EncoderDecoder
-            The model with which to calculate the predictions
-        data_loader : proloaf.tensorloader.CustomTensorDataLoader
-            Contains the input data and targets
-        horizon : int
-            The horizon for the prediction
-        number_of_targets : int
-            The number of targets
+        inputs_enc: torch.Tensor
+            input data for the encoder
+        inputs_dec: torch.Tensor
+            input data for the decoder
 
         Returns
         -------
         torch.Tensor
-            The targets (actual values)
-        torch.Tensor
-            The predictions from the given model
+            Results of the prediction, 3D-Tensor of shape (batch_size, timesteps, predicted features)
+
         """
         if self.model_wrap is None:
             raise RuntimeError("No model has been created to perform a prediction with")
@@ -949,12 +964,14 @@ class ModelHandler:
 
     @staticmethod
     def load_model(path: str = None) -> ModelWrapper:
-        # if path is None:
-        #     path = os.path.join(
-        #         self.work_dir,
-        #         self.config.get("output_path", ""),
-        #         f"{self.config['model_name']}.pkl",
-        #     )
+        """Loads model from given path.
+        
+        Parameters
+        ----------
+        path: str
+            path to the saved model
+        
+        """
         inst = torch.load(path)
         if not isinstance(inst, ModelWrapper):
             raise RuntimeError(
@@ -964,21 +981,25 @@ class ModelHandler:
 
     @staticmethod
     def save_model(model: ModelWrapper, path: str):
-        # if path is None:
-        #     path = os.path.join(
-        #         self.work_dir,
-        #         self.config.get("output_path", ""),
-        #         f"{self.config['model_name']}.pkl",
-        #     )
+        """Saves model to file. Same as `torch.save(...)`.
+
+        Parameters
+        ----------
+        model: ModelWrapper
+            The model to be saved
+        path: str
+            Path to the file where the model is saved
+        """
         torch.save(model, path)
 
     def save_current_model(self, path: str):
-        # if path is None:
-        #     path = os.path.join(
-        #         self.work_dir,
-        #         self.config.get("output_path", ""),
-        #         f"{self.config['model_name']}.pkl",
-        #     )
+        """Saves internal model to file`.
+
+        Parameters
+        ----------
+        path: str
+            Path to the file where the model is saved
+        """
         if self.model_wrap.model is None:
             raise RuntimeError(
                 "The Model is not initialized and can thus not be saved."
@@ -986,22 +1007,29 @@ class ModelHandler:
         torch.save(self.model_wrap, path)
         return self
 
+    @staticmethod
     def make_study(
-        seed=10,
-        direction="minimize",
-        pruner=optuna.pruners.MedianPruner(),
+        direction: Union[Literal["minimize"], Literal["maximize"]]="minimize",
+        pruner: optuna.pruners.BasePruner = optuna.pruners.MedianPruner(),
     ):
         """
-        TODO: Description
+        Creates a optuna study for hyperparameter tuning.
 
         Parameters
         ----------
+        direction: Union["minimize", "maximize"], default = "minimize"
+            Defines if the study should minimize odr maximize the objective
+        pruner: optuna.pruners.BasePruner, default = optuna.pruners.MedianPruner()
+            Strategy to terminate less promissing trials ahead of time
+
         Returns
         -------
-        TODO
+        optuna.study.Study
+            The study object for optimizing hyperparameters
         Raises
         ------
-        TODO
+        ValueError
+            If direction is not parseable
         """
         # Set up the median stopping rule as the pruning condition.
         sampler = optuna.samplers.TPESampler(
@@ -1016,37 +1044,28 @@ class ModelHandler:
 
     def tuning_objective(
         self,
-        tuning_settings: dict,
-        train_data_loader,
-        validation_data_loader,
+        tuning_settings: Dict[str,Any],
+        train_data: proloaf.tensorloader.TimeSeriesData,
+        validation_data: proloaf.tensorloader.TimeSeriesData,
     ):
         """
-        Implement an objective function for optimization with Optuna.
-
-        Provide a callable for Optuna to use for optimization. The callable creates and trains a
-        model with the specified features, scalers and hyperparameters. Each hyperparameter triggers a trial.
+        Creates a callable to evaluate a parameter configuration. 
+        The callable initializes the trial depending on the tuning_config.
+        It then trains a model with the created parameters and returns the validation error.
 
         Parameters
         ----------
-        work_dir: TODO
-        selected_features : pandas.DataFrame
-            The data frame containing the model features, to be split into sets for training
-        scalers : dict
-            A dict of sklearn.preprocessing scalers with their corresponding feature group
-            names (e.g."main", "add") as keywords
-        hyper_param: dict
-            A dictionary containing hyperparameters for the Optuna optimizer
-        log_df : pandas.DataFrame
-            A DataFrame in which the results and parameters of the training are logged
-        config : dict, default = {}
-            dict of model configurations
-        args : TODO
+        tuning_config: Dict[str,Any]
+            Dict defining what parameters should be tunned and which sampling functions
+            are to be used. See example file for syntax.
+        train_data : proloaf.tensorloader.TimeSeriesData
+            The training data
+        validation_data : proloaf.tensorloader.TimeSeriesData
+            The validation data
         Returns
         -------
         Callable
-            A callable that implements the objective function. Takes an optuna.trial._trial.Trial as an argument,
-            and is used as the first argument of a call to optuna.study.Study.optimize()
-            TODO: update
+            Function that runs a trial
         Raises
         ------
         optuna.exceptions.TrialPruned
@@ -1054,8 +1073,6 @@ class ModelHandler:
         """
 
         def search_params(trial: optuna.trial.Trial):
-            # for more hyperparam, add settings and kwargs in a way compatible with
-            # trial object(and suggest methods) of optuna
             hparams = {}
             for key, hparam in tuning_settings.items():
                 if key == "model_parameters":
@@ -1079,8 +1096,8 @@ class ModelHandler:
                     )
 
             model_wrap = self.run_training(
-                train_data_loader,
-                validation_data_loader,
+                train_data,
+                validation_data,
                 hparams=hparams,
                 trial_id=trial.number,
             )
