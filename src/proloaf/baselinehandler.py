@@ -31,14 +31,12 @@ import pandas as pd
 import csv
 import statsmodels.tsa.statespace.sarimax as sarimax
 import pickle
-import matplotlib.pyplot as plt
 import multiprocessing
 import math
 
 from statsmodels.tsa.seasonal import STL
-from statsmodels.tsa.api import ExponentialSmoothing, SimpleExpSmoothing, Holt
 from statsmodels.tsa.exponential_smoothing.ets import ETSModel
-from statsmodels.tsa.stattools import *
+from statsmodels.tsa.stattools import adfuller
 from arch import arch_model
 from joblib import Parallel, delayed
 from pmdarima.arima import auto_arima
