@@ -78,7 +78,7 @@ if __name__ == "__main__":
             print(hourly_data)
             df_list.append(hourly_data)
 
-    print(df_list)
+    logger.debug(df_list)
     # When concatenating, the arrays are filled with NaNs if the index is not available.
     # Since the DataFrames were already interpolated there are non "natural" NaNs left so
     # dropping all rows with NaNs finds the maximum overlap in indices
