@@ -3,13 +3,10 @@ evaluates a trained Neural Network on its salient features regarding the time an
 creates a saliency heatmap
 model should be trained beforehand
 """
-import pandas
 import pandas as pd
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import step
-from statsmodels.tsa.vector_ar.var_model import forecast
 import sys
 import os
 
@@ -20,22 +17,15 @@ sys.path.append(MAIN_PATH)
 
 from proloaf import metrics
 from proloaf import models
-import proloaf.loghandler as log
 import proloaf.confighandler as ch
 import proloaf.datahandler as dh
 import proloaf.modelhandler as mh
 import proloaf.tensorloader as tl
 
-import json
-from random import gauss
 from random import seed
-from pandas.plotting import autocorrelation_plot
 
-import itertools
 import torch.nn as nn
 import optuna
-from matplotlib import cm
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from time import perf_counter
 
 def create_mean_saliency_map(saliency_maps):
