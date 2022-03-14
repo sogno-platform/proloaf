@@ -226,7 +226,7 @@ if __name__ == "__main__":
         results_total_per_forecast.to_csv(
             os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
         )
-        logger.info('Results toal per forecast:\n{!s}'.format(results_total_per_forecast))
+        logger.info('Results total per forecast:\n{!s}'.format(results_total_per_forecast))
         inputs_enc, inputs_dec, targets = test_data[0]
         prediction = net.predict(
             inputs_enc=inputs_enc.unsqueeze(dim=0),

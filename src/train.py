@@ -189,7 +189,7 @@ def main(
         )
 
     except KeyboardInterrupt:
-        logger.error("manual interrupt")
+        logger.info("manual interrupt")
 
     finally:
         if log_df is not None:

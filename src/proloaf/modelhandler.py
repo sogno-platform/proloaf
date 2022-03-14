@@ -400,8 +400,8 @@ class ModelWrapper:
 
     def init_model(self):
         """Initializes the wrapped model."""
-        print(f"{self.model_class = }")
-        print(f"{self.model_parameters = }")
+        logger.debug(f"{self.model_class = }")
+        logger.debug(f"{self.model_parameters = }")
         model_parameters = self.model_parameters.get(self.model_class)
 
         if self.model_class == "simple_transformer":
@@ -918,7 +918,7 @@ class ModelHandler:
         """
         if exploration is None:
             exploration = self.config.get("exploration", False)
-        logger.info(f"{exploration = }")
+        logger.debug(f"{exploration = }")
         if exploration:
             if not self.tuning_config:
                 raise AttributeError(
@@ -1082,7 +1082,7 @@ class ModelHandler:
                 for key, hparam in (
                     tuning_settings["model_parameters"].get(model_class, {}).items()
                 ):
-                    logger.info("Creating parameter: {!s}".fo0rmat(key))
+                    logger.info("Creating parameter: {!s}".format(key))
                     func_generator = getattr(trial, hparam["function"])
                     hparams["model_parameters"][model_class][key] = func_generator(
                         **(hparam["kwargs"])
@@ -1365,7 +1365,7 @@ class TrainingRun:
                 self.validate()
                 self.early_stopping(self.validation_loss, self.model)
             else:
-                logger.info(
+                logger.warning(
                     "No validation data was provided, thus no validation was performed"
                 )
             logger.info(

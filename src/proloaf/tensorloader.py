@@ -375,11 +375,11 @@ class TimeSeriesData(torch.utils.data.Dataset):
             The data object itself
         """
         if self.tensor_prepared:
-            logger.info("tensor prepared")
+            logger.debug("tensor already prepared")
             return self
 
         if not self.frame_prepared:
-            logger.info("frame not prepared")
+            logger.debug("frame not prepared")
             df = self.data.copy()
             df = self._apply_prep_to_frame(self.data, self.preparation_steps)
         else:
