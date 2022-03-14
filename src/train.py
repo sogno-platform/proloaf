@@ -56,7 +56,7 @@ import proloaf.modelhandler as mh
 import proloaf.tensorloader as tl
 
 # TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
-from proloaf.confighandler import read_config, get_existing_score
+from proloaf.confighandler import read_config
 from proloaf.cli import parse_with_loss
 from event_logging.event_logging import create_event_logger
 

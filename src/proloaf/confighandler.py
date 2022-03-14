@@ -24,8 +24,6 @@ Enables design and modification of the RNN via config files only.
 """
 import os
 import json
-import numpy as np
-
 
 def read_config(model_name = None, config_path = None, main_path=''):
     """
@@ -82,15 +80,3 @@ def write_config(config, model_name = None, config_path = None, main_path=''):
         config_path = os.path.join(main_path, 'targets',  model_name, 'config.json')
     with open(os.path.join(main_path,config_path),'w') as output:
         return json.dump(config, output, indent=4)
-
-def get_existing_loss(config):
-    if "best_loss" in config and config["best_loss"] is not None:
-        return config["best_loss"]
-    else:
-        return np.inf
-
-def get_existing_score(config):
-    if "best_score" in config and config["best_score"] is not None:
-        return config["best_score"]
-    else:
-        return np.inf
