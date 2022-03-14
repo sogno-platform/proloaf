@@ -23,15 +23,15 @@ Provides various functions to run command line interface.
 
 import sys
 import argparse
-import proloaf.metrics as metrics
-import os
-from proloaf import confighandler as ch
-
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-
 
 class flag_and_store(argparse._StoreAction):
-    def __init__(self, option_strings, dest, dest_const, const, nargs=0, **kwargs):
+    """Action for the argparse to set a flag and store a variable
+    amount of arguments.
+    
+    For more info see argparse documentation.
+
+    """
+    def __init__(self, option_strings:str, dest:str, dest_const:str, const:str, nargs=0, **kwargs):
         self.dest_const = dest_const
         self.flag = const
         super(flag_and_store, self).__init__(
@@ -277,10 +277,6 @@ def query_true_false(question, default="yes"):
         True for "yes" or False for "no".
 
     """
-
-    ## Source: https://stackoverflow.com/questions/3041986/apt-command-line-interface-like-yes-no-input
-    # valid = {"yes": False, "y": False, "ye": False,
-    #         "no": True, "n": True}
 
     valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
     if default is None:
