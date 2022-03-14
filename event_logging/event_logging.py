@@ -9,7 +9,7 @@ MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 def create_event_logger(
         name: str,
         config_path: os.path = os.path.join(MAIN_PATH, 'event_logging', 'config', 'event_logging_conf.json'),
-        default_logging_level=logging.DEBUG
+        default_logging_level=logging.INFO
 ) -> logging.Logger:
     """
     Creates an event logger for a specific python file.
