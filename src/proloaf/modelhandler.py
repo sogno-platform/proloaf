@@ -25,6 +25,7 @@ and testing model performance.
 from __future__ import annotations
 import numpy as np
 import pandas as pd
+import sklearn
 import os
 import sys
 import tempfile
@@ -39,16 +40,14 @@ from time import perf_counter
 from proloaf import models
 from proloaf import metrics
 from proloaf.loghandler import (
-    log_data,
     log_tensorboard,
     add_tb_element,
     end_tensorboard,
 )
-from proloaf.cli import query_true_false
-from proloaf.confighandler import write_config
 from event_logging.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
+
 
 class EarlyStopping:
     """
@@ -68,7 +67,7 @@ class EarlyStopping:
     Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
 
-    def __init__(self, patience=7, verbose=False, delta=0):
+    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -78,7 +77,7 @@ class EarlyStopping:
         self.delta = delta
         self.temp_dir = ""
 
-    def __call__(self, val_loss, model):
+    def __call__(self, val_loss: float, model):
 
         score = -val_loss
 
@@ -95,7 +94,7 @@ class EarlyStopping:
             self.save_checkpoint(val_loss, model)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, model):
+    def save_checkpoint(self, val_loss: float, model):
         """
         Save model when validation loss decreases
 
@@ -146,7 +145,7 @@ class ModelWrapper:
         Learning rate used during training
     max_epochs: int, default = 100
         Maximum number of epochs done during training. One epoch corresponds to one go thorugh all the training data.
-    forecast_horizon: int, default = 168
+    forecast_horizon: int, default = 24
         Number of timesteps in the future that are to be predicted.
     model_class: str, default = "recurrent",
         Identifier of which class is to be used as model
@@ -154,7 +153,7 @@ class ModelWrapper:
         Parameters used as keyword arguments during model creation
     batch_size: int = 1,
         Number of samples in each batch during Training
-    history_horizon: int = 1,
+    history_horizon: int = 24,
         Number of timesteps in the past that are considered when making a prediciton.
     """
 
@@ -172,11 +171,11 @@ class ModelWrapper:
         early_stopping_margin: float = 0.0,
         learning_rate: float = 1e-4,
         max_epochs: int = 100,
-        forecast_horizon: int = 168,
+        forecast_horizon: int = 24,
         model_class: str = "recurrent",
         model_parameters: Dict[str, Any] = None,
         batch_size: int = 1,
-        history_horizon: int = 1,
+        history_horizon: int = 24,
     ):
         self.initialzed = False
         self.last_training = None
@@ -193,11 +192,11 @@ class ModelWrapper:
         self.early_stopping_margin = 0.0
         self.learning_rate = 1e-4
         self.max_epochs = 100
-        self.forecast_horizon = 168
+        self.forecast_horizon = 24
         self.model_class = "recurrent"
         self.model_parameters = {}
         self.batch_size = 1
-        self.history_horizon = 1
+        self.history_horizon = 24
 
         self.update(
             name=name,
@@ -228,17 +227,6 @@ class ModelWrapper:
             Parameters corresponding to the wrapped model.
         """
         return {
-            # "model_name": self.name,
-            # "target_id": self.target_id,
-            # "core_net": self.core_net,
-            # "relu_leak": self.relu_leak,
-            # "encoder_features": deepcopy(self.encoder_features),
-            # "decoder_features": deepcopy(self.decoder_features),
-            # "core_layers": self.core_layers,
-            # "rel_linear_hidden_size": self.rel_linear_hidden_size,
-            # "rel_core_hidden_size": self.rel_core_hidden_size,
-            # "dropout_fc": self.dropout_fc,
-            # "dropout_core": self.dropout_core,
             "model_class": self.model_class,
             "model_parameters": self.model_parameters,
         }
@@ -369,9 +357,6 @@ class ModelWrapper:
         self.output_labels = deepcopy(self.loss_metric.input_labels)
         return self
 
-    # def wrap(self, model: torch.nn.Module):  # , previous_loss: float = None):
-    #     self.model = model
-
     def copy(self):
         temp_mh = ModelWrapper(
             name=self.name,
@@ -490,12 +475,10 @@ class ModelWrapper:
             device=self._device,
         )
         training_run.train()
-        # TODO readd rel_score
         values = {
             "hparam/hp_total_time": training_run.training_start_time
             - training_run.training_end_time,
             "hparam/score": training_run.validation_loss,
-            # "hparam/relative_score": rel_score,
         }
         training_run.remove_data()
         self.last_training = training_run
@@ -518,28 +501,14 @@ class ModelWrapper:
         -------
         torch.Tensor
             Results of the prediction, 3D-Tensor of shape (batch_size, timesteps, predicted features)
-
-
         """
         if not self.initialzed:
             raise RuntimeError(
                 "The model has not been initialized. Use .init_model() to do that"
             )
-        # XXX this returned array of numbers is not very readable, maybe a dict would be helpful
         self.to(inputs_enc.device)
         val, _ = self.model(inputs_enc, inputs_dec)
         return val
-
-    # def add_scalers(self, scalers):
-    #     """Note the scalers used in preparation.
-
-    #     Parameters
-    #     ----------
-    #     scalers: sklearn.transformer
-
-    #     """
-    #     self.scalers = scalers
-    #     return self
 
 
 class ModelHandler:
@@ -567,7 +536,7 @@ class ModelHandler:
         Keyword arguments that are provided to the metric during its initialization. Depends on the chosen loss.
     device: Union[str,int], default = "cpu"
         Device on which the model should be trained. Values are equivalent to the ones used in PyTorch.
-    
+
     Notes
     -----
     Reference: https://scikit-learn.org/stable/developers/develop.html
@@ -578,11 +547,11 @@ class ModelHandler:
         config: dict,
         work_dir: str = None,
         tuning_config: dict = None,
-        scalers=None,  # TODO think about we can reasonably provide typing here
+        scalers: sklearn.transformer = None,
         loss: str = "nllgauss",
         loss_kwargs: dict = {},
         device: str = "cpu",
-      ):
+    ):
         self.work_dir = (
             work_dir
             if work_dir is not None
@@ -665,7 +634,6 @@ class ModelHandler:
         Explores the searchspace of hyperparameters defined during initialization by training
         multiple models and comparing them. The best configuration is then used to update the config.
 
-        ToDo: long_description
 
         Notes
         -----
@@ -724,9 +692,9 @@ class ModelHandler:
         )
 
         trial = study.best_trial
-        logger.info("Best trial:\n",
-                    " Value: {!s}\n".format(trial.value),
-                    " Params: \n")
+        logger.info(
+            "Best trial:\n", " Value: {!s}\n".format(trial.value), " Params: \n"
+        )
         for key, value in trial.params.items():
             logger.info("    {}: {}".format(key, value))
 
@@ -793,35 +761,33 @@ class ModelHandler:
         """
 
         with torch.no_grad():
-            # TODO currently only the first batch is used
             bench = {}
             for model in models:
+                # Dataloader is setup to be only one batch
                 dataloader = data.make_data_loader(batch_size=None, shuffle=False)
                 logger.info(f"benchmarking {model.name}")
-                for inputs_enc, inputs_dec, targets in dataloader:
-                    quantiles = model.loss_metric.get_quantile_prediction(
-                        predictions=model.predict(inputs_enc, inputs_dec),
-                        target=targets,
-                    )
+                inputs_enc, inputs_dec, targets = next(iter(dataloader))
+                quantiles = model.loss_metric.get_quantile_prediction(
+                    predictions=model.predict(inputs_enc, inputs_dec),
+                    target=targets,
+                )
 
-                    performance = np.array(
-                        [
-                            metric.from_quantiles(
-                                target=targets,
-                                quantile_prediction=quantiles,
-                                avg_over=avg_over,
-                            )
-                            .cpu()
-                            .numpy()
-                            for metric in test_metrics
-                        ]
-                    )  # .reshape(-1, len(test_metrics))
-                    # performance = performance.reshape(-1, len(test_metrics))
-                    if len(performance.shape) == 1:
-                        performance = performance[np.newaxis, ...]
-                    else:
-                        performance = performance.T
-                    break
+                performance = np.array(
+                    [
+                        metric.from_quantiles(
+                            target=targets,
+                            quantile_prediction=quantiles,
+                            avg_over=avg_over,
+                        )
+                        .cpu()
+                        .numpy()
+                        for metric in test_metrics
+                    ]
+                )
+                if len(performance.shape) == 1:
+                    performance = performance[np.newaxis, ...]
+                else:
+                    performance = performance.T
                 df = pd.DataFrame(
                     data=performance, columns=[met.id for met in test_metrics]
                 )
@@ -872,7 +838,6 @@ class ModelHandler:
         temp_model_wrap: ModelWrapper = (
             self.model_wrap.copy().update(**hparams).init_model()
         ).to(self._device)
-        # temp_model_wrap.init_model_from_config(config)
 
         tb = log_tensorboard(
             work_dir=self.work_dir,
@@ -883,12 +848,10 @@ class ModelHandler:
             train_data, validation_data, trial_id, tb, config.get("batch_size")
         )
 
-        # TODO readd rel_score
         values = {
             "hparam/hp_total_time": temp_model_wrap.last_training.training_end_time
             - temp_model_wrap.last_training.training_start_time,
             "hparam/score": temp_model_wrap.last_training.validation_loss,
-            # "hparam/relative_score": rel_score,
         }
         end_tensorboard(tb, hparams, values)
         return temp_model_wrap
