@@ -242,7 +242,7 @@ if __name__ == "__main__":
         plot.plot_boxplot(
             metrics_per_sample=results_per_sample_per_forecast[net.name],
             sample_frequency=24,
-            save_to_disc=OUTDIR,
+            save_to=OUTDIR,
         )
         torch.save(expected_values, "RNN_best_forecasts.pt")
         torch.save(y_pred_upper, "RNN_best_upper_limits.pt")

@@ -366,7 +366,7 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, model_name, 
         y_pred_lower=lower_limits,
         analyzed_metrics=['mse', 'rmse'],
         sample_frequency=24,
-        save_to_disc=path+model_name,
+        save_to=path+model_name,
     )
     return results.T, results_per_timestep, true_values, forecasts, upper_limits, lower_limits
 

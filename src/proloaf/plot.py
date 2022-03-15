@@ -18,8 +18,9 @@
 # under the License.
 # ==============================================================================
 """
-Provides handy plot functions to visualize predictions and performancec over selected timeseries
+Provides handy plot functions to visualize predictions and performance over selected timeseries
 """
+import os
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
@@ -75,10 +76,10 @@ def plot_timestep(
         labels = (
             pd.to_datetime(actual_time).dt.to_period().to_numpy()
         )  # assuming hourly resolution in most of the evaluations
-        plt.setp( ax.xaxis.get_majorticklabels(), rotation=90)
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=90)
         mdates = matplotlib.dates.date2num(actual_time)
         ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=20))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
         new_labels = labels[positions]
         plt.xticks(positions, new_labels)
     except:
@@ -194,42 +195,43 @@ def plot_metrics(
 
 def plot_boxplot(
     metrics_per_sample: pd.DataFrame,
-    sample_frequency=1,
-    save_to_disc=False,
-    fig_title="boxplot",
+    sample_frequency: int = 1,
+    save_to: str = None,
+    fig_title: str = "boxplot",
 ):
     """
-    Create a matplotlib.pyplot.figure with boxplots for the given metrics
-    Save the resulting figure at (save_to_disc + 'boxplot')
+    Create a matplotlib.pyplot.figure with boxplots for the given metric values.
+    Save the resulting figure as <fig_title>.png
     To visualize more clearly a sampling frequency can be defined,
     i.e. the time-delta of the moving windows over the test set.
-    Per default over the test set, every timestep initiates a new out-of-sample prediction.
-    E.g. if the evaluations hall happen on daily basis with hourly time steps sample_frequency can be set to 24.
+    If the evaluations shall happen on daily basis with hourly time steps sample_frequency can be set to 24.
 
     Parameters
     ----------
-    TODO
-
+    metrics_per_sample: pd.DataFrame
+        Dataframe with values for differen metrics as columns and samples for rows.
+    sample_frequency: int, default = 1
+        Frequency of samples considered in timesteps. 1 means every sample will be shown.
+    save_to: str, default = None
+        Path to the folder where plot should be saved. If `None` the plot will not be saved.
+    fig_title: str, default = "boxplot"
+        Title of the plot.
     Returns
     -------
     No return value
     """
-    fig = plt.figure()  # plt.figure(figsize=(16, 12))
+
     ax1 = metrics_per_sample.iloc[::sample_frequency].boxplot(
-        # column=analyzed_metrics,  # list(metrics_per_sample.keys()),
         color=dict(boxes="k", whiskers="k", medians="k", caps="k"),
-        # figsize=(8.5, 10),fontsize=24,
     )
     ax1.set_xlabel(
         "Mean error per sample with predefined sampling steps: "
         + str(sample_frequency)
         + " on prediction horizon",
-    )  # fontsize=24
-    ax1.set_ylabel("Error measure")  # , fontsize=24
-    # ymin, ymax = -0.01, 1.5
-    # ax1.set_ylim([ymin, ymax])
-    if save_to_disc:
-        plt.savefig(save_to_disc + fig_title + ".png")
+    )  
+    ax1.set_ylabel("Error measure")
+    if save_to:
+        plt.savefig(os.path.join(save_to, f"{fig_title}.png"))
     plt.show()
 
 
@@ -243,7 +245,7 @@ def plot_hist(
     save_to_disc=False,
     fig_title="Error Probability Distribution",
     method="method",
-    bins=10,
+    bins: int = 10,
 ):
     """
     Create a matplotlib.pyplot.figure with kde plots for the given metrics
