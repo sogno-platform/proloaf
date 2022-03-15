@@ -225,7 +225,7 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_onehot_features(df: pd.DataFrame) -> pd.DataFrame:
+def add_onehot_features(df):
     """
     Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
 
