@@ -20,9 +20,11 @@
 """
 Provides functions for logging training results and reading and writing those logs to/from csv or tensorboard files.
 """
-
+from typing import Dict, Union
+from importlib_metadata import Any
 import pandas as pd
 import shutil
+import torch
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
@@ -30,6 +32,171 @@ from proloaf.confighandler import *
 from event_logging.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
+
+## TensorBoard ##
+
+
+def clean_up_tensorboard_dir(run_dir):
+    """
+    Move hyperparameter logs out of subfolders
+
+    Iterate over all subdirectories of run_dir, moving any files they contain into run_dir.
+    Neither sub-subdirectories nor their contents are moved. Delete them along with the subdirectories.
+
+    Parameters
+    ----------
+    run_dir : string
+        The path to the run directory
+
+    Returns
+    -------
+    No return value
+    """
+    # move hparam logs out of subfolders
+    subdir_list = [
+        x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir, x))
+    ]  # gets a list of all subdirectories in the run directory
+
+    for dir in subdir_list:
+        subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
+        files = [
+            x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))
+        ]  # gets all files in the current subdir
+        for f in files:
+            shutil.move(
+                os.path.join(subdir, f), run_dir
+            )  # moves the file out of the subdir
+        # shutil.rmtree(subdir)  # removes the now empty subdir
+        # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
+
+
+def log_tensorboard(
+    work_dir: str,
+    logname: str = str(datetime.now()).replace(":", "-").split(".")[0],
+    trial_id: str = "main_run",
+    **_,
+):
+    """
+    Log the training performance using TensorBoard's SummaryWriter
+
+    Parameters
+    ----------
+    work_dir: str
+        Main folder in respect to which the tensorboard log will be saved.
+    logname: str, default = datetime string for now
+        Name for the sub folder of this training (`<work_dir>/runs/<logname>/).
+    trial_id: str = "main_run"
+        Can be used to distinguish multiple logs from the same training.
+    Returns
+    -------
+    torch.utils.tensorboard.SummeryWriter
+    """
+    # log_name default if no run_name is given in command line with --logname, use timestamp
+
+    # if exploration is True, don't save each trial in the same folder, that confuses tensorboard.
+    # Instead, make a subfolder for each trial and name it Trial_{ID}.
+    # If Trial ID > n_trials, actual training has begun; name that folder differently
+    # if exploration:
+
+    logname = os.path.join(logname, f"trial_{trial_id}")
+    run_dir = os.path.join(work_dir, "runs", logname)
+    tb = SummaryWriter(log_dir=run_dir)
+
+    logger.info("Tensorboard log here:\t {!s}".format(tb.log_dir))
+    return tb
+
+
+def add_tb_element(
+    net: torch.nn.Module,
+    tb: SummaryWriter,
+    epoch_loss: float,
+    validation_loss: float,
+    training_start: float,
+    epoch_stop: float,
+    epoch_start: float,
+    next_epoch: int,
+    step_counter: int,
+):
+    """
+    Add scalars using TensorBoard's SummaryWriter. Corresponds to logging the status of one epoch.
+
+    Parameters
+    ----------
+    net: torch.nn.Module
+        Model to be logged.
+    tb: SummaryWriter
+        SummaryWriter to be used in logging.
+    epoch_loss: float
+        In sample error (training error) achieved in the epoch.
+    validation_loss: float
+        Out of sample error (validation error) achieved in the epoch.
+    training_start: float
+        Value of `perf_counter()` from the start of training.
+    epoch_stop: float
+        Value of `perf_counter()` from the stop of the logged epoch.
+    epoch_start: float
+        Value of `perf_counter()` from the start of the logged epoch.
+    next_epoch: int
+        Number of the next epoch (or current if counting starts at 1 instead of 0)
+    step_counter: int,
+        Total number of optimization steps done during the training so far
+    Returns
+    -------
+    SummaryWriter
+        The SummaryWriter given in the input
+    """
+    tb.add_scalar("train_loss", epoch_loss, next_epoch)
+    tb.add_scalar("val_loss", validation_loss, next_epoch)
+    tb.add_scalar("train_time", epoch_stop - epoch_start, next_epoch)
+    tb.add_scalar("total_time", epoch_stop - training_start, next_epoch)
+    tb.add_scalar("val_loss_steps", validation_loss, step_counter)
+
+    for name, weight in net.named_parameters():
+        tb.add_histogram(name, weight, next_epoch)
+        try:
+            tb.add_histogram(f"{name}.grad", weight.grad, next_epoch)
+        except:
+            logger.debug(f"{name}.grad could not be logged to tensorboard")
+        # .add_scalar(f'{name}.grad', weight.grad, epoch + 1)
+    return tb
+
+
+def end_tensorboard(
+    tb: SummaryWriter,
+    params: Dict[str, Any],
+    metric_dict: Dict[str, Union[bool,str,int,float,None]],
+):
+    """
+    Wrap up TensorBoard's SummaryWriter
+
+    Parameters
+    ----------
+    tb: SummaryWriter
+        Tensorboard SummaryWriter to be cleaned up
+    params: Dict[str, Any]
+        Model and Trainingsettings, needs to conform to the config structur used in the whole ProLoaF project.
+    metric_dict: Dict[str, Union[bool,str,int,float,None]],
+        Simple dict with additional metrics to be logged, e.g. Errors, trainingtime etc. 
+    """
+    # TODO: we could add the fc_evaluate images and metrics to tb to inspect the best model here.
+    # tb.add_figure(f'{hour}th_hour-forecast')
+    # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
+    # https://pytorch.org/docs/master/tensorboard.html
+    if params:
+        key = "model_parameters"
+        hparams = params.pop(key, None)
+        model_type = params["model_class"]
+        if hparams:
+            params.update(hparams[model_type])
+
+        tb.add_hparams(params, metric_dict)
+    tb.close()
+    # run_dir = os.path.join(work_dir, str("runs/" + logname))
+    clean_up_tensorboard_dir(tb.get_logdir())
+
+
+## DataFrame Logging ##
+
 
 # Loads a logfile if one exists, else creates a pd dataframe (create log)
 def create_log(log_path=None, station_path=None) -> pd.DataFrame:
@@ -80,20 +247,8 @@ def create_log(log_path=None, station_path=None) -> pd.DataFrame:
 
     return log_df
 
-    # try:
-    #     log_df = pd.read_csv(path, sep=';', index_col=0)
-    #     print("init try")
-    # except FileNotFoundError:
-    #     log_df = pd.DataFrame(columns=['time_stamp', 'train_loss', 'val_loss', 'tot_time', 'activation_function',
-    #                                    'cuda_id', 'max_epochs', 'lr', 'batch_size', 'train_split',
-    #                                    'validation_split', 'history_horizon', 'forecast_horizon', 'cap_limit',
-    #                                    'drop_lin', 'drop_core', 'core', 'core_layers', 'core_size', 'optimizer_name',
-    #                                    'activation_param', 'lin_size', 'scalers', 'encoder_features', 'decoder_features',
-    #                                    'station', 'criterion', 'loss_options', 'score'])
-    # return log_df
 
-
-# recieves a df and some data to log and writes the data to that df
+# TODO Unused? only for df logging.
 def log_data(
     PAR,
     ARGS,
@@ -174,7 +329,7 @@ def log_data(
     return log_df
 
 
-# receives a df and tries to save that to a path, if the path is non-existent it gets created
+# TODO unused? only for df logging
 def write_log_to_csv(log_df, path=None, model_name=None):
     """
     Receive a pandas.DataFrame and save it as a .csv file using the given path.
@@ -202,40 +357,7 @@ def write_log_to_csv(log_df, path=None, model_name=None):
             log_df.to_csv(os.path.join(path, model_name), sep=";")
 
 
-def clean_up_tensorboard_dir(run_dir):
-    """
-    Move hyperparameter logs out of subfolders
-
-    Iterate over all subdirectories of run_dir, moving any files they contain into run_dir.
-    Neither sub-subdirectories nor their contents are moved. Delete them along with the subdirectories.
-
-    Parameters
-    ----------
-    run_dir : string
-        The path to the run directory
-
-    Returns
-    -------
-    No return value
-    """
-    # move hparam logs out of subfolders
-    subdir_list = [
-        x for x in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir, x))
-    ]  # gets a list of all subdirectories in the run directory
-
-    for dir in subdir_list:
-        subdir = os.path.join(run_dir, dir)  # complete path from root to current subdir
-        files = [
-            x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))
-        ]  # gets all files in the current subdir
-        for f in files:
-            shutil.move(
-                os.path.join(subdir, f), run_dir
-            )  # moves the file out of the subdir
-        # shutil.rmtree(subdir)  # removes the now empty subdir
-        # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
-
-
+# TODO unused? Only for DF logging
 def init_logging(
     model_name,
     work_dir,
@@ -285,106 +407,3 @@ def end_logging(
         os.path.join(work_dir, log_path, model_name),
         model_name + "_training.csv",
     )
-
-
-def log_tensorboard(
-    work_dir,
-    logname=str(datetime.now()).replace(":", "-").split(".")[0],
-    # exploration=False,
-    trial_id="main_run",
-    **_,
-):
-    """
-    Log the training performance using TensorBoard's SummaryWriter
-
-    Parameters
-    ----------
-    TODO
-    Returns
-    -------
-    TODO
-    """
-    # log_name default if no run_name is given in command line with --logname, use timestamp
-
-    # if exploration is True, don't save each trial in the same folder, that confuses tensorboard.
-    # Instead, make a subfolder for each trial and name it Trial_{ID}.
-    # If Trial ID > n_trials, actual training has begun; name that folder differently
-    # if exploration:
-
-    logname = os.path.join(logname, f"trial_{trial_id}")
-    run_dir = os.path.join(work_dir, "runs", logname)
-    tb = SummaryWriter(log_dir=run_dir)
-
-    logger.info("Tensorboard log here:\t {!s}".format(tb.log_dir))
-    return tb
-
-
-def add_tb_element(
-    net,
-    tb,
-    epoch_loss,
-    validation_loss,
-    t0_start,
-    t1_stop,
-    t1_start,
-    next_epoch,
-    step_counter,
-):
-    """
-    Add scalars using TensorBoard's SummaryWriter
-
-    Parameters
-    ----------
-    TODO
-    Returns
-    -------
-    TODO
-    """
-    tb.add_scalar("train_loss", epoch_loss, next_epoch)
-    tb.add_scalar("val_loss", validation_loss, next_epoch)
-    tb.add_scalar("train_time", t1_stop - t1_start, next_epoch)
-    tb.add_scalar("total_time", t1_stop - t0_start, next_epoch)
-    tb.add_scalar("val_loss_steps", validation_loss, step_counter)
-
-    for name, weight in net.named_parameters():
-        tb.add_histogram(name, weight, next_epoch)
-        try:
-            tb.add_histogram(f"{name}.grad", weight.grad, next_epoch)
-        except:
-            pass
-        # .add_scalar(f'{name}.grad', weight.grad, epoch + 1)
-
-
-def end_tensorboard(
-    tb,
-    params,
-    values,
-    work_dir,
-    logname = "",
-):
-    """
-    Wrap up TensorBoard's SummaryWriter
-
-    Parameters
-    ----------
-    TODO
-    Returns
-    -------
-    None
-    """
-    # TODO: we could add the fc_evaluate images and metrics to tb to inspect the best model here.
-    # tb.add_figure(f'{hour}th_hour-forecast')
-    # update this to use run_name as soon as the feature is available in pytorch (currently nightly at 02.09.2020)
-    # https://pytorch.org/docs/master/tensorboard.html
-
-    if params:
-        key = "model_parameters"
-        hparams = params.pop(key, None)
-        #TODO this just puts the hyperparameters of the first modeltype, even if a different type is trained
-        if hparams:
-            params.update(next(iter(hparams.values())))
-
-        tb.add_hparams(params, values)
-    tb.close()
-    run_dir = os.path.join(work_dir, str("runs/" + logname))
-    clean_up_tensorboard_dir(run_dir)

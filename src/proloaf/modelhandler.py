@@ -890,7 +890,7 @@ class ModelHandler:
             "hparam/score": temp_model_wrap.last_training.validation_loss,
             # "hparam/relative_score": rel_score,
         }
-        end_tensorboard(tb, hparams, values, self.work_dir)
+        end_tensorboard(tb, hparams, values)
         return temp_model_wrap
 
     # TODO dataformat currently includes targets and features which differs from sklearn -> is that Ok
@@ -1383,9 +1383,9 @@ class TrainingRun:
                     tb=self.log_tb,
                     epoch_loss=self.training_loss,
                     validation_loss=self.validation_loss,
-                    t0_start=self.training_start_time,
-                    t1_stop=t1_stop,
-                    t1_start=t1_start,
+                    training_start=self.training_start_time,
+                    epoch_stop=t1_stop,
+                    epoch_start=t1_start,
                     next_epoch=epoch + 1,
                     step_counter=self.step_counter,
                 )
