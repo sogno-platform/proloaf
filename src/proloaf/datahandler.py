@@ -21,12 +21,12 @@
 """
 Provides functions for handling and manipulating dataframes
 
-Includes functions for scaling, rescaling, filling missing values etc.
+Includes functionality for scaling, rescaling, filling missing values etc.
 Some functions are no longer used directly in the project, but may nonetheless be
 useful for testing or future applications.
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 import sklearn
@@ -77,8 +77,6 @@ def load_raw_data_xlsx(files, path):
 
     for xlsx_file in files:
         logger.info("importing " + xlsx_file["file_name"])
-        # if isinstance(file_name, str):
-        #     file_name = [file_name,'UTC']
         date_column = xlsx_file["date_column"]
         raw_data = pd.read_excel(
             path + xlsx_file["file_name"],
@@ -126,7 +124,7 @@ def load_raw_data_xlsx(files, path):
     return individual_files
 
 
-def load_raw_data_csv(files, path):
+def load_raw_data_csv(files: List[Dict[str, Any]], path: str):
     """
     Load data from a csv file
 
@@ -136,7 +134,7 @@ def load_raw_data_csv(files, path):
     ----------
     files : list
         A list of files to read. See the Notes section for more information
-    path : string
+    path : str
         The path specification which holds the input files in .CSV format
 
     Returns
@@ -199,12 +197,10 @@ def load_raw_data_csv(files, path):
 
     if len(combined_files) > 0:
         individual_files.append(pd.concat(combined_files, sort=False))
-    # for frame in individual_files:
-    #    frame.rename(columns={date_column: 'Time'}, inplace=True)
     return individual_files
 
 
-def add_cyclical_features(df):
+def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Generates and adds trionemetric values to the DataFrame in respect to the index 'Time'.
 
@@ -229,7 +225,7 @@ def add_cyclical_features(df):
     return df
 
 
-def add_onehot_features(df):
+def add_onehot_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
 
@@ -262,7 +258,7 @@ def add_onehot_features(df):
     return df
 
 
-def check_continuity(df):
+def check_continuity(df: pd.DataFrame) -> pd.DataFrame:
     """
     Raises value error upon violation of continuity constraint of the timeseries data.
 
@@ -274,7 +270,7 @@ def check_continuity(df):
     Returns
     -------
     ValueError
-        The error message
+        If index of DataFrame is not a continous datetime index.
 
     """
     if not df.index.equals(
@@ -284,9 +280,9 @@ def check_continuity(df):
     return df
 
 
-def check_nans(df):
+def check_nans(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Print information upon missing values in the timeseries data.
+    Check
 
     Parameters
     ----------
@@ -295,19 +291,23 @@ def check_nans(df):
 
     Returns
     -------
-    Print
-        Print message whether or not data is missing in the given DataFrame
+    pandas.DataFrame
+        Same DataFrame as input to allow pipeline structure
 
+    Raises
+    ------
+    ValueError
+        If DataFrame contains NaN's
     """
     if not df.isnull().values.any():
         logger.info("No missing data \n")
     else:
-        logger.info("Missing data detected \n")
+        logger.warning("Missing data detected \n")
+        raise ValueError("DataFrame contains NaN's")
+    return df
 
-    return
 
-
-def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="H"):
+def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="H") -> pd.DataFrame:
     """
     Sets the index of the DataFrame to 'Time' and the frequency to hours.
 
@@ -330,6 +330,7 @@ def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="H"):
     return df
 
 
+# TODO UNUSED?
 def load_dataframe(data_path):
     """
     Load the excel file at the given path into a pandas.DataFrame
@@ -353,7 +354,7 @@ def load_dataframe(data_path):
     def parser(x):
         return pd.datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
 
-    logger.info("> Load data from '{}'... ".format(data_path), end="")
+    logger.info("Loading data from '{}'... ".format(data_path))
     df = pd.read_excel(data_path, parse_dates=[0], date_parser=parser)
     logger.info("done!")
 
@@ -385,7 +386,7 @@ def ranges(nums):
     return list(zip(edges, edges))
 
 
-def custom_interpolate(df, periodicity=1):
+def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     """
     Interpolate the features with missing values in a time series data frame
 
@@ -470,7 +471,7 @@ def custom_interpolate(df, periodicity=1):
     return df
 
 
-def fill_if_missing(df, periodicity=1):
+def fill_if_missing(df: pd.DataFrame, periodicity: int = 1) -> pd.DataFrame:
     """
     If the given pandas.DataFrame has any NaN values, they are replaced with interpolated values
 
@@ -492,11 +493,12 @@ def fill_if_missing(df, periodicity=1):
         df = custom_interpolate(df, periodicity)
         logger.info("...interpolation finished! No missing data left.")
     else:
-        logger.info("No missing data \n")
+        logger.info("No missing data")
     return df
 
 
-def extract(df, horizon, anchor_key=0, filter_df=False):
+# TODO REMOVE ONCE baselines.py is updated
+def extract(df: pd.DataFrame, horizon: int, anchor_key=0, filter_df=False):
     """
     Extract data from the input DataFrame and reshape it into a suitable input form for a LSTM cell
 
@@ -546,6 +548,7 @@ def extract(df, horizon, anchor_key=0, filter_df=False):
     return reshaped_data
 
 
+# TODO Remove
 def scale(df: pd.DataFrame, scaler: sklearn.base.TransformerMixin):
     """
     Scales the given pandas.DataFrame using the specified scikit-learn scaler
@@ -570,6 +573,7 @@ def scale(df: pd.DataFrame, scaler: sklearn.base.TransformerMixin):
     return df_new
 
 
+# TODO Remove
 def rescale(values, scaler):
     """
     Scale the given data back to its original representation
@@ -590,6 +594,7 @@ def rescale(values, scaler):
     return df_rescaled
 
 
+# TODO Remove
 def rescale_manually(net, output, targets, target_position=0, **PAR):
     """
     Manually rescales data that was previously scaled
@@ -614,7 +619,6 @@ def rescale_manually(net, output, targets, target_position=0, **PAR):
     list
         The expected values (for prob.: prediction intervals of the forecast, after rescaling, in form of output list)
     """
-    # TODO: isn't this also in a function of datatuner
     # TODO: finish documentation
     # get parameters 'scale' and 'center'
     for group in PAR["feature_groups"]:
@@ -678,7 +682,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
 
     Parameters
     ----------
-    feature_groups : List[Dict[str,any]]
+    feature_groups : List[Dict[str,Any]]
         An array of dicts. Each dict has entries with the following keywords:
 
         - "name", stores the name of the feature group
@@ -806,8 +810,28 @@ class MultiScaler(sklearn.base.TransformerMixin):
         return X
 
     def manual_transform(
-        self, X: pd.DataFrame, scale_as: str, shift: bool = True, inplace=False
+        self, X: pd.DataFrame, scale_as: str, shift: bool = True, inplace: bool = False
     ) -> pd.DataFrame:
+        """
+        Transforms the data using a specific scaler that was fitted before.
+
+        Parameters
+        ----------
+        X: pandas.DataFrame
+            Data to be transformed.
+        scale_as: str
+            Name of feature as which the input data X should be treated.
+        shift: bool, default = True
+            True coresponds to the normal scaler behaviour. False does not shift the values, this can be used to scale std. deviation or differences.
+        inplace: bool, default = False
+            If True the input DataFrame X will be used to store the scaled data, if False the DataFrame will be copied.
+            Careful, when inplace is True and transform raises an exception the input DataFrame might already be partially moddified.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            if not all scalers are fitted before transforming.
+        """
         if not inplace:
             X = X.copy()
         scaler = self.scalers[scale_as]
@@ -820,8 +844,28 @@ class MultiScaler(sklearn.base.TransformerMixin):
         return X
 
     def manual_inverse_transform(
-        self, X: pd.DataFrame, scale_as: str, shift: bool = True, inplace=False
+        self, X: pd.DataFrame, scale_as: str, shift: bool = True, inplace: bool = False
     ) -> pd.DataFrame:
+        """
+        Transforms the data using a specific scaler that was fitted before.
+
+        Parameters
+        ----------
+        X: pandas.DataFrame
+            Data to be transformed.
+        scale_as: str
+            Name of feature as which the input data X should be treated.
+        shift: bool, default = True
+            True coresponds to the normal scaler behaviour. False does not shift the values, this can be used to scale std. deviation or differences.
+        inplace: bool, default = False
+            If True the input DataFrame X will be used to store the scaled data, if False the DataFrame will be copied.
+            Careful, when inplace is True and transform raises an exception the input DataFrame might already be partially moddified.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            if not all scalers are fitted before transforming.
+        """
         if not inplace:
             X = X.copy()
 
@@ -833,7 +877,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         X[:] = scaler.inverse_transform(X) - offset
         return X
 
-    def __call__(self, X: pd.DataFrame, inplace=False):
+    def __call__(self, X: pd.DataFrame, inplace: bool = False):
         """
         Transforms the data using fitted scalers if they are fitted or fits them otherwise.
 
@@ -867,6 +911,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.is_fitted_ = True
 
 
+# TODO Remove
 def scale_all(df: pd.DataFrame, feature_groups, start_date=None, scalers=None, **_):
     """
     Scale and return the specified feature groups of the given DataFrame, each with their own
@@ -1027,6 +1072,20 @@ def constructDf(
 
 
 def split(df: pd.DataFrame, splits: List[float]):
+    """Splits a dataframe at the specified points.
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Dataframe to be split
+    splits: List[float]
+        Relative points at which the DataFrame should be split (e.g. [0.8,0.9]). Should be in ascending order.
+
+    Returns
+    -------
+    List[pandas.DataFrame]
+        List of DataFrames into which the input has been split.
+    """
     split_index = [int(len(df) * split) for split in splits]
     intervals = zip([None, *split_index], [*split_index, None])
     logger.info(intervals)
@@ -1035,6 +1094,7 @@ def split(df: pd.DataFrame, splits: List[float]):
     return [df[a:b] for a, b in intervals]
 
 
+# TODO Remove
 def transform(
     df: pd.DataFrame,
     encoder_features,
@@ -1053,7 +1113,7 @@ def transform(
 
     Parameters
     ----------
-    TODO: check if consistent with new structure
+    TODO: check if consistent with new structure -> Not Used anymore
     df : pandas.DataFrame
         The data frame containing the model features, to be split into sets for training
     encoder_features : string list
