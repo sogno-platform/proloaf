@@ -1308,7 +1308,7 @@ class TrainingRun:
 
         if not self.validation_dl:
             if self.validation_ds:
-                self.validation_dl = self.validations_ds.make_data_loader(
+                self.validation_dl = self.validation_ds.make_data_loader(
                     history_horizon=self.history_horizon,
                     forecast_horizon=self.forecast_horizon,
                     batch_size=self.batch_size,
