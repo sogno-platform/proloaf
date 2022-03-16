@@ -1088,9 +1088,6 @@ def split(df: pd.DataFrame, splits: List[float]):
     """
     split_index = [int(len(df) * split) for split in splits]
     intervals = zip([None, *split_index], [*split_index, None])
-    logger.info(intervals)
-    # intervals = zip(split_index, split_index)
-    # print(list())
     return [df[a:b] for a, b in intervals]
 
 
