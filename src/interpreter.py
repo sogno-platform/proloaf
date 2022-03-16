@@ -28,34 +28,6 @@ import torch.nn as nn
 import optuna
 from time import perf_counter
 
-def create_mean_saliency_map(saliency_maps):
-    """
-    calculates the mean saliency map over several saliency maps from different time steps and creates a plot.
-    The Plot is saved in oracles/interpretation/"model_name"/
-
-    Parameters
-    ----------
-    saliency_maps: array of saliency map Tensors
-    """
-    ## create mean over all saliency maps
-    print('create mean saliency map over all timesteps')
-    saliency_maps_tensor1 = torch.zeros(length, history_horizon, num_features1)
-    saliency_maps_tensor2 = torch.zeros(length, forecast_horizon, num_features2)
-
-    for i, timestep in enumerate(saliency_maps):
-        saliency_maps_tensor1[i] = timestep[0]
-
-    for i, timestep in enumerate(saliency_maps):
-        saliency_maps_tensor2[i] = timestep[1]
-
-    mean_saliency_map = (torch.mean(saliency_maps_tensor1, 0), torch.mean(saliency_maps_tensor2, 0))
-    fig, ax = create_saliency_heatmap_plot(mean_saliency_map)
-    
-    print('Done')
-
-    fig.savefig(interpretation_plot_path + '/mean_heatmap')
-    print('mean saliency map saved in '+ interpretation_plot_path)
-    fig.show()
 
 
 
