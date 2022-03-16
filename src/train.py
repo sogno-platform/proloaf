@@ -86,7 +86,7 @@ def main(
 
     # Read load data
     config = deepcopy(config)
-    log_df = log.init_logging(model_name=station_name, work_dir=work_dir, config=config)
+    # log_df = log.init_logging(model_name=station_name, work_dir=work_dir, config=config)
     try:
         df = pd.read_csv(infile, sep=";", index_col=0)
 
@@ -191,14 +191,14 @@ def main(
     except KeyboardInterrupt:
         logger.info("manual interrupt")
 
-    finally:
-        if log_df is not None:
-            log.end_logging(
-                model_name=config["model_name"],
-                work_dir=work_dir,
-                log_path=log_path,
-                df=log_df,
-            )
+    # finally:
+        # if log_df is not None:
+        #     log.end_logging(
+        #         model_name=config["model_name"],
+        #         work_dir=work_dir,
+        #         log_path=log_path,
+        #         df=log_df,
+        #     )
 
 
 if __name__ == "__main__":
