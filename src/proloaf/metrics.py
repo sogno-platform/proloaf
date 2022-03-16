@@ -1728,7 +1728,7 @@ class Mis(Metric):
         ----------
         target : torch.tensor
             true values of the target variable
-        predictions :  List[torch.tensor]
+        predictions :  torch.tensor
             - predictions[:,:,0] = y_pred_upper, predicted upper limit of the target variable
             - predictions[:,:,1] = y_pred_lower, predicted lower limit of the target variable
         alpha : float

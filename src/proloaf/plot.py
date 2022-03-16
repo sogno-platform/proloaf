@@ -234,7 +234,7 @@ def plot_boxplot(
         plt.savefig(os.path.join(save_to, f"{fig_title}.png"))
     plt.show()
 
-
+# TODO Only used in baselines
 def plot_hist(
     targets,
     expected_values,
@@ -258,6 +258,12 @@ def plot_hist(
     Parameters
     ----------
     TODO
+    metrics_per_sample: pd.DataFrame
+        Dataframe with values for differen metrics as columns and samples for rows.
+    save_to: str, default = None
+        Path to the folder where plot should be saved. If `None` the plot will not be saved.
+    fig_title: str, default = "boxplot"
+        Title of the plot.
 
     Returns
     -------

@@ -856,7 +856,6 @@ class ModelHandler:
         end_tensorboard(tb, hparams, values)
         return temp_model_wrap
 
-    # TODO dataformat currently includes targets and features which differs from sklearn -> is that Ok
     def fit(
         self,
         train_data: proloaf.tensorloader.TimeSeriesData,
@@ -915,7 +914,6 @@ class ModelHandler:
         """
         if self.model_wrap is None:
             raise RuntimeError("No model has been created to perform a prediction with")
-        # TODO this array of numbers is not very readable, maybe a dict would be helpful
         return self.model_wrap.predict(inputs_enc, inputs_dec)
 
     @staticmethod
