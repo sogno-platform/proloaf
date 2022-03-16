@@ -165,7 +165,6 @@ class Decoder(nn.Module):
         self.fc1 = nn.Linear(core_size, hidden_size)
         self.dropout = nn.Dropout(p=dropout_fc)
         self.fc2 = nn.Linear(hidden_size, out_size)
-        # self.fc2 = nn.ModuleList([nn.Linear(hidden_size, 1) for i in range(out_size)])
 
         self.relu_leak = relu_leak
 

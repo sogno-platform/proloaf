@@ -292,7 +292,7 @@ class Metric(ABC):
         Returns
         -------
         QuantilePrediciton
-            Prediciton for the specified qunatiles.
+            Prediciton for the specified quantiles.
         """
         raise NotImplementedError(
             f"get_prediction is not available for {self.__class__}"
@@ -391,8 +391,9 @@ class NllGauss(Metric):
 
         Returns
         -------
-        (torch.tensor, torch.tensor, torch.tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        QuantilePrediciton
+            Prediciton for the specified quantiles.
+
         """
         if quantiles is None:
             alpha_half = self.options.get("alpha") / 2.0
@@ -740,104 +741,8 @@ class SmoothedPinnballLoss(Metric):
         return errors
 
 
-# TODO Is this not basically Pinnball loss?
-# class QuantileScore(Metric):
-#     """Build upon the pinball loss, using the MSE to adjust the mean."""
-
-#     def __init__(self, quantiles: List[float] = None):
-#         raise NotImplementedError("This metric is under revision")
-#         if quantiles is None:
-#             quantiles = [1.0 - Metric.alpha / 2, Metric.alpha / 2, 0.5]
-#         if 0.5 not in quantiles:
-#             quantiles.append(0.5)
-#         super().__init__(quantiles=quantiles)
-#         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
-
-#     def get_quantile_prediction(
-#         self, predictions: torch.tensor, quantiles: Optional[List[float]] = None
-#     ) -> QuantilePrediction:
-#         if quantiles is None:
-#             return QuantilePrediction(predictions, self.options.get("quantiles"))
-#         else:
-#             return QuantilePrediction(
-#                 predictions, self.options.get("quantiles")
-#             ).select_quantiles(quantiles, inplace=True)
-
-#     def from_quantiles(
-#         self,
-#         target: torch.tensor,
-#         quantile_prediction: QuantilePrediction,
-#         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-#     ) -> torch.tensor:
-#         # TODO this is not correct
-#         sigma = (upper_bound - lower_bound) / (2 * 1.96)
-#         log_var = 2 * sigma.log()
-
-#         return self(
-#             target, torch.stack([expected_value, log_var], dim=2), avg_over=avg_over
-#         )
-
-#     @staticmethod
-#     def func(
-#         target: torch.tensor,
-#         predictions: torch.tensor,
-#         quantiles: List[float],
-#         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
-#     ) -> torch.tensor:
-#         """
-#         Calcualtion of the metrics value. Direct use is not recommended, instead create an object and call it to keep parameters consistent throughout its use.
-
-#         Parameters
-#         ----------
-#         target: torch.tensor
-#             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
-#         predictions: torch.tensor
-#             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
-#         avg_over: str
-#             One of "time", "sample", "all", averages the the results over the coresponding axis.
-#         **kwargs
-#             Additional metric specific parameters, these can be set when initializing an object and are then used when calling the object.
-
-#         Returns
-#         -------
-#         torch.tensor
-#             Negative-log-Likelihood, which depending on the value of 'avg_over'
-#             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
-#         """
-#         """
-#         Build upon the pinball loss, using the MSE to adjust the mean.
-
-#         Parameters
-#         ----------
-#         target : torch.tensor
-#             True values of the target variable
-#         predictions : List[torch.tensor]
-#             The predicted expected values of the target variable
-#         quantiles : List[float]
-#             Quantiles that we are estimating for
-#         total : bool, default = True
-#             Used in other loss functions to specify whether to return overall loss or loss over
-#             the horizon. Quantile_score (as an extension of pinball_loss) only supports the former.
-
-#         Returns
-#         -------
-#         float
-#             The total pinball loss + the rmse loss
-#         """
-
-#         # the quantile score builds upon the pinball loss,
-#         # we use the MSE to adjust the mean. one could also use 0.5 as third quantile,
-#         # but further code adjustments would be necessary then
-#         loss1 = PinnballLoss.func(target, predictions, quantiles, avg_over)
-#         # loss2 = pinball_loss(target, [predictions[2]], [0.5], total)
-#         loss2 = Rmse.func(target, predictions[0:1])
-
-#         return loss1 + loss2
-
-
 class CRPSGauss(Metric):
-    """
-    normalized CRPS (continuous ranked probability score) of observations x
+    """Normalized CRPS (continuous ranked probability score) of observations x
     relative to normally distributed forecasts with mean, mu, and standard deviation, sig.
     CRPS(N(mu, sig^2); x)
 
@@ -870,8 +775,9 @@ class CRPSGauss(Metric):
 
         Returns
         -------
-        (torch.tensor, torch.tensor, torch.tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        QuantilePrediciton
+            Prediciton for the specified quantiles.
+
         """
         if alpha is None:
             alpha = self.options.get("alpha")
@@ -999,8 +905,9 @@ class Residuals(Metric):
 
         Returns
         -------
-        (torch.tensor, torch.tensor, torch.tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        QuantilePrediciton
+            Prediciton for the specified quantiles.
+
         """
         if quantiles is None:
             alpha_half = self.options.get("alpha") / 2.0
@@ -1093,7 +1000,16 @@ class Residuals(Metric):
 
 
 class Mse(Metric):
-    def __init__(self, alpha=None):
+    """Mean squared error
+
+    Parameters
+    ----------
+    alpha: float, default = global default
+        p-value of the quantile prediction generated by this metric.
+        Not relevant outside of the quantile predicitons.
+    """
+
+    def __init__(self, alpha: float = None):
         if alpha is None:
             alpha = Metric.alpha
         super().__init__(alpha=alpha)
@@ -1121,8 +1037,9 @@ class Mse(Metric):
 
         Returns
         -------
-        (torch.tensor, torch.tensor, torch.tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        QuantilePrediciton
+            Prediciton for the specified quantiles.
+
         """
         if quantiles is None:
             alpha_half = self.options.get("alpha") / 2.0
@@ -1223,6 +1140,15 @@ class Mse(Metric):
 
 
 class Rmse(Metric):
+    """Root mean squared error
+
+    Parameters
+    ----------
+    alpha: float, default = global default
+        p-value of the quantile prediction generated by this metric.
+        Not relevant outside of the quantile predicitons.
+    """
+
     def __init__(self, alpha=None):
         if alpha is None:
             alpha = Metric.alpha
@@ -1251,8 +1177,9 @@ class Rmse(Metric):
 
         Returns
         -------
-        (torch.tensor, torch.tensor, torch.tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        QuantilePrediciton
+            Prediciton for the specified quantiles.
+
         """
         if quantiles is None:
             alpha_half = self.options.get("alpha") / 2.0
@@ -1343,6 +1270,21 @@ class Rmse(Metric):
 
 
 class Mase(Metric):
+    """
+    Calculate the mean absolute scaled error (MASE)
+
+    (https://en.wikipedia.org/wiki/Mean_absolute_scaled_error)
+    For more clarity, please refer to the following paper
+    https://www.nuffield.ox.ac.uk/economics/Papers/2019/2019W01_M4_forecasts.pdf
+
+    Parameters
+    ----------
+    freq : int scalar
+        The frequency of the season type being considered
+    insample_target : torch.tensor, default = None
+        Contains insample values (e.g. target values shifted by season frequency). If none is provided defaults to shifting the target by 'freq'.
+    """
+
     def __init__(self, freq: int = 1, insample_target=None):
         super().__init__(freq=freq, insample_target=insample_target)
         self.input_labels = ["expected_value"]
@@ -1369,8 +1311,9 @@ class Mase(Metric):
 
         Returns
         -------
-        (torch.tensor, torch.tensor, torch.tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        QuantilePrediciton
+            Prediciton for the specified quantiles.
+
         """
         if quantiles is None:
             alpha_half = self.options.get("alpha") / 2.0
@@ -1441,7 +1384,7 @@ class Mase(Metric):
         predictions :  torch.tensor
             predictions[:,:,0] = y_hat_test, predicted expected values of the target variable (torch.tensor).
             Dimensions are (sample number, timestep, 1).
-        freq : int scalar
+        freq : int
             The frequency of the season type being considered
         avg_over: str, default = "all"
             Only "all" is supported by Mase, averages the results over the coresponding axis.
@@ -1480,6 +1423,16 @@ class Mase(Metric):
 
 
 class Sharpness(Metric):
+    """
+    Calculate the mean size of the intervals, called the sharpness (lower the better)
+
+    Parameters
+    ----------
+    quantiles: Iterable[float], default = None
+        Quantiles used in `get_quantile_prediciton` if no other specified.
+        If None is provided it defaults to a confidence interval
+        based on the global setting for alpha.
+    """
     def __init__(self, quantiles: Iterable[float] = None):
         if quantiles is None:
             quantiles = (1 - Metric.alpha / 2, Metric.alpha / 2)
@@ -1508,8 +1461,8 @@ class Sharpness(Metric):
 
         Returns
         -------
-        (torch.tensor, torch.tensor, torch.tensor)
-            (Upper bound, lower bound,expectation value) all per sample and timestep.
+        QuantilePrediciton
+            Prediciton for the specified quantiles.
         """
         if quantiles is None:
             quantiles = self.options.get("quantiles")
@@ -1593,6 +1546,9 @@ class Sharpness(Metric):
 
 
 class Picp(Metric):
+    """Calculate PICP (prediction interval coverage probability) or simply the % of true
+    values in the predicted intervals. Higher is generaly better.
+    """
     def __init__(self):
         super().__init__()
         self.input_labels = ["upper_limit", "lower_limit"]
@@ -1660,11 +1616,6 @@ class Picp(Metric):
             or 1d-array over the horizon or per sample.
         """
 
-        # coverage_horizon = torch.zeros(target.shape[1], device= target.device,requires_grad=True)
-        # for i in range(target.shape[1]):
-        #     # for each step in forecast horizon, calcualte the % of true values in the predicted interval
-        #     coverage_horizon[i] = (torch.sum((target[:, i] > y_pred_lower[:, i]) &
-        #                             (target[:, i] <= y_pred_upper[:, i])) / target.shape[0]) * 100
         assert predictions.size()[2] == 2
         target = target.squeeze(dim=2)
 
@@ -1697,30 +1648,18 @@ class PicpLoss(Picp):
         return 1 - Picp.func(target, predictions, avg_over)
 
 
-# TODO not very nice, if needed think about a different approach to the "reward" vs "loss" problem
-# @metric_with_labels(["upper_limit", "lower_limit"])
-# def picp_loss(target: torch.tensor, predictions, total: bool =True):
-#     """
-#     Calculate 1 - PICP (see eval_metrics.picp for more details)
-
-#     Parameters
-#     ----------
-#     target : torch.tensor
-#         The true values of the target variable
-#     predictions :  List[torch.tensor]
-#         - predictions[0] = y_pred_upper, predicted upper limit of the target variable (torch.tensor)
-#         - predictions[1] = y_pred_lower, predicted lower limit of the target variable (torch.tensor)
-#     total : bool, default = True
-#         - When total is set to True, return a scalar value for 1- PICP
-#         - When total is set to False, return 1-PICP along the horizon
-
-#     Returns
-#     -------
-#     torch.tensor
-#         Returns 1-PICP, either as a scalar or over the horizon
-#     """
-#     return 1 - picp(target: torch.tensor, predictions, total)
 class Mis(Metric):
+    """
+    Calculate MIS (mean interval score) without scaling by seasonal difference
+
+    This metric combines both the sharpness and PICP metrics into a scalar value
+    For more,please refer to https://www.m4.unic.ac.cy/wp-content/uploads/2018/03/M4-Competitors-Guide.pdf
+
+    Parameters
+    ----------
+    alpha : float
+        The significance level for the prediction interval
+    """
     def __init__(self, alpha=None):
         if alpha is None:
             alpha = Metric.alpha
@@ -1842,6 +1781,10 @@ class Mis(Metric):
 
 
 class Rae(Metric):
+    """
+    Calculate the RAE (Relative Absolute Error) compared to a naive forecast that only
+    assumes that the future will produce the average of the past observations. Lower is better.
+    """
     def __init__(self):
         super().__init__()
         self.input_labels = ["expected_value"]
@@ -1908,7 +1851,7 @@ class Rae(Metric):
         Raises
         ------
         NotImplementedError
-            When 'total' is set to False, as rae does not support loss over the horizon
+            When 'avg_over' is set to anything but "all", as rae does not support loss over the horizon
         """
 
         y_hat_test = predictions
@@ -1927,6 +1870,9 @@ class Rae(Metric):
 
 
 class Mae(Metric):
+    """Calculates mean absolute error
+    MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+    """
     def __init__(self):
         super().__init__()
         self.input_labels = ["expected_value"]
@@ -2016,6 +1962,7 @@ def get_metric(metric_name: str, **options) -> Metric:
     return cls(**options)
 
 
+# TODO remove after baselines is up to date.
 def results_table(models: Union[None, List[str]], results, save_to_disc: bool = False):
     """
     Put the models' scores for the given metrics in a DataFrame.
