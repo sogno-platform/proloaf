@@ -3,8 +3,7 @@ import logging
 import logging.config
 from proloaf.confighandler import read_config
 
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-print(MAIN_PATH)
+MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 def create_event_logger(
         name: str,

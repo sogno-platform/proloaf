@@ -50,7 +50,7 @@ def parse_basic(args=sys.argv[1:]):
 
     Accepts (only) one of the following options:
 
-    - "-s", "--station", the name of the station to be trained for. 'gefcom2017/nh_data' by default.
+    - "-s", "--station", the name of the station to be trained for. 'opsd' by default.
     - "-c", "--config", the path to the config file relative to the project root
 
     Parameters
@@ -70,8 +70,8 @@ def parse_basic(args=sys.argv[1:]):
     ident.add_argument(
         "-s",
         "--station",
-        help="station to be trained for (e.g. gefcom2017/nh_data)",
-        default="gefcom2017/nh_data",
+        help="station to be trained for (e.g. opsd)",
+        default="opsd",
     )
     ident.add_argument(
         "-c", "--config", help="path to the config file relative to the project root"
@@ -90,7 +90,7 @@ def parse_with_loss(args=sys.argv[1:]):
 
     AND (only) one of the following options:
 
-    - "-s", "--station", the name of the station to be trained for. 'gefcom2017/nh_data' by default.
+    - "-s", "--station", the name of the station to be trained for. 'opsd' by default.
     - "-c", "--config", the path to the config file relative to the project root
 
     AND (only) one of the following options (which gets stored in the 'loss' attribute as a callable):
@@ -118,7 +118,7 @@ def parse_with_loss(args=sys.argv[1:]):
 
         - ci : True/False (see function comment)
         - logname : A string (see function comment), '' by default
-        - station : A string (see function comment) e.g. 'gefcom2017/nh_data'
+        - station : A string (see function comment) e.g. 'opsd' or 'gefcom2017/nh_data'
         - config : A string (see function comment), None by default
         - num_pred : An int with the number of predictions
         - quantiles : A list of floats, if '--quantiles' was used, otherwise None
@@ -153,8 +153,8 @@ def parse_with_loss(args=sys.argv[1:]):
     ident.add_argument(
         "-s",
         "--station",
-        help="station to be trained for (e.g. gefcom2017/nh_data)",
-        default="gefcom2017/nh_data",
+        help="station to be trained for (e.g. opsd)",
+        default="opsd",
     )
     ident.add_argument(
         "-c", "--config", help="path to the config file relative to the project root"

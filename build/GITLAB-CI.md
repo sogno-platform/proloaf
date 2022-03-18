@@ -83,7 +83,7 @@ When triggering a pipeline by using GitLab's API, the config path has to be spec
 curl -X POST \
      -F token=TOKEN \
      -F "ref=REF_NAME" \
-     -F "variables[STATION]=gefcom2017/mass_data" \
+     -F "variables[STATION]=opsd" \
      https://your-gitlab-instance.com/api/v4/projects/your-project-id/trigger/pipeline
 ```
 The Token can be aquired under `Settings/CI_CD/Pipeline_Triggers`. GitLab's API offers far more than just triggering pipelines, in fact it can perform every action that can be performed manually using the Web-UI. For further reading look up [GitLab's API Documentation](https://docs.gitlab.com/ee/api/README.html).
@@ -95,4 +95,4 @@ curl --request POST --header "PRIVATE-TOKEN: <your_access_token>" "https://your-
 ```
 
 ##### using the GitLab web interface
-To trigger a pipeline via the GitLab web interface, navigate to [Project/CI_CD/Pipelines -> Run Pipeline](https://git.rwth-aachen.de/acs/public/automation/plf/plf-training/-/pipelines/new). There, select the branch to train for and enter `STATION` as variable name and e.g. `gefcom2017/ct_data` as value.
+To trigger a pipeline via the GitLab web interface, navigate to [Project/CI_CD/Pipelines -> Run Pipeline](https://git.rwth-aachen.de/acs/public/automation/plf/plf-training/-/pipelines/new). There, select the branch to train for and enter `STATION` as variable name and e.g. `opsd` as value.

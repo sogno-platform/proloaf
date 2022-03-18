@@ -21,7 +21,7 @@
             "function": "suggest_int",
             "kwargs": {
                 "name": "batch_size",
-                "low": 32,
+                "low": 12,
                 "high": 120
             }
         },

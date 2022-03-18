@@ -1,12 +1,12 @@
 {
-    "data_path": "./targets/ci_tests/test_data_clean.csv",
+    "data_path": "./data/opsd.csv",
     "output_path": "./oracles/",
     "exploration_path": null,
-    "evaluation_path": "./oracles/eval_gc2017_test_no_hp/",
+    "evaluation_path": "./oracles/eval_opsd_test_no_hp/",
     "log_path": "./logs/",
-    "model_name": "gc17ct_GRU_gnll_test_no_hp",
+    "model_name": "opsd_GRU_gnll_no_hp",
     "target_id": [
-        "demand"
+        "DE_load_actual_entsoe_transparency"
     ],
     "target_list": null,
     "start_date": null,
@@ -27,7 +27,7 @@
                 85
             ],
             "features": [
-                "demand"
+                "DE_load_actual_entsoe_transparency"
             ]
         },
         {
@@ -38,8 +38,7 @@
                 1.0
             ],
             "features": [
-                "drybulb",
-                "dewpnt"
+                "DE_temperature"
             ]
         },
         {
@@ -93,11 +92,10 @@
         }
     ],
     "encoder_features": [
-        "demand"
+        "DE_load_actual_entsoe_transparency"
     ],
     "decoder_features": [
-        "drybulb",
-        "dewpnt",
+        "DE_temperature",
         "hour_0",
         "hour_1",
         "hour_2",

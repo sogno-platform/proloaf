@@ -48,11 +48,11 @@ At this stage you should have the main config file for your forecasting project:
 edit and store the config file. We make use of this when calling e.g. our example training script: 
 
 ```sh
-$ python source\fc_train.py -s gefcom2017/nh_data
+$ python source\fc_train.py -s opsd
 ```
 
 The flag ``-s`` allows us to specify the station name (=target directory) through the string that follows, 
-i.e. *gefcom2017/nh_data*. The 'train' script will expect and parse the config.json given in the target directory.
+i.e. *opsd*. The 'train' script will expect and parse the config.json given in the target directory.
 <!---
 ```sh
 from proloaf.cli import read_config, parse_with_loss
@@ -74,7 +74,7 @@ of the forecast. A common non-parametric option is the quantile loss.
 You can apply quantile loss criterion as follows:
 
 ```sh
-    $ python source\fc_train.py -s gefcom2017/nh_data --quantiles 0.025 0.975
+    $ python source\fc_train.py -s opsd --quantiles 0.025 0.975
 ```
 > Here we have specified the 95% prediction interval, by setting ``q1=0.025`` and ``q2=0.975``.
 

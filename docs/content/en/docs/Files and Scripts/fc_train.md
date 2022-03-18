@@ -85,8 +85,9 @@ optimizer_name, cuda_id
 
 ### Inputs
 One of the following:
-* ./data/gefcom2017/<<station>>_data.csv
+* ./data/opsd.csv
 * ./data/<<user_provided_data>>.csv
+* ./data/gefcom2017/<<station>>_data.csv (data not available as of March 2022, but present in earlier versions
 
 ### Outputs
 * ./oracles/model_station
