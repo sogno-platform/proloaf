@@ -12,3 +12,4 @@ old/
 old-yml.yml
 src/__pycache__/
 .DS_Store
+*.log
