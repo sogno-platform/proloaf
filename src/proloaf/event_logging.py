@@ -38,7 +38,6 @@ def create_event_logger(
         event_log_conf = read_config(
             config_path=config_path
         )
-        #if 'file' in event_log_conf['handlers']:
         logging.config.dictConfig(event_log_conf)
 
     except FileNotFoundError:
