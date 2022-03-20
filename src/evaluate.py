@@ -33,7 +33,6 @@ in the corresponding config file.
 """
 
 
-# TODO: find workaround for PICP numpy issue
 import pandas as pd
 import torch
 import warnings
@@ -51,7 +50,7 @@ import proloaf.tensorloader as tl
 import proloaf.metrics as metrics
 import proloaf.plot as plot
 import proloaf.modelhandler as mh
-from event_logging.event_logging import create_event_logger
+from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger('evaluate')
 
@@ -84,7 +83,6 @@ if __name__ == "__main__":
 
     # Read load data
     df = pd.read_csv(INFILE, sep=";", index_col=0, parse_dates=True)
-    df = dh.fill_if_missing(df, periodicity=24)
 
     if "target_list" in PAR:
         if PAR["target_list"] is not None:

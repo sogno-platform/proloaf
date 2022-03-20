@@ -25,11 +25,12 @@ from importlib_metadata import Any
 import pandas as pd
 import shutil
 import torch
+import os
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
 from proloaf.confighandler import *
-from event_logging.event_logging import create_event_logger
+from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 

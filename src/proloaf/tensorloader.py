@@ -23,7 +23,11 @@ Provides structures for storing and loading data (e.g. training, validation or t
 from __future__ import annotations
 from typing import Union, Tuple, Callable, Iterable
 import pandas as pd
-import torch.utils.data
+import torch
+from typing import Union, Tuple, Callable, Iterable
+from proloaf.event_logging import create_event_logger
+
+logger = create_event_logger(__name__)
 
 
 class TimeSeriesData(torch.utils.data.Dataset):
@@ -99,12 +103,13 @@ class TimeSeriesData(torch.utils.data.Dataset):
 
     @property
     def encoder_features(self):
-        return self._encoder_features.copy()
-
+        if self._encoder_features is not None:
+            return self._encoder_features.copy()
+        return []
     @encoder_features.setter
     def encoder_features(self, val):
         try:
-            if set(val) != set(self._encoder_features):
+            if self._encoder_features is None or set(val) != set(self._encoder_features):
                 self._encoder_features = val
                 self.tensor_prepared = False
         except AttributeError:
@@ -113,27 +118,31 @@ class TimeSeriesData(torch.utils.data.Dataset):
 
     @property
     def decoder_features(self):
-        return self._decoder_features.copy()
+        if self._decoder_features is not None:
+            return self._decoder_features.copy()    
+        return []
 
     @decoder_features.setter
     def decoder_features(self, val):
         try:
-            if set(val) != set(self._decoder_features):
+            if self._decoder_features is None or set(val) != set(self._decoder_features):
                 self._decoder_features = val
                 self.tensor_prepared = False
         except AttributeError:
             self._decoder_features = val
             self.tensor_prepared = False
-
+    # TODO rename target_id to target_features and treat it as iterable like the other features
     @property
     def target_id(self):
-        return self._target_features.copy()
+        if self._target_features is not None:
+            return self._target_features.copy()
+        return []
 
     @target_id.setter
     def target_id(self, val):
         target_features = (val,) if isinstance(val, str) else val
         try:
-            if set(target_features) != set(self._target_features):
+            if self._target_features is None or set(target_features) != set(self._target_features):
                 self._target_features = target_features
                 self.tensor_prepared = False
         except AttributeError:
@@ -203,11 +212,12 @@ class TimeSeriesData(torch.utils.data.Dataset):
                 df = step(df)
         elif isinstance(steps, Callable):
             df = steps(df)
+        elif steps is None:
+            return df
         else:
             raise TypeError(
                 "preparation_steps should be a callable or an interable of callables."
             )
-        return df
 
     def apply_prep_to_frame(self):
         """Applies the preparation steps to the Dataframe if they have not been applied already.
@@ -248,11 +258,10 @@ class TimeSeriesData(torch.utils.data.Dataset):
             + self.history_horizon
             + self.forecast_horizon
         ]
-
         return (
             hist.filter(items=self.encoder_features, axis="columns"),
             fut.filter(items=self.decoder_features, axis="columns"),
-            fut.filter(items=self.target_features, axis="columns"),
+            fut.filter(items=self.target_id, axis="columns"),
         )
 
     def __getitem__(self, idx):
@@ -391,7 +400,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
             .to(self.device)
         )
         self.fut = (
-            torch.from_numpy(df[self._decoder_features].to_numpy())
+            torch.from_numpy(df.filter(items=self.decoder_features, axis="columns").to_numpy())
             .float()
             .to(self.device)
         )

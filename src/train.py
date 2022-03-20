@@ -58,7 +58,7 @@ import proloaf.tensorloader as tl
 # TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
 from proloaf.confighandler import read_config
 from proloaf.cli import parse_with_loss
-from event_logging.event_logging import create_event_logger
+from proloaf.event_logging import create_event_logger
 
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
@@ -66,23 +66,21 @@ torch.manual_seed(1)
 
 warnings.filterwarnings("ignore")
 
-#create event logger
-logger = create_event_logger('train')
+# create event logger
+logger = create_event_logger("train")
 
 
 def main(
     infile: str,
-    outmodel: str,
     config: dict,
-    station_name: str,
     work_dir: str,
     loss: str,
     loss_kwargs: dict = {},
-    log_path: str = None,
+    # log_path: str = None,
     device: str = "cpu",
 ):
 
-    logger.info('Current working directory is {:s}'.format(work_dir))
+    logger.info("Current working directory is {:s}".format(work_dir))
 
     # Read load data
     config = deepcopy(config)
@@ -120,10 +118,6 @@ def main(
             **config,
         )
 
-        # df = dh.fill_if_missing(df, periodicity=24)
-
-        # selected_features, scalers = dh.scale_all(df, **config)
-
         if config.get("exploration_path") is None:
             tuning_config = None
         else:
@@ -141,11 +135,6 @@ def main(
             loss_kwargs=loss_kwargs,
             device=device,
         )
-
-        # train_dl, validation_dl, test_dl = dh.transform(
-        #     selected_features, device=device, **config
-        # )
-        # modelhandler.load_model(os.path.join(work_dir, "oracles", "opsd_LSTM_gnll.pkl"))
 
         modelhandler.fit(
             train_dataset,
@@ -181,7 +170,7 @@ def main(
             )
         )
         config.update(modelhandler.get_config())
-        PAR = ch.write_config(
+        ch.write_config(
             config,
             model_name=ARGS.station,
             config_path=ARGS.config,
@@ -190,15 +179,6 @@ def main(
 
     except KeyboardInterrupt:
         logger.info("manual interrupt")
-
-    # finally:
-        # if log_df is not None:
-        #     log.end_logging(
-        #         model_name=config["model_name"],
-        #         work_dir=work_dir,
-        #         log_path=log_path,
-        #         df=log_df,
-        #     )
 
 
 if __name__ == "__main__":
@@ -215,10 +195,8 @@ if __name__ == "__main__":
 
     main(
         infile=os.path.join(MAIN_PATH, PAR["data_path"]),
-        outmodel=os.path.join(MAIN_PATH, PAR["output_path"], PAR["model_name"]),
         config=PAR,
-        station_name=ARGS.station,
-        log_path=os.path.join(MAIN_PATH, PAR["log_path"]),
+        # log_path=os.path.join(MAIN_PATH, PAR["log_path"]),
         device=DEVICE,
         work_dir=MAIN_PATH,
         loss=ARGS.loss,

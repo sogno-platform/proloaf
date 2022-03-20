@@ -30,7 +30,7 @@ stay the same
 import json
 import sys
 import os
-from event_logging.event_logging import create_event_logger
+from proloaf.event_logging import create_event_logger
 main_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(main_path)
 

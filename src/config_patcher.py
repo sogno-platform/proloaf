@@ -3,7 +3,7 @@ import os
 from copy import deepcopy
 from proloaf.cli import parse_basic
 from proloaf.confighandler import read_config, write_config
-from event_logging.event_logging import create_event_logger
+from proloaf.event_logging import create_event_logger
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 ARGS = parse_basic()

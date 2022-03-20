@@ -44,7 +44,7 @@ from proloaf.confighandler import read_config
 from proloaf.cli import parse_basic
 
 import proloaf.datahandler as dh
-from event_logging.event_logging import create_event_logger
+from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger('preprocess')
 

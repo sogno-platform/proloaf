@@ -44,7 +44,7 @@ from proloaf.loghandler import (
     add_tb_element,
     end_tensorboard,
 )
-from event_logging.event_logging import create_event_logger
+from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 
