@@ -231,158 +231,47 @@ def plot_boxplot(
     )  
     ax1.set_ylabel("Error measure")
     if save_to:
+        if not os.path.exists(save_to):
+            os.makedirs(save_to)
         plt.savefig(os.path.join(save_to, f"{fig_title}.png"))
     plt.show()
 
 # TODO Only used in baselines
 def plot_hist(
-    targets,
-    expected_values,
-    y_pred_upper,
-    y_pred_lower,
-    analyzed_metrics=["mse"],
-    sample_frequency=1,
-    save_to_disc=False,
-    fig_title="Error Probability Distribution",
-    method="method",
+    data: pd.DataFrame,
+    save_to: str=None,
+    fig_title: str = "Error Probability Distribution",
     bins: int = 10,
 ):
     """
     Create a matplotlib.pyplot.figure with kde plots for the given metrics
-    Save the resulting figure at (save_to_disc + 'Error Probability Distribution')
-    To visualize more clearly a sampling frequency can be defined,
-    i.e. the time-delta of the moving windows over the test set.
-    Per default over the test set, every timestep initiates a new out-of-sample prediction.
-    E.g. if the evaluations hall happen on daily basis with hourly time steps sample_frequency can be set to 24.
+    Save the resulting figure at "<save_to>/<fig_title>.png".
 
     Parameters
     ----------
-    TODO
-    metrics_per_sample: pd.DataFrame
-        Dataframe with values for differen metrics as columns and samples for rows.
+    data: pd.DataFrame
+        Dataframe with values for different metrics as columns and prediction names for rows.
     save_to: str, default = None
         Path to the folder where plot should be saved. If `None` the plot will not be saved.
-    fig_title: str, default = "boxplot"
+    fig_title: str, default = "Error Probability Distribution"
         Title of the plot.
 
     Returns
     -------
     No return value
     """
-    metrics_per_sample = {}
-    for results in range(targets.shape[0]):
-        mse_per_sample = [
-            metrics.mse(targets[results][i], [expected_values[results][i]])
-            for i, value in enumerate(targets[results])
-        ]
-        metrics_per_sample[results] = pd.DataFrame(
-            data=mse_per_sample, columns=["mse"]
-        ).astype("float")
-        if "rmse" in analyzed_metrics:
-            rmse_per_sample = [
-                metrics.rmse(targets[results][i], [expected_values[results][i]])
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["rmse"] = pd.DataFrame(rmse_per_sample).astype(
-                "float"
-            )
-        if "sharpness" in analyzed_metrics:
-            sharpness_per_sample = [
-                metrics.sharpness([y_pred_upper[results][i], y_pred_lower[results][i]])
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["sharpness"] = pd.DataFrame(
-                sharpness_per_sample
-            ).astype("float")
-        if "picp" in analyzed_metrics:
-            coverage_per_sample = [
-                metrics.picp(
-                    targets[i], [y_pred_upper[results][i], y_pred_lower[results][i]]
-                )
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["picp"] = pd.DataFrame(
-                coverage_per_sample
-            ).astype("float")
-        if "rae" in analyzed_metrics:
-            rae_per_sample = [
-                metrics.rae(targets[i], [expected_values[results][i]])
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["rae"] = pd.DataFrame(rae_per_sample).astype(
-                "float"
-            )
-        if "mae" in analyzed_metrics:
-            mae_per_sample = [
-                metrics.mae(targets[i], [expected_values[results][i]])
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["mae"] = pd.DataFrame(mae_per_sample).astype(
-                "float"
-            )
-        if "mis" in analyzed_metrics:
-            mis_per_sample = [
-                metrics.mis(
-                    targets[results][i],
-                    [y_pred_upper[results][i], y_pred_lower[results][i]],
-                    alpha=0.05,
-                )
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["mis"] = pd.DataFrame(mis_per_sample).astype(
-                "float"
-            )
-        if "mase" in analyzed_metrics:
-            mase_per_sample = [
-                metrics.mase(
-                    targets[results][i],
-                    [expected_values[results][i]],
-                    0,
-                    insample_target=targets[results].roll(7 * 24, 0)[i],
-                )
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["mase"] = pd.DataFrame(mase_per_sample).astype(
-                "float"
-            )
-        if "residuals" in analyzed_metrics:
-            residuals_per_sample = [
-                metrics.residuals(targets[results][i], [expected_values[results][i]])
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["residuals"] = pd.DataFrame(
-                residuals_per_sample
-            ).astype("float")
-        if "qs" in analyzed_metrics:
-            quantile_score_per_sample = [
-                metrics.pinball_loss(
-                    targets[i],
-                    [y_pred_upper[results][i], y_pred_lower[results][i]],
-                    [0.025, 0.975],
-                )
-                for i, value in enumerate(targets[results])
-            ]
-            metrics_per_sample[results]["qs"] = pd.DataFrame(
-                quantile_score_per_sample
-            ).astype("float")
-    all_results = pd.concat(
-        metrics_per_sample.values(), keys=metrics_per_sample.keys(), axis=1
-    )
     with plt.style.context("seaborn"):
         fig = plt.figure(figsize=(16, 12))  # plt.figure()
-        results = pd.DataFrame(
-            data=all_results.xs("residuals", axis=1, level=1, drop_level=False).values,
-            columns=method,
-        )
         # print("Residuals DataFrame Head:",results.head())
-        for element in results:
-            ax1 = results[element].plot(
+        for element in data.columns:
+            print(f"{element = }")
+            ax1 = data[element].plot(
                 kind="hist", bins=bins, alpha=0.5, label=element
             )
             ax1.set_title("Histogram of Residuals", fontsize=22)
             ax1.set_xlabel("Residuals", fontsize=18)
             ax1.set_ylabel("Frequency", fontsize=20)
             ax1.legend(fontsize=20, loc="upper center", fancybox=True)
-        if save_to_disc:
-            plt.savefig(save_to_disc + fig_title + ".png")
+        if save_to:
+            plt.savefig(save_to + fig_title + ".png")
         plt.show()

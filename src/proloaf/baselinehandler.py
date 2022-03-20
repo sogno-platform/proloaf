@@ -23,7 +23,9 @@ and generate various baseline forecasts.
 """
 
 import os
-import proloaf.metrics as metrics
+from typing import List
+from numpy import quantile
+from proloaf import metrics
 import torch
 import copy
 import numpy as np
@@ -40,7 +42,8 @@ from statsmodels.tsa.stattools import adfuller
 from arch import arch_model
 from joblib import Parallel, delayed
 from pmdarima.arima import auto_arima
-from event_logging.event_logging import create_event_logger
+from proloaf.event_logging import create_event_logger
+
 # ======================================
 # =======================================
 # save baseline model
@@ -50,18 +53,28 @@ from proloaf import plot
 logger = create_event_logger(__name__)
 
 
-def test_stationarity(timeseries,maxlag):
+def test_stationarity(timeseries, maxlag):
     # source: https://towardsdatascience.com/end-to-end-time-series-analysis-and-forecasting-a-trio-of-sarimax-lstm-and-prophet-part-1-306367e57db8
     # Perform Dickey-Fuller test:
-    print('Results of Dickey-Fuller Test:')
-    dftest = adfuller(timeseries,maxlag=maxlag,
-                      autolag='AIC')
-    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic','p-value','#Lags Used','Number of Observations Used'])
-    for key,value in dftest[4].items():
-        dfoutput['Critical Value (%s)'%key] = value
-    print (round(dfoutput,3))
+    print("Results of Dickey-Fuller Test:")
+    dftest = adfuller(timeseries, maxlag=maxlag, autolag="AIC")
+    dfoutput = pd.Series(
+        dftest[0:4],
+        index=[
+            "Test Statistic",
+            "p-value",
+            "#Lags Used",
+            "Number of Observations Used",
+        ],
+    )
+    for key, value in dftest[4].items():
+        dfoutput["Critical Value (%s)" % key] = value
+    print(round(dfoutput, 3))
 
-def save_baseline(path, fitted,name='sarimax', predictions=None, save_predictions = True):
+
+def save_baseline(
+    path, fitted, name="sarimax", predictions=None, save_predictions=True
+):
     """
     Save the given fitted sarimax model
 
@@ -83,31 +96,31 @@ def save_baseline(path, fitted,name='sarimax', predictions=None, save_prediction
     No return value
     """
 
-    print('Saving fitted sarimax model')
-    if not os.path.exists(
-            os.path.join(path)
-    ):  # make output folder if it doesn't exist
+    print("Saving fitted sarimax model")
+    if not os.path.exists(os.path.join(path)):  # make output folder if it doesn't exist
         os.makedirs(os.path.join(path))
-    if 'ResultsWrapper' in str(type(fitted)):
-        fitted.save(path+name+".pkl")
+    if "ResultsWrapper" in str(type(fitted)):
+        fitted.save(path + name + ".pkl")
     else:
-        with open(path+name+".pkl", 'wb') as pkl:
+        with open(path + name + ".pkl", "wb") as pkl:
             pickle.dump(fitted, pkl)
     if save_predictions:
-        print('Saving predictions')
-        with open('sarimax_predictions.csv', 'w') as prediction_logger:
+        print("Saving predictions")
+        with open("sarimax_predictions.csv", "w") as prediction_logger:
             wr = csv.writer(prediction_logger, quoting=csv.QUOTE_ALL)
             wr.writerow(predictions)
-    #print('Plot fitted (S)ARIMA(X) model diagnostics')
-    #fitted.plot_diagnostics(figsize=(15, 12))
-    #plt.show()
+    # print('Plot fitted (S)ARIMA(X) model diagnostics')
+    # fitted.plot_diagnostics(figsize=(15, 12))
+    # plt.show()
     return
+
 
 # =============================================================================
 # load baseline model
 # =============================================================================
 
-def load_baseline(path, name = 'sarimax'):
+
+def load_baseline(path, name="sarimax"):
     """
     Load a fitted sarimax model with the given name from the specified path
 
@@ -128,18 +141,21 @@ def load_baseline(path, name = 'sarimax'):
         Return a trained model instance, or None if loading was unsuccessful
     """
 
-    full_path_to_file = path + name+".pkl"
+    full_path_to_file = path + name + ".pkl"
     if os.path.isfile(full_path_to_file):
         with open(full_path_to_file, "rb") as f:
             fitted = pickle.load(f)
         return fitted
     else:
         return None
+
+
 # =============================================================================
 # train SARIMAX model
 # =============================================================================
 
-def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='c'):
+
+def train_SARIMAX(endog, exog, order, seasonal_order=None, trend="c"):
     """
     Train a SARIMAX model
 
@@ -170,14 +186,26 @@ def train_SARIMAX(endog, exog, order, seasonal_order=None, trend='c'):
         Akaike Information Criterion with small sample correction
     """
 
-    model = sarimax.SARIMAX(endog=endog,ecog=exog,
-                            order=order, seasonal_order=seasonal_order, trend=trend) #time_varying_regression = True,
+    model = sarimax.SARIMAX(
+        endog=endog, ecog=exog, order=order, seasonal_order=seasonal_order, trend=trend
+    )  # time_varying_regression = True,
     fitted = model.fit(disp=-1)
     # use AICc - Take corrected Akaike Information Criterion here as default for performance check
     return fitted, model, fitted.aicc
 
-def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seasonal=True, m=1, lag=1, trend='c',
-                         grid_search = False, train_limit= 300):
+
+def auto_sarimax_wrapper(
+    endog,
+    exog=None,
+    order=None,
+    seasonal_order=None,
+    seasonal=True,
+    m=1,
+    lag=1,
+    trend="c",
+    grid_search=False,
+    train_limit=300,
+):
     """
     Train a (S)ARIMA(X) timeseries model
 
@@ -216,49 +244,84 @@ def auto_sarimax_wrapper(endog, exog=None, order=None, seasonal_order=None, seas
         Akaike Information Criterion with small sample correction
     """
 
-    print('Train a (S)ARIMA(X) timeseries model...')
-    if len(endog)>train_limit:
-        print('Training set too long for ARIMA model. '
-              'ARIMA does not improve with very long training sets. Set training set to: ',train_limit)
+    print("Train a (S)ARIMA(X) timeseries model...")
+    if len(endog) > train_limit:
+        print(
+            "Training set too long for ARIMA model. "
+            "ARIMA does not improve with very long training sets. Set training set to: ",
+            train_limit,
+        )
     else:
-        train_limit=len(endog)
+        train_limit = len(endog)
 
     if exog is not None:
         exog = exog.iloc[-train_limit:]
-        trend = None # TODO: calrify why. If exogeneous variables have a constant trend e.g. trend = 'c' will fail.
+        trend = None  # TODO: calrify why. If exogeneous variables have a constant trend e.g. trend = 'c' will fail.
 
     if grid_search:
         # Apply parameter tuning script for (seasonal) ARIMA using [auto-arima]
         # (https://github.com/alkaline-ml/pmdarima)
         # TODO: add warning that auto arima does not support exogeneous features
-        print('Training SARIMA(X) with parameter grid search by auto-arima...')
-        if not seasonal: m=1
-        auto_model = auto_arima(endog[-train_limit:], exog,
-                                start_p=1, start_q=1, max_p=lag, max_q=lag, m=m, start_P=0,
-                                start_D=0, max_D=2, seasonal=seasonal, trend=trend,
-                                stepwise=True, trace=True, suppress_warnings=True, error_action='ignore')
+        print("Training SARIMA(X) with parameter grid search by auto-arima...")
+        if not seasonal:
+            m = 1
+        auto_model = auto_arima(
+            endog[-train_limit:],
+            exog,
+            start_p=1,
+            start_q=1,
+            max_p=lag,
+            max_q=lag,
+            m=m,
+            start_P=0,
+            start_D=0,
+            max_D=2,
+            seasonal=seasonal,
+            trend=trend,
+            stepwise=True,
+            trace=True,
+            suppress_warnings=True,
+            error_action="ignore",
+        )
 
         auto_model.summary()
         order = auto_model.order
-        if seasonal: seasonal_order = auto_model.seasonal_order
+        if seasonal:
+            seasonal_order = auto_model.seasonal_order
     if seasonal is False and exog is not None:
         seasonal_order = None
-        print('Train ARIMAX with order:', order)
+        print("Train ARIMAX with order:", order)
     elif seasonal is False and exog is None:
         seasonal_order = None
-        print('Train ARIMA with order:', order)
+        print("Train ARIMA with order:", order)
     elif seasonal is True and exog is not None:
-        print('Train SARIMAX with order:',order,' and seasonal order:',seasonal_order)
+        print(
+            "Train SARIMAX with order:", order, " and seasonal order:", seasonal_order
+        )
     else:
-        print('Train SARIMA with order:',order,' and seasonal order:',seasonal_order)
-    sarimax_model, untrained_model, val_loss = train_SARIMAX(endog[-train_limit:], exog, order,
-                                                             seasonal_order, trend=trend)
+        print("Train SARIMA with order:", order, " and seasonal order:", seasonal_order)
+    sarimax_model, untrained_model, val_loss = train_SARIMAX(
+        endog[-train_limit:], exog, order, seasonal_order, trend=trend
+    )
     return sarimax_model, untrained_model, val_loss, order, seasonal_order
+
+
 # =============================================================================
 # evaluate forecasts
 # =============================================================================
 
-def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, model_name, path, config, analyzed_metrics=["mse"]):
+
+def eval_forecast(
+    forecasts,
+    endog_val,
+    upper_limits,
+    lower_limits,
+    model_name,
+    path,
+    config,
+    analyzed_metrics_avg: List[metrics.Metric],
+    analyzed_metrics_timesteps: List[metrics.Metric],
+):
     """
     Calculate evaluation metrics
 
@@ -280,13 +343,8 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, model_name, 
         The upper interval for the given forecasts
     lower_limits : array_like
         The lower interval for the given forecasts
-    seasonality : int, default = 24
-        The seasonality of the data
     alpha : float, default = 0.05
         The significance level for the prediction interval (required for MIS)
-    total : bool, default = True
-        - When total is set to True, metrics calculate an overall value
-        - When total is set to False, metrics are calculated over the horizon
 
     Returns
     -------
@@ -325,26 +383,43 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, model_name, 
     true_values = torch.tensor(endog_val)
     upper_limits = torch.tensor(upper_limits)
     lower_limits = torch.tensor(lower_limits)
+    print(f"{upper_limits.size() = }")
+    print(f"{true_values.size() = }")
+
+    quantile_predictions = metrics.QuantilePrediction(
+        torch.stack([forecasts, upper_limits, lower_limits], dim=2),
+        quantiles=(0.5, 0.975, 0.025),
+    )
 
     # targets_rescaled, output_rescaled = dh.rescale_manually(..)
-    results = metrics.fetch_metrics(
-        targets=true_values,
-        expected_values=forecasts,
-        y_pred_upper=upper_limits,
-        y_pred_lower=lower_limits,
-        analyzed_metrics=analyzed_metrics  # all above listed metrics are fetched
-    )
-    results_per_timestep = metrics.fetch_metrics(
-        targets=true_values,
-        expected_values=forecasts,
-        y_pred_upper=upper_limits,
-        y_pred_lower=lower_limits,
-        analyzed_metrics=["rmse",
-                          "sharpness",
-                          "picp",
-                          "mis"],
-        total=False,
-    )
+    results_avg = {}
+    for metric in analyzed_metrics_avg:
+        results_avg[metric.id] = metric.from_quantiles(
+            true_values.unsqueeze(dim=2), quantile_predictions, avg_over="all"
+        )
+    results_ts = {}
+    for metric in analyzed_metrics_timesteps:
+        results_ts[metric.id] = metric.from_quantiles(
+            true_values.unsqueeze(dim=2), quantile_predictions, avg_over="sample"
+        )
+        ts_length = len(results_ts[metric.id])
+    df_results = pd.DataFrame(results_ts,index=range(ts_length))
+
+    # results = fetch_metrics(
+    #     targets=true_values,
+    #     expected_values=forecasts,
+    #     y_pred_upper=upper_limits,
+    #     y_pred_lower=lower_limits,
+    #     analyzed_metrics=analyzed_metrics,  # all above listed metrics are fetched
+    # )
+    # results_per_timestep = fetch_metrics(
+    #     targets=true_values,
+    #     expected_values=forecasts,
+    #     y_pred_upper=upper_limits,
+    #     y_pred_lower=lower_limits,
+    #     analyzed_metrics=["rmse", "sharpness", "picp", "mis"],
+    #     total=False,
+    # )
     # plot forecast for sample time steps
     # the first and 24th timestep relative to the start of the Test-Dataset
     testhours = [0, 1]
@@ -355,27 +430,48 @@ def eval_forecast(forecasts, endog_val, upper_limits, lower_limits, model_name, 
             upper_limits[i].detach().numpy(),
             upper_limits[i].detach().numpy(),
             i,
-            path+model_name,
+            path + model_name,
             config["cap_limit"],
         )
     # BOXPLOTS
-    plot.plot_boxplot(
-        targets=true_values,
-        expected_values=forecasts,
-        y_pred_upper=upper_limits,
-        y_pred_lower=lower_limits,
-        analyzed_metrics=['mse', 'rmse'],
-        sample_frequency=24,
-        save_to=path+model_name,
+    plot.plot_boxplot(df_results, sample_frequency=24, save_to=path + model_name,)
+    # plot.plot_boxplot(
+    #     targets=true_values,
+    #     expected_values=forecasts,
+    #     y_pred_upper=upper_limits,
+    #     y_pred_lower=lower_limits,
+    #     analyzed_metrics=["mse", "rmse"],
+    #     sample_frequency=24,
+    #     save_to=path + model_name,
+    # )
+    print(f"{results_avg = }")
+    return (
+        results_avg.values(),
+        df_results,
+        true_values,
+        forecasts,
+        upper_limits,
+        lower_limits,
     )
-    return results.T, results_per_timestep, true_values, forecasts, upper_limits, lower_limits
+
 
 # =============================================================================
 # Create multiple forecasts with one model
 # =============================================================================
 
-def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted=None, forecast_horizon=1,
-                   limit_steps=False, pi_alpha=1.96, online = False, train_limit=300):
+
+def make_forecasts(
+    endog_train,
+    endog_val,
+    exog=None,
+    exog_forecast=None,
+    fitted=None,
+    forecast_horizon=1,
+    limit_steps=False,
+    pi_alpha=1.96,
+    online=False,
+    train_limit=300,
+):
     """
     Calculate a number of forecasts
 
@@ -412,33 +508,40 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
     numpy.ndarray
         Lower limit of prediction
     """
-    num_cores = max(multiprocessing.cpu_count()-2,1)
+    num_cores = max(multiprocessing.cpu_count() - 2, 1)
     test_period = range(endog_val.shape[0])
 
     if limit_steps:
         test_period = range(limit_steps)
-    if online and len(endog_val-1) > train_limit:
-        print('Added re-training set too long for SARIMAX model. '
-              'SARIMAX does not improve with very long training sets. Set re-training set to latest: ', train_limit, ' entries')
+    if online and len(endog_val - 1) > train_limit:
+        print(
+            "Added re-training set too long for SARIMAX model. "
+            "SARIMAX does not improve with very long training sets. Set re-training set to latest: ",
+            train_limit,
+            " entries",
+        )
     else:
         train_limit = len(endog_val)
 
     if exog is not None and exog_forecast is not None:
-        print('Predicting with exogenous variables')
-    else: print('Predictions made without exogenous variables')
+        print("Predicting with exogenous variables")
+    else:
+        print("Predictions made without exogenous variables")
 
     def sarimax_predict(i, fitted=None):
         exog_train_i = exog
         exog_forecast_i = exog_forecast
-        #forecast = pd.Series(None, index=endog_val.index[i:i + forecast_horizon])
-        #fc_u = pd.Series(None, index=endog_val.index[i:i + forecast_horizon])
-        #fc_l = pd.Series(None, index=endog_val.index[i:i + forecast_horizon])
+        # forecast = pd.Series(None, index=endog_val.index[i:i + forecast_horizon])
+        # fc_u = pd.Series(None, index=endog_val.index[i:i + forecast_horizon])
+        # fc_l = pd.Series(None, index=endog_val.index[i:i + forecast_horizon])
         endog_train_i = pd.concat([endog_train, endog_val.iloc[0:i]])
         if exog_train_i is not None and exog_forecast_i is not None:
-            exog_forecast_i = exog_forecast[i:i + forecast_horizon]
-            exog_train_i = pd.concat([exog, exog_forecast.iloc[0:i]]).iloc[-train_limit:]
+            exog_forecast_i = exog_forecast[i : i + forecast_horizon]
+            exog_train_i = pd.concat([exog, exog_forecast.iloc[0:i]]).iloc[
+                -train_limit:
+            ]
 
-        if 'ResultsWrapper' in str(type(fitted)):
+        if "ResultsWrapper" in str(type(fitted)):
             if online and exog is None:
                 # if we do standard parameters we have a SARIMAX object which can only be extended with apply (endog, exog)
                 # statsmodels v0.12.2: This [issue](https://github.com/statsmodels/statsmodels/issues/7019) occurs when
@@ -454,12 +557,13 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
                 # Of course, you’ll have to re-persist your ARIMA model after updating it!
                 # Same issue with constant trend warning
                 fitted = fitted.update(y=endog_train_i[-train_limit:])
-            res = fitted.predict(n_periods=forecast_horizon, X=exog_forecast_i,
-                                      return_conf_int = False)
+            res = fitted.predict(
+                n_periods=forecast_horizon, X=exog_forecast_i, return_conf_int=False
+            )
         fc_u = res.predicted_mean + pi_alpha * res.se_mean
         fc_l = res.predicted_mean - pi_alpha * res.se_mean
 
-        #conf_int
+        # conf_int
 
         # fetch conf_int by forecasting the upper and lower limit, given the fitted_models uncertainty params
         # (higher computation effort than standard way)
@@ -467,18 +571,25 @@ def make_forecasts(endog_train, endog_val, exog=None, exog_forecast=None, fitted
         #                                                       exog,  PAR['forecast_horizon'])
         return res.predicted_mean, fc_u, fc_l
 
-    expected_value, fc_u, fc_l = \
-        zip(*Parallel(n_jobs=min(num_cores,len(test_period)), mmap_mode = 'c',
-                      temp_folder='/tmp')(delayed(sarimax_predict)(i, fitted)
-                                          for i in test_period if i+forecast_horizon<=endog_val.shape[0]))
-    print('Training and validating (S)ARIMA(X) completed.')
+    expected_value, fc_u, fc_l = zip(
+        *Parallel(
+            n_jobs=min(num_cores, len(test_period)), mmap_mode="c", temp_folder="/tmp"
+        )(
+            delayed(sarimax_predict)(i, fitted)
+            for i in test_period
+            if i + forecast_horizon <= endog_val.shape[0]
+        )
+    )
+    print("Training and validating (S)ARIMA(X) completed.")
     return np.asarray(expected_value), np.asarray(fc_u), np.asarray(fc_l)
+
 
 # =============================================================================
 # predictioninterval functions
 # =============================================================================
 
-def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha = 1.96):
+
+def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha=1.96):
     """
     Calculate the prediction interval for the given forecasts using the Naive method https://otexts.com/fpp2/prediction-intervals.html
     It is rather an ex-post uncertainty measure than one for probabilistic forecasting as it
@@ -503,11 +614,11 @@ def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha = 1.9
         lower interval for given forecasts with length:= forecast_horizon
     """
 
-    residuals = endog_val-forecasts
+    residuals = endog_val - forecasts
     sigma = np.std(residuals)
 
-    #for r in range(forecast_horizon): sigma_h.append(sigma * np.sqrt(r+1))
-    sigma_h = [sigma * np.sqrt(x+1) for x in range(forecast_horizon)]
+    # for r in range(forecast_horizon): sigma_h.append(sigma * np.sqrt(r+1))
+    sigma_h = [sigma * np.sqrt(x + 1) for x in range(forecast_horizon)]
 
     sigma_hn = pd.Series(sigma_h)
     sigma_hn.index = endog_val.index
@@ -517,8 +628,18 @@ def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha = 1.9
 
     return fc_u, fc_l
 
-def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, periodicity=1, mean_forecast=None, p=1, q=1,
-                             alpha = 1.96, limit_steps=False):
+
+def GARCH_predictioninterval(
+    endog_train,
+    endog_val,
+    forecast_horizon,
+    periodicity=1,
+    mean_forecast=None,
+    p=1,
+    q=1,
+    alpha=1.96,
+    limit_steps=False,
+):
     """
     Calculate the prediction interval for the given forecasts using the GARCH method https://github.com/bashtage/arch
 
@@ -531,14 +652,14 @@ def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, periodici
     forecast_horizon : int
         Number of future steps to be forecasted
     periodicity : int or int list
-	    Either a scalar integer value indicating lag length or a list of integers specifying lag locations.
+            Either a scalar integer value indicating lag length or a list of integers specifying lag locations.
     mean_forecast : numpy.ndarray, default = None
-	    Previously forecasted expected values (e.g. the sarimax mean forecast). If set to None,
+            Previously forecasted expected values (e.g. the sarimax mean forecast). If set to None,
         the mean values of the GARCH forecast are used instead.
     p : int
-	    Lag order of the symmetric innovation
+            Lag order of the symmetric innovation
     q : int
-	    Lag order of lagged volatility or equivalent
+            Lag order of lagged volatility or equivalent
     alpha : float, default = 1.96
         Measure to adjust confidence interval. Default is set to 1.96, which equals to 95% confidence
     limit_steps : int, default = False
@@ -554,48 +675,69 @@ def GARCH_predictioninterval(endog_train, endog_val, forecast_horizon, periodici
         The lower interval for the given forecasts
     """
 
-    print('Train a General autoregressive conditional heteroeskedasticity (GARCH) model...')
+    print(
+        "Train a General autoregressive conditional heteroeskedasticity (GARCH) model..."
+    )
     test_period = range(endog_val.shape[0])
-    num_cores = max(multiprocessing.cpu_count()-2,1)
+    num_cores = max(multiprocessing.cpu_count() - 2, 1)
 
     if limit_steps:
         test_period = range(limit_steps)
 
-    model_garch = arch_model(endog_train, vol = 'GARCH', mean='LS',lags = periodicity, p=p, q=q)#(endog_val[1:]
+    model_garch = arch_model(
+        endog_train, vol="GARCH", mean="LS", lags=periodicity, p=p, q=q
+    )  # (endog_val[1:]
     res = model_garch.fit(update_freq=20)
     # do stepwise iteration and prolongation of the train data again, as a forecast can only work in-sample
     def garch_PI_predict(i):
         # extend the train-series with observed values as we move forward in the prediction horizon
         # to achieve a receding window prediction
         y_train_i = pd.concat([endog_train, endog_val.iloc[0:i]])
-        #need to refit, since forecast cannot do out of sample forecasts
-        model_garch = arch_model(y_train_i, vol='GARCH',mean='LS', lags = periodicity, p=p, q=q)
+        # need to refit, since forecast cannot do out of sample forecasts
+        model_garch = arch_model(
+            y_train_i, vol="GARCH", mean="LS", lags=periodicity, p=p, q=q
+        )
         res = model_garch.fit(update_freq=20)
-        forecast = model_garch.forecast(res.params, horizon=forecast_horizon)# , start=endog_train.index[-1]
-        #TODO: checkout that mean[0] might be NAN because it starts at start -2
+        forecast = model_garch.forecast(
+            res.params, horizon=forecast_horizon
+        )  # , start=endog_train.index[-1]
+        # TODO: checkout that mean[0] might be NAN because it starts at start -2
         # TODO: could try to use the previously calculated sarimax mean forecast instead...
-        if isinstance(mean_forecast,np.ndarray):
-            expected_value=pd.Series(mean_forecast[i])
+        if isinstance(mean_forecast, np.ndarray):
+            expected_value = pd.Series(mean_forecast[i])
         else:
             expected_value = pd.Series(forecast.mean.iloc[-1])
-        sigma = pd.Series([math.sqrt(number) for number in forecast.residual_variance.iloc[-1]])
-        expected_value.index = endog_val.index[i:i + forecast_horizon]#this can be an issue if we reach the end of endog val with i
-        sigma.index = endog_val.index[i:i + forecast_horizon]
-        sigma_hn = sum(sigma)/len(sigma)
+        sigma = pd.Series(
+            [math.sqrt(number) for number in forecast.residual_variance.iloc[-1]]
+        )
+        expected_value.index = endog_val.index[
+            i : i + forecast_horizon
+        ]  # this can be an issue if we reach the end of endog val with i
+        sigma.index = endog_val.index[i : i + forecast_horizon]
+        sigma_hn = sum(sigma) / len(sigma)
 
         fc_u = expected_value + alpha * sigma
         fc_l = expected_value - alpha * sigma
 
-        print('Training and validating GARCH model completed.')
+        print("Training and validating GARCH model completed.")
         return expected_value, fc_u, fc_l
 
-    expected_value, fc_u, fc_l = zip(*Parallel(n_jobs=min(num_cores,len(test_period)), mmap_mode='c',
-                               temp_folder='/tmp')(delayed(garch_PI_predict)(i)
-                                                   for i in test_period if i+forecast_horizon<=endog_val.shape[0]))
-    print('Training and validating GARCH model completed.')
+    expected_value, fc_u, fc_l = zip(
+        *Parallel(
+            n_jobs=min(num_cores, len(test_period)), mmap_mode="c", temp_folder="/tmp"
+        )(
+            delayed(garch_PI_predict)(i)
+            for i in test_period
+            if i + forecast_horizon <= endog_val.shape[0]
+        )
+    )
+    print("Training and validating GARCH model completed.")
     return np.asarray(expected_value), np.asarray(fc_u), np.asarray(fc_l)
 
-def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog, forecast_horizon):
+
+def apply_PI_params(
+    model, fitted, input_matrix, output_matrix, target, exog, forecast_horizon
+):
     """
     Calculate custom prediction interval --> Confidence intervals are used as model parameters.
     Intervals are added to the forecast.
@@ -640,15 +782,16 @@ def apply_PI_params(model, fitted, input_matrix, output_matrix, target, exog, fo
     m_u.initialize(model=model, params=upper_params)
 
     for i in range(len(input_matrix)):
-        m_l = m_l.apply(input_matrix[i][target], exog = input_matrix[i][exog])
-        fc_l = m_l.forecast(forecast_horizon, exog= output_matrix[i][exog])
+        m_l = m_l.apply(input_matrix[i][target], exog=input_matrix[i][exog])
+        fc_l = m_l.forecast(forecast_horizon, exog=output_matrix[i][exog])
         lower_limits.append(fc_l)
 
-        m_u = m_u.apply(input_matrix[i][target], exog = input_matrix[i][exog])
-        fc_u = m_u.forecast(forecast_horizon, exog= output_matrix[i][exog])
+        m_u = m_u.apply(input_matrix[i][target], exog=input_matrix[i][exog])
+        fc_u = m_u.forecast(forecast_horizon, exog=output_matrix[i][exog])
         upper_limits.append(fc_u)
 
     return upper_limits, lower_limits
+
 
 def simple_naive(series, horizon):
     """
@@ -671,7 +814,17 @@ def simple_naive(series, horizon):
 
     return np.array([series[-1]] * horizon)
 
-def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = None, seasonality=1, decomposed=False, alpha = 1.96):
+
+def persist_forecast(
+    x_train,
+    x_test,
+    y_train,
+    forecast_horizon,
+    periodicity=None,
+    seasonality=1,
+    decomposed=False,
+    alpha=1.96,
+):
     """
     Train and validate a naive (persistence) timeseries model or, (if decomposed = True), a naive
     timeseries model cleared with seasonal decomposition (STL)
@@ -711,8 +864,12 @@ def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = N
         The lower interval for the  forecasts. (Shape: (len(x_test),forecast_horizon))
     """
 
-    if decomposed: print('Train a naive timeseries model cleared with seasonal decomposition (STL)...')
-    else: print('Train a naive (persistence) timeseries model...')
+    if decomposed:
+        print(
+            "Train a naive timeseries model cleared with seasonal decomposition (STL)..."
+        )
+    else:
+        print("Train a naive (persistence) timeseries model...")
 
     point_forecast_train = np.zeros(shape=(len(x_train), forecast_horizon))
 
@@ -720,11 +877,17 @@ def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = N
     residuals = np.zeros(shape=(len(x_train), forecast_horizon))
 
     if decomposed:
-        for j in range(forecast_horizon):
-            x_train[:, j] = seasonal_decomposed(np.reshape(x_train[:, j], (len(x_train), 1)),
-                                                periodicity=periodicity,seasonality=seasonality)
-            x_test[:, j] = seasonal_decomposed(np.reshape(x_test[:, j], (len(x_test), 1)),
-                                               periodicity=periodicity,seasonality=seasonality)
+        for j in range(x_train.shape[1]):
+            x_train[:, j] = seasonal_decomposed(
+                np.reshape(x_train[:, j], (len(x_train), 1)),
+                periodicity=periodicity,
+                seasonality=seasonality,
+            )
+            x_test[:, j] = seasonal_decomposed(
+                np.reshape(x_test[:, j], (len(x_test), 1)),
+                periodicity=periodicity,
+                seasonality=seasonality,
+            )
 
     for i in range(len(x_train)):
         point_forecast_train[i, :] = simple_naive(x_train[i, :], forecast_horizon)
@@ -745,10 +908,13 @@ def persist_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = N
     fc_u = expected_value + alpha * std_dev
     fc_l = expected_value - alpha * std_dev
 
-    if decomposed: print('Training and validating naive (STL) completed.')
-    else: print('Training and validating naive (persistence) model completed.')
+    if decomposed:
+        print("Training and validating naive (STL) completed.")
+    else:
+        print("Training and validating naive (persistence) model completed.")
 
     return expected_value, fc_u, fc_l
+
 
 def seasonal_naive(series, forecast_horizon, periodicity, seasonality=1):
     """
@@ -770,14 +936,23 @@ def seasonal_naive(series, forecast_horizon, periodicity, seasonality=1):
     ndarray
         A seasonal naive forecast
     """
-
-    forecast = np.empty([forecast_horizon])
-    for i in range(len(forecast)):
-        if i + 1 > periodicity*seasonality:
-            forecast[i] = series[i - 2 * periodicity*seasonality]
-        else:
-            forecast[i] = series[i - periodicity*seasonality]
+    forecast = np.array(
+        [
+            series[i % (periodicity * seasonality) - periodicity * seasonality]
+            for i in range(forecast_horizon)
+        ]
+    )
+    # TODO remove old if new is correct
+    # forecast = np.empty([forecast_horizon])
+    # for i in range(len(forecast)):
+    #     if i + 1 > periodicity * seasonality:
+    #         print(f"index1 = {i - 2 * periodicity * seasonality}")
+    #         forecast[i] = series[i - 2 * periodicity * seasonality]
+    #     else:
+    #         print(f"index2 = {i - periodicity * seasonality}")
+    #         forecast[i] = series[i - periodicity * seasonality]
     return forecast
+
 
 def seasonal_decomposed(series, periodicity=None, seasonality=1):
     """
@@ -801,12 +976,18 @@ def seasonal_decomposed(series, periodicity=None, seasonality=1):
     if periodicity:
         if (periodicity % 2) == 0:
             if (seasonality % 2) == 0:
-                stl = STL(series.squeeze(), period=periodicity + 1, seasonal=seasonality + 1)
+                stl = STL(
+                    series.squeeze(), period=periodicity + 1, seasonal=seasonality + 1
+                )
             else:
-                stl = STL(series.squeeze(), period=periodicity + 1, seasonal=seasonality)
+                stl = STL(
+                    series.squeeze(), period=periodicity + 1, seasonal=seasonality
+                )
         else:
             if (seasonality % 2) == 0:
-                stl = STL(series.squeeze(), period=periodicity, seasonal=seasonality + 1)
+                stl = STL(
+                    series.squeeze(), period=periodicity, seasonal=seasonality + 1
+                )
             else:
                 stl = STL(series.squeeze(), period=periodicity, seasonal=seasonality)
     else:
@@ -815,13 +996,22 @@ def seasonal_decomposed(series, periodicity=None, seasonality=1):
         else:
             stl = STL(series.squeeze(), seasonal=seasonality)
 
-
     res = stl.fit()
-    #plt = res.plot()
-    #plt.show()
-    return series.squeeze()-res.seasonal
+    # plt = res.plot()
+    # plt.show()
+    return series.squeeze() - res.seasonal
 
-def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 1,seasonality=1, decomposed=False, alpha = 1.96):
+
+def seasonal_forecast(
+    x_train,
+    x_test,
+    y_train,
+    forecast_horizon,
+    periodicity=1,
+    seasonality=1,
+    decomposed=False,
+    alpha=1.96,
+):
     """
     Train and validate a seasonal naive timeseries model with the given seasonality
 
@@ -859,7 +1049,9 @@ def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 
         The lower interval for the  forecasts. (Shape: (len(x_test),forecast_horizon))
     """
 
-    print('Train a seasonal naive timeseries model with seasonality=', seasonality, '...')
+    print(
+        "Train a seasonal naive timeseries model with seasonality=", seasonality, "..."
+    )
 
     naive_forecast = np.zeros(shape=(len(x_train), forecast_horizon))
     # difference between the observations and the corresponding fitted values
@@ -867,11 +1059,17 @@ def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 
 
     if decomposed:
         for j in range(forecast_horizon):
-            x_train[:, j] = seasonal_decomposed(np.reshape(x_train[:, j], (len(x_train), 1)), periodicity, seasonality)
-            x_test[:, j] = seasonal_decomposed(np.reshape(x_test[:, j], (len(x_test), 1)), periodicity, seasonality)
+            x_train[:, j] = seasonal_decomposed(
+                np.reshape(x_train[:, j], (len(x_train), 1)), periodicity, seasonality
+            )
+            x_test[:, j] = seasonal_decomposed(
+                np.reshape(x_test[:, j], (len(x_test), 1)), periodicity, seasonality
+            )
 
     for i in range(len(x_train)):
-        naive_forecast[i, :] = seasonal_naive(x_train[i, :], forecast_horizon, periodicity, seasonality)
+        naive_forecast[i, :] = seasonal_naive(
+            x_train[i, :], forecast_horizon, periodicity, seasonality
+        )
         residuals[i, :] = y_train[i, :] - naive_forecast[i, :]
 
     # std deviation of residual for each hour(column wise)
@@ -884,15 +1082,20 @@ def seasonal_forecast(x_train, x_test, y_train, forecast_horizon, periodicity = 
 
     expected_value = np.zeros(shape=(len(x_test), forecast_horizon))
     for i in range(len(x_test)):
-        expected_value[i, :] = seasonal_naive(x_test[i, :], forecast_horizon, periodicity, seasonality)
+        expected_value[i, :] = seasonal_naive(
+            x_test[i, :], forecast_horizon, periodicity, seasonality
+        )
 
     fc_u = expected_value + alpha * std_dev
     fc_l = expected_value - alpha * std_dev
-    print('Training and validating seasonal naive model completed.')
+    print("Training and validating seasonal naive model completed.")
 
     return expected_value, fc_u, fc_l
 
-def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alpha=1.96, online = True):
+
+def exp_smoothing(
+    y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alpha=1.96, online=True
+):
     """
     Train an exponential smoothing timeseries model (ETS)
 
@@ -922,11 +1125,17 @@ def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alp
         The lower interval for the  forecasts. (Shape: (1,forecast_horizon))
     """
 
-    print('Train an exponential smoothing timeseries model (ETS)...')
-    num_cores = max(multiprocessing.cpu_count()-2,1)
+    print("Train an exponential smoothing timeseries model (ETS)...")
+    num_cores = max(multiprocessing.cpu_count() - 2, 1)
 
-    model = ETSModel(y_train, error="add", trend="add", damped_trend=True, seasonal="add",
-                     dates=y_train.index)
+    model = ETSModel(
+        y_train,
+        error="add",
+        trend="add",
+        damped_trend=True,
+        seasonal="add",
+        dates=y_train.index,
+    )
     fit = model.fit()
 
     def ets_predict(i, fit):
@@ -934,16 +1143,23 @@ def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alp
             # extend the train-series with observed values as we move forward in the prediction horizon
             # to achieve a receding window prediction
             y_train_i = pd.concat([y_train, y_test.iloc[0:i]])
-            model = ETSModel(y_train_i, error="add", trend="add", damped_trend=True, seasonal="add",
-                             dates=y_train_i.index)
+            model = ETSModel(
+                y_train_i,
+                error="add",
+                trend="add",
+                damped_trend=True,
+                seasonal="add",
+                dates=y_train_i.index,
+            )
             fit = model.fit()
         # There are several different ETS methods available:
         #  - forecast: makes out of sample predictions
         #  - predict: in sample and out of sample predictions
         #  - simulate: runs simulations of the statespace model
         #  - get_prediction: in sample and out of sample predictions, as well as prediction intervals
-        pred = fit.get_prediction(start=y_test.index[i], end=y_test.index[
-            i + forecast_horizon - 1]).summary_frame()  # with: method = 'simulated', simulate_repetitions=100 we can simulate the PI's
+        pred = fit.get_prediction(
+            start=y_test.index[i], end=y_test.index[i + forecast_horizon - 1]
+        ).summary_frame()  # with: method = 'simulated', simulate_repetitions=100 we can simulate the PI's
         ## --plotting current prediction--
         # plt.rcParams['figure.figsize'] = (12, 8)
         # pred["mean"].plot(label='mean prediction')
@@ -958,11 +1174,15 @@ def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alp
     if limit_steps:
         test_period = range(limit_steps)
 
-    expected_value, fc_u, fc_l = \
-        zip(*Parallel(n_jobs=min(num_cores,len(test_period)), mmap_mode = 'c',
-                      temp_folder='/tmp')(delayed(ets_predict)(i, fit)
-                                          for i in test_period
-                                          if i+forecast_horizon<=len(y_test)))
+    expected_value, fc_u, fc_l = zip(
+        *Parallel(
+            n_jobs=min(num_cores, len(test_period)), mmap_mode="c", temp_folder="/tmp"
+        )(
+            delayed(ets_predict)(i, fit)
+            for i in test_period
+            if i + forecast_horizon <= len(y_test)
+        )
+    )
 
-    print('Training and validating ETS model completed.')
+    print("Training and validating ETS model completed.")
     return np.asarray(expected_value), np.asarray(fc_u), np.asarray(fc_l)
