@@ -279,14 +279,14 @@ class TimeSeriesData(torch.utils.data.Dataset):
 
         """
         return (
-            self.hist[idx : idx + self.history_horizon],
-            self.fut[
+            self.encoder_tensor[idx : idx + self.history_horizon],
+            self.decoder_tensor[
                 idx
                 + self.history_horizon : idx
                 + self.history_horizon
                 + self.forecast_horizon
             ],
-            self.target[
+            self.target_tensor[
                 idx
                 + self.history_horizon : idx
                 + self.history_horizon
@@ -306,12 +306,12 @@ class TimeSeriesData(torch.utils.data.Dataset):
         """
         self.device = device
         if self.tensor_prepared:
-            if self.hist is not None:
-                self.hist.to(device)
-            if self.fut is not None:
-                self.fut.to(device)
-            if self.target is not None:
-                self.target.to(device)
+            if self.encoder_tensor is not None:
+                self.encoder_tensor.to(device)
+            if self.decoder_tensor is not None:
+                self.decoder_tensor.to(device)
+            if self.target_tensor is not None:
+                self.target_tensor.to(device)
         return self
 
     def make_data_loader(
@@ -394,18 +394,18 @@ class TimeSeriesData(torch.utils.data.Dataset):
         else:
             df = self.data
 
-        self.hist = (
-            torch.from_numpy(df[self._encoder_features].to_numpy())
+        self.encoder_tensor = (
+            torch.from_numpy(df.filter(items=self.encoder_features, axis="columns").to_numpy())
             .float()
             .to(self.device)
         )
-        self.fut = (
+        self.decoder_tensor = (
             torch.from_numpy(df.filter(items=self.decoder_features, axis="columns").to_numpy())
             .float()
             .to(self.device)
         )
-        self.target = (
-            torch.from_numpy(df[self._target_features].to_numpy())
+        self.target_tensor = (
+            torch.from_numpy(df.filter(items=self.target_id, axis="columns").to_numpy())
             .float()
             .to(self.device)
         )
