@@ -60,78 +60,14 @@ from proloaf.event_logging import create_event_logger
 logger = create_event_logger(__name__)
 
 
-# def eval_baseline(
-#     config,
-#     mean_forecast,
-#     df_target,
-#     upper_PI,
-#     lower_PI,
-#     load_limit,
-#     hours,
-#     path,
-#     baseline_method="baseline",
-#     analyzed_metrics=["mse"],
-#     forecast_horizon=1,
-#     anchor_adjustment=0,
-# ):
-#     """
-#     Evaluate a baseline forecast using several different metrics and plot the results.
-
-#     A non-zero value for anchor_adjustment can additionally adjust benchmark forecasts to the
-#     forecast start time of the ProLoaF RNN method, to facilitate the comparison of sample days
-
-#     Parameters
-#     ----------
-#     mean_forecast : array-like
-#         Contains forecasted expected values
-#     df_target : array-like
-#         The reference or measured target variable
-#     upper_PI : array-like
-#         Upper prediction interval
-#     lower_PI : array-like
-#         Lower prediction interval
-#     load_limit : float
-#         The cap limit
-#     hours : array-like
-#         The actual time from the data set
-#     baseline_method : string, default = 'baseline'
-#         The text for the title of the plot
-#     forecast_horizon : int, default = 1
-#         Number of future steps to be forecasted
-#     anchor_adjustment : int, default = 0
-#         A positive value which is subtracted from the standard evaluation hours (0, 12, 24,
-#         48, 100, and 112), enabling hours at a fixed offset from the standard ones to be
-#         evaluated. I.e.:
-#         - For anchor_adjustment = 3, evaluate forecasts for hours 9, 21, 45, 97, and 109
-#     """
-#     return baselines.eval_forecast(
-#         forecasts=mean_forecast,
-#         endog_val=df_target,
-#         upper_limits=upper_PI,
-#         lower_limits=lower_PI,
-#         model_name=baseline_method,
-#         path=path,
-#         config=config,
-#         analyzed_metrics_avg=analyzed_metrics,
-#         analyzed_metrics_timesteps=
-#     )
-
-
 def main(infile, target_id):
     sarimax_model = None
     # Read load data
     df = pd.read_csv(infile, sep=";", index_col=0)
     dh.fill_if_missing(df, periodicity=SEASONALITY)
-    
+
     df = dh.set_to_hours(df)
     logger.info(f"{df.head() = }")
-    # time_delta = pd.to_datetime(df.index[1]) - pd.to_datetime(df.index[0])
-    # timestamps = pd.date_range(
-    #     start=pd.to_datetime(df.index, dayfirst=DAY_FIRST)[0],
-    #     end=pd.to_datetime(df.index, dayfirst=DAY_FIRST)[-1],
-    #     freq=str(time_delta.seconds / 3600) + "H",
-    # )
-    # df.index = timestamps
     if "col_list" in PAR:
         if PAR["col_list"] != None:
             df[target_id] = df[PAR["col_list"]].sum(axis=1)
@@ -145,15 +81,13 @@ def main(infile, target_id):
             enc_features.remove(target)
         if target in dec_features:
             dec_features.remove(target)
-        
+
         if SCALE_DATA:
             scaler = dh.MultiScaler(PAR["feature_groups"])
             df = scaler.fit_transform(df)
-            # df, _ = dh.scale_all(df, **PAR)
 
         df_train, df_val = dh.split(df, splits=[PAR["validation_split"]])
-        # df_train = df.iloc[:int(PAR['validation_split'] * len(df))]
-        # df_val = df.iloc[int(PAR['validation_split'] * len(df)):]
+
         dataset_train = TimeSeriesData(
             df_train,
             history_horizon=PAR["history_horizon"],
@@ -162,12 +96,10 @@ def main(infile, target_id):
             decoder_features=None,
             target_id=PAR["target_id"],
         )
-        # df1 = dataset_train.get_as_frame()
-        # logger.info(f"{df1 = }")
-        dl = dataset_train.make_data_loader(batch_size=1,shuffle=False)
-        x_train_1D = np.array([input.squeeze().numpy() for input,_,_ in dl]) 
-        y_train_1D = np.array([target.squeeze().numpy() for _,_,target in dl])
-        
+        dl = dataset_train.make_data_loader(batch_size=1, shuffle=False)
+        x_train_1D = np.array([input.squeeze().numpy() for input, _, _ in dl])
+        y_train_1D = np.array([target.squeeze().numpy() for _, _, target in dl])
+
         dataset_val = TimeSeriesData(
             df_val,
             history_horizon=PAR["history_horizon"],
@@ -176,33 +108,9 @@ def main(infile, target_id):
             decoder_features=None,
             target_id=PAR["target_id"],
         )
-        # df1 = dataset_train.get_as_frame()
-        # logger.info(f"{df1 = }")
-        dl = dataset_val.make_data_loader(batch_size=1,shuffle=False)
-        x_val_1D = np.array([input.squeeze().numpy() for input,_,_ in dl]) 
-        y_val_1D = np.array([target.squeeze().numpy() for _,_,target in dl])
-        
-        # x_train = dh.extract(
-        #     df_train.iloc[: -PAR["forecast_horizon"]], PAR["history_horizon"]
-        # )
-        # x_val = dh.extract(
-        #     df_val.iloc[: -PAR["forecast_horizon"]], PAR["history_horizon"]
-        # )
-        # y_train = dh.extract(
-        #     df_train.iloc[PAR["forecast_horizon"] :], PAR["forecast_horizon"]
-        # )
-        # y_val = dh.extract(
-        #     df_val.iloc[PAR["forecast_horizon"] :], PAR["forecast_horizon"]
-        # )
-
-        # target_column = df.columns.get_loc(target[0])
-
-        # y_train = df_train[PAR["target_id"]].iloc[]
-
-        # x_train_1D = x_train[:, :, target_column]
-        # x_val_1D = x_val[:, :, target_column]
-        # y_train_1D = y_train[:, :, target_column]
-        # y_val_1D = y_val[:, :, target_column]
+        dl = dataset_val.make_data_loader(batch_size=1, shuffle=False)
+        x_val_1D = np.array([input.squeeze().numpy() for input, _, _ in dl])
+        y_val_1D = np.array([target.squeeze().numpy() for _, _, target in dl])
 
         mean_forecast = []
         upper_PI = []
@@ -507,7 +415,7 @@ def main(infile, target_id):
                 limit_steps=NUM_PRED,
                 periodicity=PERIODICITY,
             )
-            # TODO this can add a None to mean_forecast which will fail later
+            # TODO this can add a None to mean_forecast which will fail later, currently fixed by skipping if None
             mean_forecast.append(mean)
             upper_PI.append(GARCH_y_pred_upper)
             lower_PI.append(GARCH_y_pred_lower)
@@ -526,8 +434,7 @@ def main(infile, target_id):
         # our baseline forecasts start at anchor=t0+forecast_horizon
         # so we have a shift in the start of the forecast simulation of about shift=Par[forecast-horizon]-Par[hist-horizon]
         # shift=PAR['forecast_horizon']-PAR['history_horizon']
-        print("WE GOT HERE !!!!!!!!!!!!!!!!!!!!!!!")
-        
+
         analyzed_metrics_avg = [
             metrics.Mse(),
             metrics.Rmse(),
@@ -546,18 +453,7 @@ def main(infile, target_id):
             metrics.Picp(),
             metrics.Mis(),
         ]
-        # analyzed_metrics = [
-        #     "mse",
-        #     "rmse",
-        #     "sharpness",
-        #     "picp",
-        #     "rae",
-        #     "mae",
-        #     "mis",
-        #     "mase",
-        #     "pinball_loss",
-        #     "residuals",
-        # ]
+
         results = pd.DataFrame(index=[metric.id for metric in analyzed_metrics_avg])
         results_per_timestep = {}
         true_values = torch.zeros(
@@ -570,13 +466,13 @@ def main(infile, target_id):
         lower_limits = torch.zeros(
             [len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]]
         )
-        for i, m in enumerate(mean_forecast):
-            if m is None:
-                # TODO skip if no mean prediciton
+        for i, mean in enumerate(mean_forecast):
+            if mean is None:
+                # skip if no mean prediciton
                 continue
-            print(f"{m = }")
+            print(f"{mean = }")
             print(f"{y_val_1D = }")
-            if len(m) - PAR["forecast_horizon"] == len(y_val_1D):
+            if len(mean) - PAR["forecast_horizon"] == len(y_val_1D):
                 (
                     results[baseline_method[i]],
                     results_per_timestep[baseline_method[i]],
@@ -586,7 +482,7 @@ def main(infile, target_id):
                     lower_limits[i],
                 ) = baselines.eval_forecast(
                     config=PAR,
-                    forecasts=m[
+                    forecasts=mean[
                         PAR["forecast_horizon"] : PAR["forecast_horizon"] + NUM_PRED
                     ],
                     endog_val=y_val_1D[:NUM_PRED, :],
@@ -599,7 +495,7 @@ def main(infile, target_id):
                     path=OUTDIR,
                     model_name="test" + baseline_method[i],
                     analyzed_metrics_avg=analyzed_metrics_avg,
-                    analyzed_metrics_timesteps=analyzed_metrics_ts
+                    analyzed_metrics_timesteps=analyzed_metrics_ts,
                 )
             else:
                 (
@@ -611,14 +507,14 @@ def main(infile, target_id):
                     lower_limits[i],
                 ) = baselines.eval_forecast(
                     config=PAR,
-                    forecasts=m[:NUM_PRED],
+                    forecasts=mean[:NUM_PRED],
                     endog_val=y_val_1D[:NUM_PRED, :],
                     upper_limits=upper_PI[i][:NUM_PRED],
                     lower_limits=lower_PI[i][:NUM_PRED],
                     path=OUTDIR,
                     model_name="test" + baseline_method[i],
                     analyzed_metrics_avg=analyzed_metrics_avg,
-                    analyzed_metrics_timesteps=analyzed_metrics_ts
+                    analyzed_metrics_timesteps=analyzed_metrics_ts,
                 )
         results_per_timestep_per_baseline = pd.concat(
             results_per_timestep.values(), keys=results_per_timestep.keys(), axis=1
@@ -643,17 +539,13 @@ def main(infile, target_id):
         )
         print(f"{results = }")
         plot.plot_hist(
-            data = results.loc[["Residuals"]], # Double [[]] to get row as dataframe.
+            data=results.loc[["Residuals"]],  # Double [[]] to get row as dataframe.
             save_to=OUTDIR + "baselines",
             bins=80,
         )
 
-        logger.info(
-            "results: \n {!s}".format(
-                results
-            )
-        )
-        results.to_csv(f"{OUTDIR}/baselines.csv",sep=";", index=True)
+        logger.info("results: \n {!s}".format(results))
+        results.to_csv(f"{OUTDIR}/baselines.csv", sep=";", index=True)
 
     except KeyboardInterrupt:
         logger.info("\nmanual interrupt")
@@ -674,13 +566,13 @@ if __name__ == "__main__":
     CALC_BASELINES = [
         "simple-naive",
         "seasonal-naive",
-        # "ets",
+        "ets",
         "garch",
-        # "naive-stl",
-        # "arima",
-        # "arimax",
-        # "sarima",
-        # "sarimax",
+        "naive-stl",
+        "arima",
+        "arimax",
+        "sarima",
+        "sarimax",
     ]
     DAY_FIRST = True
     ORDER = (3, 1, 0)

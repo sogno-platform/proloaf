@@ -23,8 +23,7 @@ and generate various baseline forecasts.
 """
 
 import os
-from typing import List
-from numpy import quantile
+from typing import Any, Dict, List
 from proloaf import metrics
 import torch
 import copy
@@ -316,24 +315,16 @@ def eval_forecast(
     endog_val,
     upper_limits,
     lower_limits,
-    model_name,
-    path,
-    config,
+    model_name:str,
+    path:str,
+    config: Dict[str,Any],
     analyzed_metrics_avg: List[metrics.Metric],
     analyzed_metrics_timesteps: List[metrics.Metric],
 ):
     """
     Calculate evaluation metrics
 
-    Returned values depend on the value of the 'total' parameter.
-
-    - When total is True, returns overall values calculated using the following metrics:
-    mse, rmse, mase, rae, mae, sharpness, coverage, mis, qs
-    - When total is False, returns values over the horizon, calculated using the following metrics:
-    rmse, sharpness, coverage, mis
-
     Parameters
-    # TODO: Update docstring!
     ----------
     forecasts : array_like
         The calculated forecasts
@@ -343,42 +334,35 @@ def eval_forecast(
         The upper interval for the given forecasts
     lower_limits : array_like
         The lower interval for the given forecasts
-    alpha : float, default = 0.05
-        The significance level for the prediction interval (required for MIS)
+    model_name:str
+        Name used in the save path for the plots
+    path:str,
+        Prepend for the save path
+    config: Dict[str,Any]
+        The Project config for the deeplearning models the baselines are to be compared with
+    analyzed_metrics_avg: List[metrics.Metric]
+        List of metrics to be evaluated as totals over sample and timestep
+    analyzed_metrics_timesteps: List[metrics.Metric]
+        List of metrics to be evaluated per timestep.
 
     Returns
     -------
-    ### If **total** is True:
+    List[torch.Tensor]
+        List of 0D tensors with the results of the metrics `analyzed_metric_avg`.
+    pandas.DataFrame
+        Dataframe containing the metrics per timestep. Index is integer, each column is a different metric.
     torch.Tensor
-        overall value calculated using mse
+        2D torch.Tensor with dimension (samples,timesteps) with true (not predicted) values. Only for convienience.
     torch.Tensor
-        overall value calculated using rmse
+        2D torch.Tensor with dimension (samples,timesteps) with predited values. Only for convienience.
     torch.Tensor
-        overall value calculated using mase
+        2D torch.Tensor with dimension (samples,timesteps) with predicted upper limits for the values. Only for convienience.
     torch.Tensor
-        overall value calculated using rae
-    torch.Tensor
-        overall value calculated using mae
-    torch.Tensor
-        overall value calculated using sharpness
-    torch.Tensor
-        overall value calculated using coverage
-    torch.Tensor
-        overall value calculated using mis
+        2D torch.Tensor with dimension (samples,timesteps) with predicted lower limits for the values. Only for convienience.
+    
+    
 
-    ### If **total** is False:
-    torch.Tensor
-        overall value calculated using qs
-    torch.Tensor
-        rmse over the horizon
-    torch.Tensor
-        sharpness over the horizon
-    torch.Tensor
-        coverage over the horizon
-    torch.Tensor
-        mis over the horizon
     """
-    # TODO the parameter 'seasonality' is unused
     forecasts = torch.tensor(forecasts)
     true_values = torch.tensor(endog_val)
     upper_limits = torch.tensor(upper_limits)
@@ -403,23 +387,8 @@ def eval_forecast(
             true_values.unsqueeze(dim=2), quantile_predictions, avg_over="sample"
         )
         ts_length = len(results_ts[metric.id])
-    df_results = pd.DataFrame(results_ts,index=range(ts_length))
+    df_results = pd.DataFrame(results_ts, index=range(ts_length))
 
-    # results = fetch_metrics(
-    #     targets=true_values,
-    #     expected_values=forecasts,
-    #     y_pred_upper=upper_limits,
-    #     y_pred_lower=lower_limits,
-    #     analyzed_metrics=analyzed_metrics,  # all above listed metrics are fetched
-    # )
-    # results_per_timestep = fetch_metrics(
-    #     targets=true_values,
-    #     expected_values=forecasts,
-    #     y_pred_upper=upper_limits,
-    #     y_pred_lower=lower_limits,
-    #     analyzed_metrics=["rmse", "sharpness", "picp", "mis"],
-    #     total=False,
-    # )
     # plot forecast for sample time steps
     # the first and 24th timestep relative to the start of the Test-Dataset
     testhours = [0, 1]
@@ -434,17 +403,11 @@ def eval_forecast(
             config["cap_limit"],
         )
     # BOXPLOTS
-    plot.plot_boxplot(df_results, sample_frequency=24, save_to=path + model_name,)
-    # plot.plot_boxplot(
-    #     targets=true_values,
-    #     expected_values=forecasts,
-    #     y_pred_upper=upper_limits,
-    #     y_pred_lower=lower_limits,
-    #     analyzed_metrics=["mse", "rmse"],
-    #     sample_frequency=24,
-    #     save_to=path + model_name,
-    # )
-    print(f"{results_avg = }")
+    plot.plot_boxplot(
+        df_results,
+        sample_frequency=24,
+        save_to=path + model_name,
+    )
     return (
         results_avg.values(),
         df_results,
