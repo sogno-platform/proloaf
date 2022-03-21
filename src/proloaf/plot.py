@@ -209,7 +209,7 @@ def plot_boxplot(
     Parameters
     ----------
     metrics_per_sample: pd.DataFrame
-        Dataframe with values for differen metrics as columns and samples for rows.
+        Dataframe with values for different metrics as columns and samples for rows.
     sample_frequency: int, default = 1
         Frequency of samples considered in timesteps. 1 means every sample will be shown.
     save_to: str, default = None

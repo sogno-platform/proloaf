@@ -117,7 +117,7 @@ class EarlyStopping:
 
 class ModelWrapper:
     """Bundles a forcasting Model with the information needed to train it. It exposes methods similar to a SciKit-Learn regressor,
-    due to differen input types they also differ in name to avoid missuse.
+    due to different input types they also differ in name to avoid missuse.
 
     Parameters
     ----------
