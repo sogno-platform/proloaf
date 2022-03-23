@@ -917,7 +917,7 @@ class ModelHandler:
         return self.model_wrap.predict(inputs_enc, inputs_dec)
 
     @staticmethod
-    def load_model(path: str = None) -> ModelWrapper:
+    def load_model(path: str = None, locate: str = 'cpu') -> ModelWrapper:
         """Loads model from given path.
 
         Parameters
@@ -926,7 +926,7 @@ class ModelHandler:
             path to the saved model
 
         """
-        inst = torch.load(path)
+        inst = torch.load(path,  map_location=torch.device(locate))
         if not isinstance(inst, ModelWrapper):
             raise RuntimeError(
                 f"you tryied to load from '{path}' but the object was not a ModelWrapper"
