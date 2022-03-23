@@ -250,7 +250,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
 
         """
         if not isinstance(idx, int):
-            idx = self.data.get_loc(idx)
+            idx = self.data.index.get_loc(idx)
         hist = self.data.iloc[idx : idx + self.history_horizon]
         fut = self.data.iloc[
             idx
