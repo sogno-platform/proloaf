@@ -218,6 +218,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
             raise TypeError(
                 "preparation_steps should be a callable or an interable of callables."
             )
+        return df
 
     def apply_prep_to_frame(self):
         """Applies the preparation steps to the Dataframe if they have not been applied already.
