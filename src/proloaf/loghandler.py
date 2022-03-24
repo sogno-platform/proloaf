@@ -20,8 +20,7 @@
 """
 Provides functions for logging training results and reading and writing those logs to/from csv or tensorboard files.
 """
-from typing import Dict, Union
-from importlib_metadata import Any
+from typing import Any, Dict, Union
 import pandas as pd
 import shutil
 import torch
