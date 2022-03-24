@@ -29,7 +29,6 @@ from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 
-
 class TimeSeriesData(torch.utils.data.Dataset):
     """Contains timeseries data in pandas dataframe in addition to a Torch.Tensor based representation used in deep learning.
 

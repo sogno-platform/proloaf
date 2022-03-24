@@ -3,11 +3,11 @@ import logging
 import logging.config
 from proloaf.confighandler import read_config
 
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+MAIN_PATH = os.path.dirname(os.path.abspath(__file__))
 
 def create_event_logger(
         name: str,
-        config_path: os.path = os.path.join(MAIN_PATH, 'event_logging', 'config', 'event_logging_conf.json'),
+        config_path: os.path = os.path.join(MAIN_PATH, 'event_logging_conf.json'),
         default_logging_level=logging.INFO
 ) -> logging.Logger:
     """
@@ -34,7 +34,6 @@ def create_event_logger(
     -------
     Object of the Logger class
     """
-
     try:
         event_log_conf = read_config(
             config_path=config_path

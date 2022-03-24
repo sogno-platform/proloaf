@@ -38,6 +38,7 @@ import torch
 import warnings
 import sys
 import os
+from functools import partial
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
@@ -90,7 +91,7 @@ if __name__ == "__main__":
 
     # reload trained NN
     with torch.no_grad():
-        net = mh.ModelHandler.load_model(f"{INMODEL}.pkl")
+        net = mh.ModelHandler.load_model(f"{INMODEL}.pkl", locate='cpu')
         net.to(DEVICE)
         df_new, _ = dh.scale_all(df, scalers=net.scalers, **PAR)
         df_new.index = df.index
@@ -101,8 +102,8 @@ if __name__ == "__main__":
             test_df,
             device=DEVICE,
             preparation_steps=[
-                dh.set_to_hours,
-                dh.fill_if_missing,
+                partial(dh.set_to_hours, freq="1H"),
+                partial(dh.fill_if_missing, periodicity=PAR.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
                 net.scalers.transform,
@@ -110,7 +111,6 @@ if __name__ == "__main__":
             ],
             **PAR,
         )
-
         test_metrics_timesteps = [
             metrics.NllGauss(),
             metrics.Rmse(),

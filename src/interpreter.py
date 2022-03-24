@@ -463,7 +463,7 @@ if __name__ == "__main__":
     # get scaler
     scaler = dh.MultiScaler(CONFIG["feature_groups"])
 
-    dataset = tl.TimeSeriesData(  # todo: preperation steps needed?
+    dataset = tl.TimeSeriesData(
         df,
         preparation_steps=[
             dh.set_to_hours,

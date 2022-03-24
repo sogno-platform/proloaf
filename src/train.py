@@ -46,6 +46,7 @@ import torch
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
+sys.path.append("../")
 
 # Do relative imports below this
 from proloaf import metrics

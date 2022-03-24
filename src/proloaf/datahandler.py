@@ -39,7 +39,6 @@ from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 
-
 def load_raw_data_xlsx(files, path):
     """
     Load data from an xlsx file
