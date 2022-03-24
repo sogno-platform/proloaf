@@ -18,7 +18,9 @@
 # specific language governing permissions and limitations
 # under the License.
 # ==============================================================================
+
 pip install flake8
 pip install flake8-junit-report
-flake8 --output-file ${1}_lint.txt src/${1}.py
-flake8_junit ${1}_lint.txt ${1}_lint.xml
+FAILED=$( flake8 --output-file flake8_lint.txt src )$?
+flake8_junit flake8_lint.txt flake8_lint.xml
+exit ${FAILED}

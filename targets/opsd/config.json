@@ -2,9 +2,9 @@
     "data_path": "./data/opsd.csv",
     "output_path": "./oracles/",
     "exploration_path": "./targets/opsd/tuning.json",
-    "evaluation_path": "./oracles/eval_opsd/",
+    "evaluation_path": "./oracles/eval_opsd_recurrent/",
     "log_path": "./logs/",
-    "model_name": "opsd_LSTM_gnll",
+    "model_name": "opsd_recurrent",
     "target_id": [
         "AT_load_actual_entsoe_transparency"
     ],
@@ -84,64 +84,34 @@
                 "weekday_3",
                 "weekday_4",
                 "weekday_5",
-                "weekday_6"
+                "weekday_6",
+                "hour_sin",
+                "weekday_sin",
+                "mnth_sin"
             ]
         }
     ],
     "encoder_features": [
         "AT_load_actual_entsoe_transparency",
-        "DE_load_actual_entsoe_transparency"
+        "DE_load_actual_entsoe_transparency",
+        "AT_temperature",
+        "hour_sin",
+        "weekday_sin",
+        "mnth_sin"
     ],
     "decoder_features": [
-        "hour_0",
-        "hour_1",
-        "hour_2",
-        "hour_3",
-        "hour_4",
-        "hour_5",
-        "hour_6",
-        "hour_7",
-        "hour_8",
-        "hour_9",
-        "hour_10",
-        "hour_11",
-        "hour_12",
-        "hour_13",
-        "hour_14",
-        "hour_15",
-        "hour_16",
-        "hour_17",
-        "hour_18",
-        "hour_19",
-        "hour_20",
-        "hour_21",
-        "hour_22",
-        "hour_23",
-        "month_1",
-        "month_2",
-        "month_3",
-        "month_4",
-        "month_5",
-        "month_6",
-        "month_7",
-        "month_8",
-        "month_9",
-        "month_10",
-        "month_11",
-        "month_12",
-        "weekday_0",
-        "weekday_1",
-        "weekday_2",
-        "weekday_3",
-        "weekday_4",
-        "weekday_5",
-        "weekday_6"
+        "DE_load_actual_entsoe_transparency",
+        "AT_temperature",
+        "hour_sin",
+        "weekday_sin",
+        "mnth_sin"
     ],
-    "max_epochs": 3,
+    "max_epochs": 5,
     "batch_size": 32,
     "learning_rate": 9.058952600601419e-05,
     "early_stopping_patience": 7,
     "early_stopping_margin": 0.0,
+    "model_class": "recurrent",
     "model_parameters": {
         "recurrent": {
             "core_net": "torch.nn.LSTM",
@@ -151,7 +121,11 @@
             "rel_linear_hidden_size": 1.0,
             "rel_core_hidden_size": 1.0,
             "relu_leak": 0.1
+        },
+        "simple_transformer": {
+            "num_layers": 3,
+            "dropout": 0.0,
+            "n_heads": 6
         }
-    },
-    "model_class": "recurrent"
+    }
 }

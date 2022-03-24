@@ -21,6 +21,26 @@
 import sys
 import argparse
 
+
+def create_frontmatter(date = None, link = None, title = None, imginclude=False):
+    front_matter = "---\n"
+
+    if date:
+        front_matter = front_matter + "date: " + date + "\n"
+
+    if title:
+        front_matter = front_matter + "title: " + title + "\n"
+
+    if link:
+        front_matter = front_matter + "linkTitle: " + link + "\n"
+
+    if imginclude:
+        front_matter = front_matter + "resources:\n- src: \"./**.{png,jpg}\"\n  title: \"Image #:counter\"\n  params:\n    byline:\"Results of train run\"\n"
+
+    front_matter = front_matter + "---"
+
+    return front_matter
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', type=str, default=None)
@@ -30,25 +50,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args(sys.argv[1:])
 
-    front_matter = "---\n"
-
-    if args.date:
-        front_matter = front_matter + "date: " + args.date + "\n"
-
-    if args.title:
-        front_matter = front_matter + "title: " + args.title + "\n"
-
-    if args.link:
-        front_matter = front_matter + "linkTitle: " + args.link + "\n"
-
-    if args.imginclude:
-        front_matter = front_matter + "resources:\n- src: \"./**.{png,jpg}\"\n  title: \"Image #:counter\"\n  params:\n    byline:\"Results of train run\"\n"
-
-    front_matter = front_matter + "---"
-
-    # front_matter = "---\ndate: "\
-    #                 + str(sys.argv[1])\
-    #                 + "\ntitle: \"" + str(sys.argv[2]) + " " + str(sys.argv[1])\
-    #                 + "\"\nlinkTitle: \"" + str(sys.argv[1])\
-    #                 + "\"\nresources:\n- src: \"./**.{png,jpg}\"\n  title: \"Image #:counter\"\n  params:\n    byline:\"Results of train run\"\n---"
-    print(front_matter)
+    print(create_frontmatter(args.date,args.title,args.link,args.imginclude))

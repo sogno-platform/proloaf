@@ -1,45 +1,61 @@
 variables:
-  GIT_SUBMODULE_STRATEGY: recursive
-  DOCKER_TAG: ${CI_COMMIT_REF_NAME}
+  DOCKER_TAG: $CI_COMMIT_REF_SLUG
   DOCKER_IMAGE_DEV: plf
+  DOCKER_IMAGE_PLF: $CI_REGISTRY_IMAGE/${DOCKER_IMAGE_DEV}:${DOCKER_TAG}
+  DOCKER_IMAGE_DOCS: $CI_REGISTRY_IMAGE/${DOCKER_IMAGE_DEV}_docs:${DOCKER_TAG}
 
-workflow:
-    rules:
-        - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE
-        - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "api"
-        - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "web"
+# workflow:
+#     rules:
+#         - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE
+#         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "api"
+#         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "web"
 
 stages:
-    - prepare
-    - check
-    - training
-    - test-train
-    - test-eval
-    - evaluation
-    - oracles:deploy
-    - pdoc
-    - build
-    - deploy
+  - prepare
+  - check
+  - lint
+  - training
+  - evaluation
+  - oracles:deploy
+  - pdoc
+  - build
+  - deploy
 
 ## Prepare Jobs:
 docker-plf:
- stage: prepare
- environment:
+  stage: prepare
+  environment:
     name: proloaf
- script:
-   - echo $CI_PROJECT_DIR/${DOCKER_FILE}
-   - docker build
-       --file $CI_PROJECT_DIR/${DOCKER_FILE}
-       --tag ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME} .
- tags:
-   - docker
+  script:
+    - echo $CI_PROJECT_DIR/${DOCKER_FILE}
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build
+      --file $CI_PROJECT_DIR/${DOCKER_FILE}
+      --tag  ${DOCKER_IMAGE_PLF} .
+    - docker push ${DOCKER_IMAGE_PLF}
+  tags:
+    - docker
+
+docker-docs:
+  stage: prepare
+  environment:
+    name: docs
+  script:
+    - echo $CI_PROJECT_DIR/${DOCKER_FILE}
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build
+      --file $CI_PROJECT_DIR/${DOCKER_FILE}
+      --tag ${DOCKER_IMAGE_DOCS} .
+    - docker push ${DOCKER_IMAGE_DOCS}
+  tags:
+    - docker
 
 prep-docs:
   stage: pdoc
-  image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
+  image: ${DOCKER_IMAGE_PLF}
   script:
     - pip3 install --no-cache-dir pdoc
-    - pip3 install -e .
+    # - pip3 install -e .
     - pdoc -o ./docs/static/reference/proloaf -t . -d numpy proloaf
     - ls -l ./docs/static/reference/proloaf
   artifacts:
@@ -50,260 +66,149 @@ prep-docs:
       - docs/static/reference/proloaf
   tags:
     - docker
-
-docker-docs:
- stage: prepare
- environment:
-   name: docs
- script:
-   - echo $CI_PROJECT_DIR/${DOCKER_FILE}
-   - docker build
-       --file $CI_PROJECT_DIR/${DOCKER_FILE}
-       --tag ${DOCKER_IMAGE_DEV}_docs:${CI_COMMIT_REF_NAME} .
- tags:
-   - docker
+  needs:
+    - docker-plf
 
 ### DCO Checker
 dco:
-    stage: check
-    script:
-        - pip3 install -U dco-check
-        - dco-check
-    allow_failure: true
-    image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    only:
-      refs:
-        - master
-      variables:
-        - $CI_PIPELINE_SOURCE == 'push'
+  stage: check
+  script:
+    - pip3 install -U dco-check
+    - export CI_DEFAULT_BRANCH="develop"
+    - dco-check -v
+  allow_failure: true
+  image: christophebedard/dco-check:latest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'push'
+  needs: []
 
-## Training Jobs:
-train_on_call:
-    stage: training
-    script:
-        - chmod +x ./shell/trigger_training.sh
-        - ./shell/trigger_training.sh
-    timeout: 4 hours
-    artifacts:
-        when: on_success
-        name: proloaf
-        paths:
-            - ./oracles/*
-            - ./logs/**/*
-            - ./logs/*
-            - ./runs/**/*
-            - ./runs/**/**/*
-    image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'api' || $CI_PIPELINE_SOURCE == 'web'
+lint_all:
+  stage: lint
+  image: ${DOCKER_IMAGE_PLF}
+  allow_failure: true
+  script:
+    - pip install flake8
+    - flake8 --output-file flake8_lint.txt src
+    # - chmod +x ./shell/lint_script.sh
+    # - ./shell/lint_script.sh
+  artifacts:
+    when: always
+    name: proloaf
+    expire_in: 1 hour
+    reports:
+      junit: ./flake8_lint.xml
+    paths:
+      - ./oracles/*
+      - ./flake8_lint.txt
+      # - ./flake8_lint.xml
+  tags:
+    - docker
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'push'
 
 
 ### Test Training Jobs
-test_train_no_hp:
-    stage: test-train
-    script:
-        - python3 src/train.py -s ci_tests/ci_test_no_hp --ci
-    artifacts:
-        when: on_success
-        name: proloaf
-        expire_in: 1 hour
-        paths:
-            - ./oracles/*
-            - ./logs/**/*
-            - ./logs/*
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'push'
+test_train:
+  stage: training
+  script:
+    - python3 src/train.py -s $CI_STATION
+  artifacts:
+    when: on_success
+    name: proloaf
+    expire_in: 1 hour
+    paths:
+      - ./oracles/*
+      - ./logs/**/*
+      - ./logs/*
+      - ./runs/**/*
+      - ./runs/**/**/*
+  image: ${DOCKER_IMAGE_PLF}
+  needs:
+    - docker-plf
+  tags:
+    - docker
 
+# ### Test Evaluation Jobs
+test_eval:
+  stage: evaluation
+  script:
+    - python3 src/evaluate.py -s $CI_STATION
+  artifacts:
+    name: proloaf
+    when: on_success
+    expire_in: 1 hour
+    paths:
+      - ./oracles/**/*
+  image: ${DOCKER_IMAGE_PLF}
+  tags:
+    - docker
+  dependencies:
+    - test_train
+  needs:
+    - test_train
+  # only:
+  #   variables:
+  #     - $CI_PIPELINE_SOURCE == 'push'
 
-test_train_hp:
-    stage: test-train
-    script:
-        - python3 src/train.py -s ci_tests/ci_test_hp --ci
-    artifacts:
-        when: on_success
-        expire_in: 1 hour
-        paths:
-            - ./oracles/*
-            - ./logs/**/*
-            - ./logs/*
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'push'
-
-
-lint_train:
-    stage: test-train
-    image: ${DOCKER_IMAGE_DEV}:${CI_COMMIT_REF_NAME}
-    script:
-        - chmod +x ./shell/lint_script.sh
-        - ./shell/lint_script.sh train
-    artifacts:
-        when: on_success
-        name: proloaf
-        expire_in: 1 hour
-        reports:
-            junit: ./train_lint.xml
-        paths:
-            - ./oracles/*
-            - ./train_lint.xml
-    tags:
-        - docker
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'push'
-
-
-## Evaluation Jobs:
-eval_on_call:
-    stage: evaluation
-    script:
-         - chmod +x ./shell/execute_evaluation.sh
-         - ./shell/execute_evaluation.sh
-    artifacts:
-        when: on_success
-        name: proloaf
-        paths:
-            - oracles/**/*
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'api' || $CI_PIPELINE_SOURCE == 'web'
-
-
-### Test Evaluation Jobs
-test_eval_hp:
-    stage: test-eval
-    script:
-        - python3 src/evaluate.py -s ci_tests/ci_test_hp
-    artifacts:
-      name: proloaf
-      when: on_success
-      expire_in: 1 hour
-      paths:
-        - ./oracles/**/*
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    needs:
-        - job: test_train_hp
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'push'
-
-
-test_eval_no_hp:
-    stage: test-eval
-    script:
-        - python3 src/evaluate.py -s ci_tests/ci_test_no_hp
-    artifacts:
-      name: proloaf
-      when: on_success
-      expire_in: 1 hour
-      paths:
-        - ./oracles/**/*
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    needs:
-        - job: test_train_no_hp
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'push'
-
-
-lint_evaluate:
-    stage: test-eval
-    script:
-        - chmod +x ./shell/lint_script.sh
-        - ./shell/lint_script.sh evaluate
-    artifacts:
-      name: proloaf
-      when: on_success
-      expire_in: 1 hour
-      reports:
-        junit: ./evaluate_lint.xml
-      paths:
-        - ./oracles/*
-        - ./evaluate_lint.xml
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    needs:
-        - job: lint_train
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'push'
-
-
-## Deploy Results of latest Runs to Oracles
+# ## Deploy Results of latest Runs to Oracles
 push_to_oracles:
-    stage: oracles:deploy
-    script:
-         - TIMESTAMP=$(python shell/return_timestamp.py)
-         - git clone https://gonca.guerses.tran:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git ./repo/
-         - git config --global user.email "test@test.test"
-         - git config --global user.name "GitLab CI train"
-         - mkdir -p ./repo/$STATION/$TIMESTAMP
-         - mkdir ./repo/$STATION/$TIMESTAMP/logs
-         - mkdir ./repo/$STATION/$TIMESTAMP/runs
-         - mkdir ./repo/$STATION/$TIMESTAMP/model
-         - mv logs/* ./repo/$STATION/$TIMESTAMP/logs/
-         - mv runs/* ./repo/$STATION/$TIMESTAMP/runs/
-         - touch ./repo/$STATION/$TIMESTAMP/index.md
-         - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$STATION $TIMESTAMP" --link=$TIMESTAMP --imginclude==True >> ./repo/$STATION/$TIMESTAMP/index.md
-         - echo "[Source Pipeline](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/pipelines/$CI_PIPELINE_ID)" >> ./repo/$STATION/$TIMESTAMP/index.md
-         - echo "" >> ./repo/$STATION/$TIMESTAMP/index.md
-         - cat oracles/result_page_content.md >> ./repo/$STATION/$TIMESTAMP/index.md
-         - mv oracles/*/* oracles/
-         - mv oracles/* ./repo/$STATION/$TIMESTAMP/model/
-         #- chmod +x ./shell/make_station_folder_index.sh
-         #- ./shell/make_station_folder_index.sh
-         - python ./shell/make_station_folder_index.py $STATION
-         - cd ./repo/
-         - git add *
-         - git commit -m "New Training Data for $STATION from GitLab CI"
-         - git push
-         - cd ..
-         - touch link_to_results.txt
-         - echo "<a href=\"https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/results/plf-oracles/$STATION/$TIMESTAMP\">Results</a>" >> link_to_results.html
-         #- chmod +x ./shell/trigger_docs_pipeline
-         #- ./shell/trigger_docs_pipeline
-    artifacts:
-        when: on_success
-        name: proloaf
-        paths:
-          - ./repo/$STATION/**/**/*
-          - ./link_to_results.html
-    image: plf:${CI_COMMIT_REF_NAME}
-    tags:
-        - docker
-    only:
-        variables:
-            - $CI_PIPELINE_SOURCE == 'web' || $CI_PIPELINE_SOURCE == 'api'
+  stage: oracles:deploy
+  script:
+    - TIMESTAMP=$(python shell/return_timestamp.py)
+    - git clone https://gonca.guerses.tran:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git ./repo/
+    - git config --global user.email "test@test.test"
+    - git config --global user.name "GitLab CI train"
+    - mkdir -p ./repo/$CI_STATION/$TIMESTAMP
+    - mkdir ./repo/$CI_STATION/$TIMESTAMP/logs
+    - mkdir ./repo/$CI_STATION/$TIMESTAMP/runs
+    - mkdir ./repo/$CI_STATION/$TIMESTAMP/model
+    # - mv logs/* ./repo/$CI_STATION/$TIMESTAMP/logs/
+    - mv runs/* ./repo/$CI_STATION/$TIMESTAMP/runs/
+    - touch ./repo/$CI_STATION/$TIMESTAMP/index.md
+    - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$CI_STATION $TIMESTAMP" --link=$TIMESTAMP --imginclude==True >> ./repo/$CI_STATION/$TIMESTAMP/index.md
+    - echo "[Source Pipeline](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/pipelines/$CI_PIPELINE_ID)" >> ./repo/$CI_STATION/$TIMESTAMP/index.md
+    - echo "" >> ./repo/$CI_STATION/$TIMESTAMP/index.md
+    - cat oracles/result_page_content.md >> ./repo/$CI_STATION/$TIMESTAMP/index.md
+    - mv oracles/*/* oracles/
+    - mv oracles/* ./repo/$CI_STATION/$TIMESTAMP/model/
+    #- chmod +x ./shell/make_station_folder_index.sh
+    #- ./shell/make_station_folder_index.sh
+    - python ./shell/make_station_folder_index.py $CI_STATION
+    - cd ./repo/
+    - git add *
+    - git commit -m "New Training Resutls for $CI_STATION from GitLab CI"
+    - git push
+    - cd ..
+    - touch link_to_results.txt
+    - echo "<a href=\"https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/results/plf-oracles/$CI_STATION/$TIMESTAMP\">Results</a>" >> link_to_results.html
+    #- chmod +x ./shell/trigger_docs_pipeline
+    #- ./shell/trigger_docs_pipeline
+  artifacts:
+    when: always
+    expire_in: 1 days
+    name: proloaf
+    paths:
+      - ./repo/$CI_STATION/**/**/*
+      - ./link_to_results.html
+  image: ${DOCKER_IMAGE_PLF}
+  tags:
+    - docker
+  needs:
+    - test_eval
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web'
+    - if: $CI_PIPELINE_SOURCE == 'api'
+    - if: $CI_COMMIT_BRANCH == 'master'
 
 hugo:
   stage: build
-  image: ${DOCKER_IMAGE_DEV}_docs:${CI_COMMIT_REF_NAME}
+  image: ${DOCKER_IMAGE_DOCS}
   script:
     - cd docs
     - npm install -D postcss
     - npm install -D --save autoprefixer
     - npm install -D --save postcss-cli
-    - echo $PWD
+    # - echo $PWD
     - mkdir -p content/en/results/
     - cd content/en/results/
     - git clone https://gonca.guerses.tran:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
@@ -316,9 +221,9 @@ hugo:
     paths:
       - docs/public
       #- docs/content/en/results/*
+  only:
+    - master
 
-  tags:
-      - docker
 
 pages:
   stage: deploy
@@ -337,6 +242,5 @@ pages:
       - public
   tags:
       - docker
-  #only:
-  #  - master
-    #- linux
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'master'
