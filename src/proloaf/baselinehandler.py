@@ -910,15 +910,6 @@ def seasonal_naive(series, forecast_horizon, periodicity, seasonality=1):
             for i in range(forecast_horizon)
         ]
     )
-    # TODO remove old if new is correct
-    # forecast = np.empty([forecast_horizon])
-    # for i in range(len(forecast)):
-    #     if i + 1 > periodicity * seasonality:
-    #         print(f"index1 = {i - 2 * periodicity * seasonality}")
-    #         forecast[i] = series[i - 2 * periodicity * seasonality]
-    #     else:
-    #         print(f"index2 = {i - periodicity * seasonality}")
-    #         forecast[i] = series[i - periodicity * seasonality]
     return forecast
 
 
