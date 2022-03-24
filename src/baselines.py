@@ -57,16 +57,16 @@ from proloaf.confighandler import read_config
 from proloaf.cli import parse_with_loss
 from proloaf.event_logging import create_event_logger
 
-logger = create_event_logger(__name__)
+logger = create_event_logger('baselines')
 
 
 def main(infile, target_id):
     sarimax_model = None
     # Read load data
     df = pd.read_csv(infile, sep=";", index_col=0)
-    dh.fill_if_missing(df, periodicity=SEASONALITY)
+    df = dh.fill_if_missing(df, periodicity=SEASONALITY)
 
-    df = dh.set_to_hours(df)
+    df = dh.set_to_hours(df, freq=RESOLUTION)
     logger.info(f"{df.head() = }")
     if "col_list" in PAR:
         if PAR["col_list"] != None:
@@ -96,9 +96,9 @@ def main(infile, target_id):
             decoder_features=None,
             target_id=PAR["target_id"],
         )
-        dl = dataset_train.make_data_loader(batch_size=1, shuffle=False)
-        x_train_1D = np.array([input.squeeze().numpy() for input, _, _ in dl])
-        y_train_1D = np.array([target.squeeze().numpy() for _, _, target in dl])
+        dl_train = dataset_train.make_data_loader(batch_size=1, shuffle=False)
+        x_train_1D = np.array([input.squeeze().numpy() for input, _, _ in dl_train])
+        y_train_1D = np.array([target.squeeze().numpy() for _, _, target in dl_train])
 
         dataset_val = TimeSeriesData(
             df_val,
@@ -108,9 +108,9 @@ def main(infile, target_id):
             decoder_features=None,
             target_id=PAR["target_id"],
         )
-        dl = dataset_val.make_data_loader(batch_size=1, shuffle=False)
-        x_val_1D = np.array([input.squeeze().numpy() for input, _, _ in dl])
-        y_val_1D = np.array([target.squeeze().numpy() for _, _, target in dl])
+        dl_val = dataset_val.make_data_loader(batch_size=1, shuffle=False)
+        x_val_1D = np.array([input.squeeze().numpy() for input, _, _ in dl_val])
+        y_val_1D = np.array([target.squeeze().numpy() for _, _, target in dl_val])
 
         mean_forecast = []
         upper_PI = []
@@ -447,6 +447,18 @@ def main(infile, target_id):
             metrics.PinnballLoss(),
             metrics.Residuals(),
         ]
+
+        analyzed_metrics_sample = [
+            metrics.Mse(),
+            metrics.Rmse(),
+            metrics.Sharpness(),
+            metrics.Picp(),
+            metrics.Rae(),
+            metrics.Mis(),
+            metrics.PinnballLoss(),
+            metrics.Residuals(),
+        ]
+
         analyzed_metrics_ts = [
             metrics.Rmse(),
             metrics.Sharpness(),
@@ -455,6 +467,7 @@ def main(infile, target_id):
         ]
 
         results = pd.DataFrame(index=[metric.id for metric in analyzed_metrics_avg])
+        results_per_sample = {} #pd.DataFrame(index=[metric.id for metric in analyzed_metrics_sample])
         results_per_timestep = {}
         true_values = torch.zeros(
             [len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]]
@@ -476,6 +489,7 @@ def main(infile, target_id):
                 (
                     results[baseline_method[i]],
                     results_per_timestep[baseline_method[i]],
+                    results_per_sample[i],
                     true_values[i],
                     forecasts[i],
                     upper_limits[i],
@@ -495,12 +509,14 @@ def main(infile, target_id):
                     path=OUTDIR,
                     model_name="test" + baseline_method[i],
                     analyzed_metrics_avg=analyzed_metrics_avg,
+                    analyzed_metrics_sample=analyzed_metrics_sample,
                     analyzed_metrics_timesteps=analyzed_metrics_ts,
                 )
             else:
                 (
                     results[baseline_method[i]],
                     results_per_timestep[baseline_method[i]],
+                    results_per_sample[i],
                     true_values[i],
                     forecasts[i],
                     upper_limits[i],
@@ -514,10 +530,14 @@ def main(infile, target_id):
                     path=OUTDIR,
                     model_name="test" + baseline_method[i],
                     analyzed_metrics_avg=analyzed_metrics_avg,
+                    analyzed_metrics_sample=analyzed_metrics_sample,
                     analyzed_metrics_timesteps=analyzed_metrics_ts,
                 )
         results_per_timestep_per_baseline = pd.concat(
             results_per_timestep.values(), keys=results_per_timestep.keys(), axis=1
+        )
+        results_per_sample = pd.concat(
+            results_per_sample.values(), keys=results_per_timestep.keys(), axis=1
         )
 
         # plot metrics
@@ -538,8 +558,9 @@ def main(infile, target_id):
             OUTDIR + "baselines",
         )
         print(f"{results = }")
+
         plot.plot_hist(
-            data=results.loc[["Residuals"]],  # Double [[]] to get row as dataframe.
+            data=results_per_sample.xs("Residuals", axis=1, level=1, drop_level=True),
             save_to=OUTDIR + "baselines",
             bins=80,
         )
@@ -560,19 +581,19 @@ if __name__ == "__main__":
     )
     OUTDIR = os.path.join(MAIN_PATH, PAR["evaluation_path"])
     SCALE_DATA = True
-    LIMIT_HISTORY = 300  # PAR['history_horizon']
-    NUM_PRED = 10
-    SLIDING_WINDOW = 1
+    LIMIT_HISTORY = 300
+    NUM_PRED = 365
+    SLIDING_WINDOW = 24
     CALC_BASELINES = [
         "simple-naive",
         "seasonal-naive",
-        "ets",
-        "garch",
+        #"ets",
+        #"garch",
         "naive-stl",
-        "arima",
-        "arimax",
-        "sarima",
-        "sarimax",
+        #"arima",
+        #"arimax",
+        #"sarima",
+        #"sarimax",
     ]
     DAY_FIRST = True
     ORDER = (3, 1, 0)
@@ -582,4 +603,5 @@ if __name__ == "__main__":
     ALPHA = 1.96
     EXOG = True
     APPLY_EXISTING_MODEL = False
+    RESOLUTION = 'H'
     main(infile=os.path.join(MAIN_PATH, PAR["data_path"]), target_id=PAR["target_id"])

@@ -588,16 +588,9 @@ class PinnballLoss(Metric):
         Raises
         ------
         NotImplementedError
-            When 'avg_over' is set to anything but "all", as pinball_loss does not support loss over the horizon or per sample.
+            When 'avg_over' is set to anything but "all", "time", or "sample".
         """
 
-        # assert (len(predictions) == (len(quantiles) + 1))
-        # quantiles = options
-
-        # if avg_over != "all":
-        #     raise NotImplementedError(
-        #         "Pinball_loss does not support loss over the horizon or per sample."
-        #     )
         errors = target - predictions
         quantiles_tensor = torch.Tensor([[quantiles]], device=predictions.device)
         upper = quantiles_tensor * errors
@@ -709,7 +702,7 @@ class SmoothedPinnballLoss(Metric):
         Raises
         ------
         NotImplementedError
-            When 'avg_over' is set to anything but "all", as pinball_loss does not support loss over the horizon or per sample.
+            When 'avg_over' is set to anything but "all", "time" or "sample".
         """
 
         # assert (len(predictions) == (len(quantiles) + 1))
@@ -1631,13 +1624,20 @@ class Picp(Metric):
             * (torch.sum((target > y_pred_lower) & (target <= y_pred_upper), dim=0))
             / target.shape[0]
         )
+
+        coverage_time = (
+                100.0
+                * (torch.sum((target > y_pred_lower) & (target <= y_pred_upper), dim=1))
+                / target.shape[1]
+        )
+
         coverage_total = torch.sum(coverage_horizon) / target.shape[1]
         if avg_over == "all":
             return coverage_total
         elif avg_over == "sample":
             return coverage_horizon
         elif avg_over == "time":
-            raise AttributeError("PCIP does not support avg. over time.")
+            return coverage_time
 
 
 class PicpLoss(Picp):
@@ -1699,7 +1699,7 @@ class Mis(Metric):
         for quant in quantile_prediction.quantiles:
             if 1 - quant in quantile_prediction.quantiles:
                 alpha = min(quant, 1 - quant) * 2
-                break
+                #break
         if not alpha:
             raise ValueError(
                 "Mean Interval Score is only available for symetric intervals"
@@ -1753,25 +1753,23 @@ class Mis(Metric):
         y_pred_lower = predictions[:, :, 1]
         target = target.squeeze(dim=2)
         mis_horizon = torch.zeros(target.shape[1])
+        mis_sample = torch.zeros(target.shape[0])
 
-        # TODO I can't imagine doing this in a loop is efficient.
-        for i in range(target.shape[1]):
-            # calculate penalty for large prediction interval
-            large_PI_penalty = torch.sum(y_pred_upper[:, i] - y_pred_lower[:, i])
+        # calculate penalty for large prediction interval
+        large_PI_penalty = torch.sum(y_pred_upper - y_pred_lower, dim=0)
+        large_PI_penalty_sample = torch.sum(y_pred_upper - y_pred_lower, dim=1)
 
-            # calculate under estimation penalty
-            diff_lower = y_pred_lower[:, i] - target[:, i]
-            under_est_penalty = (2 / alpha) * torch.sum(diff_lower[diff_lower > 0])
+        # calculate under estimation penalty
+        diff_lower = y_pred_lower - target
+        under_est_penalty = (2 / alpha) * torch.sum(diff_lower[diff_lower > 0], dim=0)
 
-            # calcualte over estimation penalty
-            diff_upper = target[:, i] - y_pred_upper[:, i]
-            over_est_penalty = (2 / alpha) * torch.sum(diff_upper[diff_upper > 0])
+        # calculate over estimation penalty
+        diff_upper = target - y_pred_upper
+        over_est_penalty = (2 / alpha) * torch.sum(diff_upper[diff_upper > 0], dim=0)
 
-            # combine all the penalties
-            mis_horizon[i] = (
-                large_PI_penalty + under_est_penalty + over_est_penalty
-            ) / target.shape[0]
-
+        # combine all the penalties
+        mis_horizon = (large_PI_penalty + under_est_penalty + over_est_penalty) / target.shape[0]
+        mis_sample = (large_PI_penalty_sample + under_est_penalty + over_est_penalty) / target.shape[1]
         mis_total = torch.sum(mis_horizon) / target.shape[1]
 
         if avg_over == "all":
@@ -1779,7 +1777,7 @@ class Mis(Metric):
         elif avg_over == "sample":
             return mis_horizon
         elif avg_over == "time":
-            raise AttributeError("PCIP does not support avg. over time.")
+            return mis_sample
 
 
 class Rae(Metric):
@@ -1853,22 +1851,29 @@ class Rae(Metric):
         Raises
         ------
         NotImplementedError
-            When 'avg_over' is set to anything but "all", as rae does not support loss over the horizon
+            When 'avg_over' is set to anything but "all", "time" or "sample"
         """
 
         y_hat_test = predictions
         y_hat_naive = torch.mean(target)
 
-        if avg_over != "all":
-            raise NotImplementedError(
-                "rae does not support loss over the horizon or per sample."
+        if avg_over == "all":
+            # denominator is the mean absolute error of the periodicity dependent "naive forecast method"
+            # on the test set -->outsample
+            return torch.mean(torch.abs(target - y_hat_test)) / torch.mean(
+                torch.abs(target - y_hat_naive)
             )
+        elif avg_over == "sample":
+            return (torch.mean(torch.abs(target - y_hat_test),dim=0) / torch.mean(
+                torch.abs(target - y_hat_naive),dim=0)).squeeze()
 
-        # denominator is the mean absolute error of the preidicity dependent "naive forecast method"
-        # on the test set -->outsample
-        return torch.mean(torch.abs(target - y_hat_test)) / torch.mean(
-            torch.abs(target - y_hat_naive)
-        )
+        elif avg_over == "time":
+            return (torch.mean(torch.abs(target - y_hat_test),dim=1) / torch.mean(
+                torch.abs(target - y_hat_naive),dim=1)).squeeze()
+        else:
+            raise NotImplementedError(
+                "rae does not support loss over: ", avg_over
+            )
 
 
 class Mae(Metric):

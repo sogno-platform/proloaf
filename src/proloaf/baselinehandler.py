@@ -319,6 +319,7 @@ def eval_forecast(
     path:str,
     config: Dict[str,Any],
     analyzed_metrics_avg: List[metrics.Metric],
+    analyzed_metrics_sample: List[metrics.Metric],
     analyzed_metrics_timesteps: List[metrics.Metric],
 ):
     """
@@ -342,6 +343,8 @@ def eval_forecast(
         The Project config for the deeplearning models the baselines are to be compared with
     analyzed_metrics_avg: List[metrics.Metric]
         List of metrics to be evaluated as totals over sample and timestep
+    analyzed_metrics_sample: List[metrics.Metric]
+        List of metrics to be evaluated per sample.
     analyzed_metrics_timesteps: List[metrics.Metric]
         List of metrics to be evaluated per timestep.
 
@@ -381,12 +384,18 @@ def eval_forecast(
         results_avg[metric.id] = metric.from_quantiles(
             true_values.unsqueeze(dim=2), quantile_predictions, avg_over="all"
         )
+    results_samp = {}
+    for metric in analyzed_metrics_sample:
+        results_samp[metric.id] = metric.from_quantiles(
+            true_values.unsqueeze(dim=2), quantile_predictions, avg_over="time"
+        )
     results_ts = {}
     for metric in analyzed_metrics_timesteps:
         results_ts[metric.id] = metric.from_quantiles(
             true_values.unsqueeze(dim=2), quantile_predictions, avg_over="sample"
         )
         ts_length = len(results_ts[metric.id])
+
     df_results = pd.DataFrame(results_ts, index=range(ts_length))
 
     # plot forecast for sample time steps
@@ -411,6 +420,7 @@ def eval_forecast(
     return (
         results_avg.values(),
         df_results,
+        pd.DataFrame(results_samp),
         true_values,
         forecasts,
         upper_limits,
@@ -793,7 +803,7 @@ def persist_forecast(
     timeseries model cleared with seasonal decomposition (STL)
 
     Fit persistence forecast over the train data, and calculate the standard deviation of residuals for each horizon
-    over the horizon. Output the persistence forecast over the test data, and std_deviation (upper and lower intervals)
+    over the horizon. Output the persistence forecast over the test data, and residual_std (upper and lower intervals)
     for each hour.
 
     Parameters
@@ -857,19 +867,14 @@ def persist_forecast(
         residuals[i, :] = y_train[i, :] - point_forecast_train[i, :]
 
     # std deviation of residual for each hour(column wise)
-    residual_std = np.std(residuals, axis=0)
-    std_dev = np.zeros(shape=(1, forecast_horizon))
-
-    for step in range(forecast_horizon):
-        # std_dev[0,step] = residual_std[step]*np.sqrt(step+1)
-        std_dev[0, step] = residual_std[step]
-
+    residual_std = np.nanstd(residuals, axis=0)
     expected_value = np.zeros(shape=(len(x_test), forecast_horizon))
+
     for i in range(len(x_test)):
         expected_value[i, :] = simple_naive(x_test[i, :], forecast_horizon)
 
-    fc_u = expected_value + alpha * std_dev
-    fc_l = expected_value - alpha * std_dev
+    fc_u = expected_value + alpha * residual_std
+    fc_l = expected_value - alpha * residual_std
 
     if decomposed:
         print("Training and validating naive (STL) completed.")
@@ -980,7 +985,7 @@ def seasonal_forecast(
 
     Fit periodic forecast over the train data, calculate the standard deviation of residuals for
     each horizon over the horizon. Output the periodic forecast generated using the test
-    data and the std_deviation (upper and lower intervals) for each hour.
+    data and the residual_std (upper and lower intervals) for each hour.
 
     Parameters
     ----------
@@ -1036,21 +1041,16 @@ def seasonal_forecast(
         residuals[i, :] = y_train[i, :] - naive_forecast[i, :]
 
     # std deviation of residual for each hour(column wise)
-    residual_std = np.std(residuals, axis=0)
-    std_dev = np.zeros(shape=(1, forecast_horizon))
-
-    for step in range(forecast_horizon):
-        # forecast_std[0,step] = residual_std[step]*np.sqrt(step+1)
-        std_dev[0, step] = residual_std[step]
-
+    residual_std = np.nanstd(residuals, axis=0)
     expected_value = np.zeros(shape=(len(x_test), forecast_horizon))
+
     for i in range(len(x_test)):
         expected_value[i, :] = seasonal_naive(
             x_test[i, :], forecast_horizon, periodicity, seasonality
         )
 
-    fc_u = expected_value + alpha * std_dev
-    fc_l = expected_value - alpha * std_dev
+    fc_u = expected_value + alpha * residual_std
+    fc_l = expected_value - alpha * residual_std
     print("Training and validating seasonal naive model completed.")
 
     return expected_value, fc_u, fc_l
