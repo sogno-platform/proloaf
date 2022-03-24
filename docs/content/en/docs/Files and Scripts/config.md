@@ -38,17 +38,17 @@ python source\configmaker.py --mod targets/<STATION-NAME>/config.json
 The default location of the main configuration file is `./targets/` or better `./targets/<STATION>`. 
 The best practice is to generate sub-directories for each forecasting exercise, i.e. a new *station*. 
 As the project originated from electrical load forecasting on substation-level, 
-the term *station* or *target-station* is used to refer to the city or substation identifier
+the term *station* or *target-station* is used to refer to the location or substation identifier
 from which the measurement data is originating.   
 Most of the example scripts in ProLoaF use the config file for training and evaluation, 
 as it serves as a central place for parametrization.
 
 At this stage you should have the main config file for your forecasting project: `./targets/<STATION>/config.json`.
-[plf-util](https://git.rwth-aachen.de/acs/public/automation/plf/plf-util) comes with basic functions to parse, 
+[ProLoaF](https://github.com/sogno-platform/proloaf/tree/master/source/proloaf) comes with basic functions to parse, 
 edit and store the config file. We make use of this when calling e.g. our example training script: 
 
 ```sh
-$ python source\fc_train.py -s opsd
+$ python source\train.py -s opsd
 ```
 
 The flag ``-s`` allows us to specify the station name (=target directory) through the string that follows, 
@@ -74,7 +74,7 @@ of the forecast. A common non-parametric option is the quantile loss.
 You can apply quantile loss criterion as follows:
 
 ```sh
-    $ python source\fc_train.py -s opsd --quantiles 0.025 0.975
+    $ python source\train.py -s opsd --quantiles 0.025 0.975
 ```
 > Here we have specified the 95% prediction interval, by setting ``q1=0.025`` and ``q2=0.975``.
 
@@ -262,9 +262,20 @@ The following table summarizes the default parameters of the main config file:
 
 **Shell Params Upon Script Execution**
 
-| Parameter   |      Data Type      |  Value Range |
-|:-------:|:-------------:|:-------:|
-| --<flag_loss> |  string in shell | {mse, rmse, } |
+Example:
+```sh
+    $ python source\train.py -s opsd --rmse
+```
+or
+```sh
+    $ python source\train.py -s opsd --smoothed_quantiles 0.025 0.975
+```
+
+| Parameter | Data Type  |  Value Range | Short Description |
+|:---------:|:-------------:|:-------:|:-------------------:|
+| --< loss > |  string in shell | {mse, mape, rmse, mis, nll_gauss, quantiles, smoothed_quantiles, crps} | Set the loss function for training |
+| --ci |  boolean | True or False | Enables execution mode optimized for GitLab's CI |
+| --logname |  str | " " | Name of the run, displayed in Tensorboard |
 
 ### Tuning Config
 
