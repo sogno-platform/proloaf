@@ -1761,19 +1761,15 @@ class Mis(Metric):
 
         # calculate under estimation penalty
         diff_lower = y_pred_lower - target
-        diff_lower[diff_lower < 0] = 0
-        under_est_penalty_horizon = (2 / alpha) * torch.sum(diff_lower, dim=0)
-        under_est_penalty_sample = (2 / alpha) * torch.sum(diff_lower, dim=1)
+        under_est_penalty = (2 / alpha) * torch.sum(diff_lower[diff_lower > 0], dim=0)
 
         # calculate over estimation penalty
         diff_upper = target - y_pred_upper
-        diff_upper[diff_upper < 0] = 0
-        over_est_penalty_horizon = (2 / alpha) * torch.sum(diff_upper, dim=0)
-        over_est_penalty_sample = (2 / alpha) * torch.sum(diff_upper, dim=1)
+        over_est_penalty = (2 / alpha) * torch.sum(diff_upper[diff_upper > 0], dim=0)
 
         # combine all the penalties
-        mis_horizon = (large_PI_penalty + under_est_penalty_horizon + over_est_penalty_horizon) / target.shape[0]
-        mis_sample = (large_PI_penalty_sample + under_est_penalty_sample + over_est_penalty_sample) / target.shape[1]
+        mis_horizon = (large_PI_penalty + under_est_penalty + over_est_penalty) / target.shape[0]
+        mis_sample = (large_PI_penalty_sample + under_est_penalty + over_est_penalty) / target.shape[1]
         mis_total = torch.sum(mis_horizon) / target.shape[1]
 
         if avg_over == "all":
