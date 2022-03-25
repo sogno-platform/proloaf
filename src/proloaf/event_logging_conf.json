@@ -48,6 +48,10 @@
       "level": "DEBUG",
       "filters": null
     },
+    "baselines": {
+      "level": "DEBUG",
+      "filters": null
+    },
     "preprocess": {
       "level": "DEBUG",
       "filters": null
