@@ -24,7 +24,6 @@ from __future__ import annotations
 from typing import Union, Tuple, Callable, Iterable
 import pandas as pd
 import torch
-from typing import Union, Tuple, Callable, Iterable
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
