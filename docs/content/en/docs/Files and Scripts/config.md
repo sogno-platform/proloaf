@@ -22,7 +22,7 @@ that your working directory is set to the main project path of the cloned
 
 A *new* config file can be generated automatically by using:
 ```sh
-python source\configmaker.py --new targets/<STATION-NAME>/config.json
+python src\configmaker.py --new targets/<STATION-NAME>/config.json
 ```
 or manually.
 
@@ -30,7 +30,7 @@ To *modify* the file, you can change parameters with our helper or apply modific
 When using the helper, your modifications must be set in `configmaker.py`. You can then run:
 
 ```sh
-python source\configmaker.py --mod targets/<STATION-NAME>/config.json
+python src\configmaker.py --mod targets/<STATION-NAME>/config.json
 ```
 
 #### Configuration Loading
@@ -44,11 +44,11 @@ Most of the example scripts in ProLoaF use the config file for training and eval
 as it serves as a central place for parametrization.
 
 At this stage you should have the main config file for your forecasting project: `./targets/<STATION>/config.json`.
-[ProLoaF](https://github.com/sogno-platform/proloaf/tree/master/source/proloaf) comes with basic functions to parse, 
+[ProLoaF](https://github.com/sogno-platform/proloaf/tree/master/src/proloaf) comes with basic functions to parse, 
 edit and store the config file. We make use of this when calling e.g. our example training script: 
 
 ```sh
-$ python source\train.py -s opsd
+$ python src\train.py -s opsd
 ```
 
 The flag ``-s`` allows us to specify the station name (=target directory) through the string that follows, 
@@ -74,7 +74,7 @@ of the forecast. A common non-parametric option is the quantile loss.
 You can apply quantile loss criterion as follows:
 
 ```sh
-    $ python source\train.py -s opsd --quantiles 0.025 0.975
+    $ python src\train.py -s opsd --quantiles 0.025 0.975
 ```
 > Here we have specified the 95% prediction interval, by setting ``q1=0.025`` and ``q2=0.975``.
 
@@ -264,11 +264,11 @@ The following table summarizes the default parameters of the main config file:
 
 Example:
 ```sh
-    $ python source\train.py -s opsd --rmse
+    $ python src\train.py -s opsd --rmse
 ```
 or
 ```sh
-    $ python source\train.py -s opsd --smoothed_quantiles 0.025 0.975
+    $ python src\train.py -s opsd --smoothed_quantiles 0.025 0.975
 ```
 
 | Parameter | Data Type  |  Value Range | Short Description |
