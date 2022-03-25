@@ -144,8 +144,8 @@
         "weekday_6"
     ],
     "max_epochs": 100,
-    "batch_size": 28,
-    "learning_rate": 9.9027931032814e-05,
+    "batch_size": 32,
+    "learning_rate": 9.058952600601419e-05,
     "early_stopping_patience": 7,
     "early_stopping_margin": 0.0,
     "model_class": "recurrent",

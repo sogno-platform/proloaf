@@ -4,6 +4,7 @@ variables:
   DOCKER_IMAGE_PLF: $CI_REGISTRY_IMAGE/${DOCKER_IMAGE_DEV}:${DOCKER_TAG}
   DOCKER_IMAGE_DOCS: $CI_REGISTRY_IMAGE/${DOCKER_IMAGE_DEV}_docs:${DOCKER_TAG}
 
+
 # workflow:
 #     rules:
 #         - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE
@@ -111,11 +112,12 @@ lint_all:
 test_train:
   stage: training
   script:
+    - bash -c "[ $CI_PIPELINE_SOURCE == 'web' ] || [ $CI_PIPELINE_SOURCE == 'api' ] || [ $CI_COMMIT_BRANCH == 'master' ] || python3 ./shell/adjust_config_for_technical_test.py ./targets/${CI_STATION}/config.json"
     - python3 src/train.py -s $CI_STATION
   artifacts:
     when: on_success
     name: proloaf
-    expire_in: 1 hour
+    expire_in: 1 day
     paths:
       - ./oracles/*
       - ./logs/**/*
@@ -136,16 +138,12 @@ test_eval:
   artifacts:
     name: proloaf
     when: on_success
-    expire_in: 1 hour
+    expire_in: 1 day
     paths:
       - ./oracles/**/*
   image: ${DOCKER_IMAGE_PLF}
   tags:
     - docker
-  dependencies:
-    - test_train
-  needs:
-    - test_train
   # only:
   #   variables:
   #     - $CI_PIPELINE_SOURCE == 'push'
