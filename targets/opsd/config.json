@@ -17,7 +17,7 @@
     "validation_split": 0.8,
     "periodicity": 24,
     "optimizer_name": "adam",
-    "exploration": true,
+    "exploration": false,
     "cuda_id": null,
     "feature_groups": [
         {
@@ -143,7 +143,7 @@
         "weekday_5",
         "weekday_6"
     ],
-    "max_epochs": 100,
+    "max_epochs": 50,
     "batch_size": 28,
     "learning_rate": 9.9027931032814e-05,
     "early_stopping_patience": 7,
