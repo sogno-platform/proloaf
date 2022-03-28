@@ -370,8 +370,8 @@ def eval_forecast(
     true_values = torch.tensor(endog_val)
     upper_limits = torch.tensor(upper_limits)
     lower_limits = torch.tensor(lower_limits)
-    print(f"{upper_limits.size() = }")
-    print(f"{true_values.size() = }")
+    #print(f"{upper_limits.size() = }")
+    #print(f"{true_values.size() = }")
 
     quantile_predictions = metrics.QuantilePrediction(
         torch.stack([forecasts, upper_limits, lower_limits], dim=2),
@@ -397,6 +397,7 @@ def eval_forecast(
         ts_length = len(results_ts[metric.id])
 
     df_results = pd.DataFrame(results_ts, index=range(ts_length))
+    df_sample = pd.DataFrame(results_samp)
 
     # plot forecast for sample time steps
     # the first and 24th timestep relative to the start of the Test-Dataset
@@ -406,14 +407,14 @@ def eval_forecast(
             true_values[i].detach().numpy(),
             forecasts[i].detach().numpy(),
             upper_limits[i].detach().numpy(),
-            upper_limits[i].detach().numpy(),
+            lower_limits[i].detach().numpy(),
             i,
             path + model_name,
             config["cap_limit"],
         )
     # BOXPLOTS
     plot.plot_boxplot(
-        df_results,
+        df_sample.filter(['Mse', 'Rmse']),
         sample_frequency=24,
         save_to=path + model_name,
     )
@@ -672,7 +673,7 @@ def GARCH_predictioninterval(
         )
         res = model_garch.fit(update_freq=20)
         forecast = model_garch.forecast(
-            res.params, horizon=forecast_horizon
+            res.params, horizon=forecast_horizon, reindex=True
         )  # , start=endog_train.index[-1]
         # TODO: checkout that mean[0] might be NAN because it starts at start -2
         # TODO: could try to use the previously calculated sarimax mean forecast instead...
@@ -1088,6 +1089,7 @@ def exp_smoothing(
         trend="add",
         damped_trend=True,
         seasonal="add",
+        seasonal_periods=7*24,
         dates=y_train.index,
     )
     fit = model.fit()
@@ -1103,6 +1105,7 @@ def exp_smoothing(
                 trend="add",
                 damped_trend=True,
                 seasonal="add",
+                seasonal_periods=7 * 24,
                 dates=y_train_i.index,
             )
             fit = model.fit()

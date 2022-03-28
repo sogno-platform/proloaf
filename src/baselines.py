@@ -375,11 +375,11 @@ def main(infile, target_id):
                 ets_y_pred_upper,
                 ets_y_pred_lower,
             ) = baselines.exp_smoothing(
-                train, test, PAR["forecast_horizon"], limit_steps=NUM_PRED, online=True
+                train, test, PAR["forecast_horizon"], limit_steps=PAR['history_horizon']+NUM_PRED, online=True
             )
-            mean_forecast.append(ets_expected_values)
-            upper_PI.append(ets_y_pred_upper)
-            lower_PI.append(ets_y_pred_lower)
+            mean_forecast.append(ets_expected_values[PAR['history_horizon']:])
+            upper_PI.append(ets_y_pred_upper[PAR['history_horizon']:])
+            lower_PI.append(ets_y_pred_lower[PAR['history_horizon']:])
             baseline_method.append("ets")
 
         # GARCH
@@ -485,54 +485,26 @@ def main(infile, target_id):
                 continue
             print(f"{mean = }")
             print(f"{y_val_1D = }")
-            if len(mean) - PAR["forecast_horizon"] == len(y_val_1D):
-                (
-                    results[baseline_method[i]],
-                    results_per_timestep[baseline_method[i]],
-                    results_per_sample[i],
-                    true_values[i],
-                    forecasts[i],
-                    upper_limits[i],
-                    lower_limits[i],
-                ) = baselines.eval_forecast(
-                    config=PAR,
-                    forecasts=mean[
-                        PAR["forecast_horizon"] : PAR["forecast_horizon"] + NUM_PRED
-                    ],
-                    endog_val=y_val_1D[:NUM_PRED, :],
-                    upper_limits=upper_PI[i][
-                        PAR["forecast_horizon"] : PAR["forecast_horizon"] + NUM_PRED, :
-                    ],
-                    lower_limits=lower_PI[i][
-                        PAR["forecast_horizon"] : PAR["forecast_horizon"] + NUM_PRED, :
-                    ],
-                    path=OUTDIR,
-                    model_name="test" + baseline_method[i],
-                    analyzed_metrics_avg=analyzed_metrics_avg,
-                    analyzed_metrics_sample=analyzed_metrics_sample,
-                    analyzed_metrics_timesteps=analyzed_metrics_ts,
-                )
-            else:
-                (
-                    results[baseline_method[i]],
-                    results_per_timestep[baseline_method[i]],
-                    results_per_sample[i],
-                    true_values[i],
-                    forecasts[i],
-                    upper_limits[i],
-                    lower_limits[i],
-                ) = baselines.eval_forecast(
-                    config=PAR,
-                    forecasts=mean[:NUM_PRED],
-                    endog_val=y_val_1D[:NUM_PRED, :],
-                    upper_limits=upper_PI[i][:NUM_PRED],
-                    lower_limits=lower_PI[i][:NUM_PRED],
-                    path=OUTDIR,
-                    model_name="test" + baseline_method[i],
-                    analyzed_metrics_avg=analyzed_metrics_avg,
-                    analyzed_metrics_sample=analyzed_metrics_sample,
-                    analyzed_metrics_timesteps=analyzed_metrics_ts,
-                )
+            (
+                results[baseline_method[i]],
+                results_per_timestep[baseline_method[i]],
+                results_per_sample[i],
+                true_values[i],
+                forecasts[i],
+                upper_limits[i],
+                lower_limits[i],
+            ) = baselines.eval_forecast(
+                config=PAR,
+                forecasts=mean[:NUM_PRED],
+                endog_val=y_val_1D[:NUM_PRED, :],
+                upper_limits=upper_PI[i][:NUM_PRED],
+                lower_limits=lower_PI[i][:NUM_PRED],
+                path=OUTDIR,
+                model_name="test" + baseline_method[i],
+                analyzed_metrics_avg=analyzed_metrics_avg,
+                analyzed_metrics_sample=analyzed_metrics_sample,
+                analyzed_metrics_timesteps=analyzed_metrics_ts,
+            )
         results_per_timestep_per_baseline = pd.concat(
             results_per_timestep.values(), keys=results_per_timestep.keys(), axis=1
         )
@@ -582,12 +554,12 @@ if __name__ == "__main__":
     OUTDIR = os.path.join(MAIN_PATH, PAR["evaluation_path"])
     SCALE_DATA = True
     LIMIT_HISTORY = 300
-    NUM_PRED = 365
+    NUM_PRED = 2
     SLIDING_WINDOW = 24
     CALC_BASELINES = [
         "simple-naive",
-        "seasonal-naive",
-        #"ets",
+        #"seasonal-naive",
+        "ets",
         #"garch",
         "naive-stl",
         #"arima",

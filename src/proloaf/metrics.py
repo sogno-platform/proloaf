@@ -1060,10 +1060,10 @@ class Mse(Metric):
         target: torch.Tensor
             Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
         quantile_prediction: QuantilePrediction
-            A prediction for several quantiles. Has to contain atleast the median prediction.
+            A prediction for several quantiles. Has to contain at least the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "all", averages the the results over the corresponding axis.
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval.
             If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
