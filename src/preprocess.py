@@ -32,18 +32,15 @@ accomplish the same thing.
 """
 
 import pandas as pd
-import numpy as np
 import sys
-import json
 import os
+import proloaf.datahandler as dh
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
 from proloaf.confighandler import read_config
 from proloaf.cli import parse_basic
-
-import proloaf.datahandler as dh
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger('preprocess')
@@ -55,7 +52,7 @@ if __name__ == "__main__":
     PAR = read_config(config_path=config_file)
 
     # DEFINES
-    if PAR["local"] == True:
+    if PAR["local"]:
         INPATH = os.path.join(MAIN_PATH, PAR["raw_path"])
     else:
         INPATH = PAR["raw_path"]
