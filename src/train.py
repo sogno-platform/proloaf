@@ -197,7 +197,6 @@ if __name__ == "__main__":
     main(
         infile=os.path.join(MAIN_PATH, PAR["data_path"]),
         config=PAR,
-        # log_path=os.path.join(MAIN_PATH, PAR["log_path"]),
         device=DEVICE,
         work_dir=MAIN_PATH,
         loss=ARGS.loss,

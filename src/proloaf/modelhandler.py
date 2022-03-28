@@ -1262,7 +1262,7 @@ class TrainingRun:
         self.training_loss = np.inf
 
     def step(self):
-        """Perform optimization of a single run thorugh all batches."""
+        """Perform optimization of a single run through all batches."""
         self.training_loss = 0.0
 
         self.model.train()
