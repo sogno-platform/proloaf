@@ -558,14 +558,14 @@ if __name__ == "__main__":
     SLIDING_WINDOW = 24
     CALC_BASELINES = [
         "simple-naive",
-        #"seasonal-naive",
+        "seasonal-naive",
         "ets",
-        #"garch",
+        "garch",
         "naive-stl",
-        #"arima",
-        #"arimax",
-        #"sarima",
-        #"sarimax",
+        "arima",
+        "arimax",
+        "sarima",
+        "sarimax",
     ]
     DAY_FIRST = True
     ORDER = (3, 1, 0)
