@@ -28,11 +28,7 @@
                 1.0
             ],
             "features": [
-                "AT_load_actual_entsoe_transparency",
                 "DE_load_actual_entsoe_transparency",
-                "AT_temperature",
-                "AT_radiation_direct_horizontal",
-                "AT_radiation_diffuse_horizontal",
                 "DE_temperature",
                 "DE_radiation_direct_horizontal",
                 "DE_radiation_diffuse_horizontal"
@@ -92,7 +88,6 @@
         }
     ],
     "encoder_features": [
-        "AT_load_actual_entsoe_transparency",
         "DE_load_actual_entsoe_transparency",
         "DE_temperature",
         "DE_radiation_direct_horizontal",
@@ -141,7 +136,10 @@
         "weekday_3",
         "weekday_4",
         "weekday_5",
-        "weekday_6"
+        "weekday_6",
+        "hour_sin",
+        "weekday_sin",
+        "mnth_sin"
     ],
     "max_epochs": 50,
     "batch_size": 28,
@@ -161,7 +159,7 @@
         },
         "simple_transformer": {
             "num_layers": 3,
-            "dropout": 0.0,
+            "dropout": 0.4,
             "n_heads": 6
         }
     }
