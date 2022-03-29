@@ -142,7 +142,7 @@
         "mnth_sin"
     ],
     "max_epochs": 50,
-    "batch_size": 28,
+    "batch_size": 32,
     "learning_rate": 9.9027931032814e-05,
     "early_stopping_patience": 7,
     "early_stopping_margin": 0.0,
