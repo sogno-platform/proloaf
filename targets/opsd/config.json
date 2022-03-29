@@ -88,6 +88,7 @@
         }
     ],
     "encoder_features": [
+        "AT_load_actual_entsoe_transparency",
         "DE_load_actual_entsoe_transparency",
         "DE_temperature",
         "DE_radiation_direct_horizontal",
