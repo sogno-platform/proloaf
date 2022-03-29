@@ -141,6 +141,8 @@ test_eval:
     expire_in: 1 day
     paths:
       - ./oracles/**/*
+    exclude:
+      - ./oracles/*.pkl
   image: ${DOCKER_IMAGE_PLF}
   tags:
     - docker
