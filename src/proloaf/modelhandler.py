@@ -1146,8 +1146,6 @@ class TrainingRun:
         id: Union[str, int] = None,
         device: str = "cpu",
         log_tb: torch.utils.tensorboard.SummaryWriter = None,
-        batch_size=1,
-        history_horizon=1,
     ):
         if id is None:
             self.id = TrainingRun._next_id
