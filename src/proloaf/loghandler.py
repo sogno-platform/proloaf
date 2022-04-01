@@ -185,7 +185,8 @@ def end_tensorboard(
     if params:
         key = "model_parameters"
         hparams = params.pop(key, None)
-        model_type = params["model_class"]
+        model_type = params.get("model_class",next(iter(hparams.keys())))
+
         if hparams:
             params.update(hparams[model_type])
 
