@@ -693,7 +693,13 @@ class ModelHandler:
 
         trial = study.best_trial
         logger.info(
-            "Best trial:\n", " Value: {!s}\n".format(trial.value), " Params: \n"
+            "Best trial"
+        )
+        logger.info(
+            " Value: {!s}\n".format(trial.value)
+        )
+        logger.info(
+            "Params:"
         )
         for key, value in trial.params.items():
             logger.info("    {}: {}".format(key, value))
