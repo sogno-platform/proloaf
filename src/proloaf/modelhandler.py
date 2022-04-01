@@ -860,7 +860,7 @@ class ModelHandler:
         self,
         train_data: proloaf.tensorloader.TimeSeriesData,
         validation_data: proloaf.tensorloader.TimeSeriesData,
-        exploration: bool = False,
+        exploration: bool = None,
     ):
         """
         Train a prediciton model with or without hyperparameter tuning
