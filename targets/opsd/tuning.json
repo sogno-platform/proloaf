@@ -118,9 +118,5 @@
                 }
             }
         }
-    },
-    "model_parameters": {
-        "recurrent": {}
-    },
-    "model_class": "recurrent"
+    }
 }
