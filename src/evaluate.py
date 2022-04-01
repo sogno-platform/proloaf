@@ -93,8 +93,6 @@ if __name__ == "__main__":
     with torch.no_grad():
         net = mh.ModelHandler.load_model(f"{INMODEL}.pkl", locate='cpu')
         net.to(DEVICE)
-        df_new, _ = dh.scale_all(df, scalers=net.scalers, **PAR)
-        df_new.index = df.index
 
         train_df, test_df = dh.split(df, [SPLIT_RATIO])
 
@@ -191,10 +189,10 @@ if __name__ == "__main__":
         # plot forecast for sample time steps
         # the first and 24th timestep relative to the start of the Test-Dataset
         testhours = [0, 24]
-        df["Time"]=df.index
-        #actual_time = pd.to_datetime(
+        df["Time"] = df.index
+        # actual_time = pd.to_datetime(
         #    df.iloc[PAR["history_horizon"] + split_index:].index
-        #)
+        # )
         actual_time = pd.Series(pd.to_datetime(df.index), index=df.index, dtype=object)
         for i in testhours:
             inputs_enc, inputs_dec, targets = test_data[i]

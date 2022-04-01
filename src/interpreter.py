@@ -31,7 +31,6 @@ from time import perf_counter
 
 
 
-
 def create_reference(dataset: tl.TimeSeriesData, timestep, batch_size):
     """
     Creates the references for the saliency map optimization process.

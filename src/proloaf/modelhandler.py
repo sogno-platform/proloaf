@@ -557,7 +557,6 @@ class ModelHandler:
             if work_dir is not None
             else os.path.dirname(os.path.abspath(sys.argv[0]))
         )
-
         self.config = deepcopy(config)
         self.tuning_config = deepcopy(tuning_config)
 
