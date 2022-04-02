@@ -38,7 +38,7 @@ if __name__ == '__main__':
     with open(config_path, 'r') as input:
         main_config = json.load(input)
     tuning_path = main_config.get("exploration_path")
-    main_config["max_epochs"] = 5
+    main_config["max_epochs"] = 2
     tuning_config = None
     if tuning_path:
         try:
