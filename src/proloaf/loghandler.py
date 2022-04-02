@@ -185,9 +185,9 @@ def end_tensorboard(
     if params:
         key = "model_parameters"
         hparams = params.pop(key, None)
-        model_type = params.get("model_class",next(iter(hparams.keys())))
 
         if hparams:
+            model_type = params.get("model_class",next(iter(hparams.keys())))
             params.update(hparams[model_type])
 
         tb.add_hparams(params, metric_dict)
