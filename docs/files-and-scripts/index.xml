@@ -44,7 +44,7 @@ If your data does not match the criteria, you can use a custom script that saves
 &lt;li>data path as defined in the used config.json&lt;/li>
 &lt;/ul>
 &lt;h3 id="reference-documentation">Reference Documentation&lt;/h3>
-&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/source/preprocess.html">docs&lt;/a> for
+&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/src/preprocess.html">docs&lt;/a> for
 this script.&lt;/p></description></item><item><title>Docs: train.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_train/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_train/</guid><description>
 &lt;h3 id="overview">Overview&lt;/h3>
 &lt;p>This script trains an RNN model on previously prepared data, which is loaded into a pandas Dataframe from a csv file.
@@ -129,16 +129,69 @@ optimizer_name, cuda_id&lt;/p>
 &lt;h3 id="inputs">Inputs&lt;/h3>
 &lt;p>One of the following:&lt;/p>
 &lt;ul>
-&lt;li>./data/gefcom2017/&amp;laquo;station&amp;raquo;_data.csv&lt;/li>
+&lt;li>./data/opsd.csv&lt;/li>
 &lt;li>./data/&amp;laquo;user_provided_data&amp;raquo;.csv&lt;/li>
+&lt;li>./data/gefcom2017/&amp;laquo;station&amp;raquo;_data.csv (data not available as of March 2022, but present in earlier versions&lt;/li>
 &lt;/ul>
 &lt;h3 id="outputs">Outputs&lt;/h3>
 &lt;ul>
 &lt;li>./oracles/model_station&lt;/li>
 &lt;/ul>
 &lt;h3 id="reference-documentation">Reference Documentation&lt;/h3>
-&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/source/train.html">docs&lt;/a> for
-this script.&lt;/p></description></item><item><title>Docs: evaluate.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_evaluate/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_evaluate/</guid><description>
+&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/src/train.html">docs&lt;/a> for
+this script.&lt;/p></description></item><item><title>Docs: interpreter.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/interpreter/</link><pubDate>Wed, 16 Feb 2022 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/interpreter/</guid><description>
+&lt;h3 id="overview">Overview&lt;/h3>
+&lt;p>This script evaluates a trained neural network on its salient features regarding the time and feature dimension and creates a saliency heatmap.
+The neural network should be trained beforehand.&lt;/p>
+&lt;h3 id="inputs">Inputs&lt;/h3>
+&lt;ul>
+&lt;li>./data/&amp;lt;path_to_data_csv&amp;gt;.csv&lt;/li>
+&lt;li>./oracles/model_station&lt;/li>
+&lt;/ul>
+&lt;h3 id="outputs">Outputs&lt;/h3>
+&lt;h1 id="plots-tensors-and-metrics-in-structures-table">Plots, tensors and metrics in structures table&lt;/h1>
+&lt;ul>
+&lt;li>./oracles/interpretation/&amp;lt;name_of_evaluation_folder&amp;gt;/&lt;/li>
+&lt;/ul>
+&lt;h3 id="example-output-files">Example Output Files&lt;/h3>
+&lt;p>The output consists of the most salient features visualized in the form of saliency maps split up into multiple .png images together with a csv file on the metrics and the model&amp;rsquo;s output tensors.
+&lt;img src="https://sogno.github.io/proloaf/img/heatmap_HL_base.png" alt="Basic Saliency Map" title="Basic Saliency Map">&lt;em>Basic saliency map with 7 days long recent history horizon input (predictor variable load, and hour of the day) in the encoder and one day prediction. Decoder inputs are sinus and cosinus encoding of the hour of the day.&lt;/em>&lt;/p>
+&lt;p>&lt;img src="https://sogno.github.io/proloaf/img/heatmap_HL_plus_zoomed.png" alt="Larger Saliency Study" title="Larger Saliency Study">&lt;em>Saliency map showing the importance of features per timestep tp maintain the trained loss.&lt;/em>&lt;/p>
+&lt;h3 id="step-by-step-guide-what-the-interpreter-does">Step-by-step guide what the interpreter does:&lt;/h3>
+&lt;h4 id="step-1-preparations">Step 1: Preparations&lt;/h4>
+&lt;p>Select and download the data on which you want to train a neural network on and put it in the data folder.
+Make a new folder in the targets folder and put a &lt;code>config.json&lt;/code> and tuning.json file within.
+There you can set all the relevant paths and parameters.
+Now train the neural network on the data by using the fc_train function.
+The resulting net will be saved in the oracles folder&lt;/p>
+&lt;p>Now in &lt;code>__main__&lt;/code> function of the &lt;code>interpreter.py&lt;/code> the following setting need to be made:&lt;/p>
+&lt;ul>
+&lt;li>set the &lt;code>MAX_BATCH_SIZE&lt;/code> to the number of references to use for each feature (recommended: At least 10)&lt;/li>
+&lt;li>set &lt;code>MAX_EPOCHS&lt;/code> to the number of epochs of the saliency map optimization process (recommended: At least a few thousand)&lt;/li>
+&lt;li>set &lt;code>N_TRIALS&lt;/code> to the number of hyperparameter search trials to run (recommended: at least 30)&lt;/li>
+&lt;li>set &lt;code>MODEL_NAME&lt;/code> to the name of the folder in the targets folder created before&lt;/li>
+&lt;li>set &lt;code>SEP&lt;/code> to the column seperation sign used in the data file (eg. &amp;ldquo;;&amp;rdquo; or &amp;ldquo;,&amp;quot;)&lt;/li>
+&lt;li>set &lt;code>timesteps&lt;/code> to any number of timesteps to interpret (e.g [1,2,3])
+&lt;blockquote>
+&lt;p>beware that the timestep indicates the beginning of the history horizon, not the forecast horizon.
+Also the timestep should be identical to the one of the internal dataloader not the datasheet file in the data folder&lt;/p>
+&lt;/blockquote>
+&lt;/li>
+&lt;/ul>
+&lt;h4 id="step-2-run-the-function">Step 2: Run the Function&lt;/h4>
+&lt;p>Now run the &lt;code>interpreter.py&lt;/code> script.
+The function will now read in all the parameters it needs from the &lt;code>config.json&lt;/code> file.
+The trained net will be loaded and the saliency map is calculated for each timestep.
+During the hyperparameter search some tensor will be saved to the oracles/interpretation/Tensors folder
+and the Tensors of the best performing saliency map are loaded again automatically after the process for plotting purposes.&lt;/p>
+&lt;h4 id="step-3-looking-at-the-results">Step 3: Looking at the Results&lt;/h4>
+&lt;p>After the &lt;code>interpreter.py&lt;/code> script has finished several plots can be found in the oracles/interpretation/plots/&amp;lt;model name&amp;gt; folder:&lt;/p>
+&lt;ul>
+&lt;li>plot of the saliency map&lt;/li>
+&lt;li>the corresponding input feature plots&lt;/li>
+&lt;li>a plot with the target values, the original predictions and the perturbated predictions&lt;/li>
+&lt;/ul>
+&lt;p>The numbers in the plot names refer to the timestep of the plot&lt;/p></description></item><item><title>Docs: evaluate.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_evaluate/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_evaluate/</guid><description>
 &lt;h3 id="overview">Overview&lt;/h3>
 &lt;p>This script runs the trained net on test data and evaluates the result. It provides several graphs as outputs that show the performance of the trained model.
 The output path can be changed under the the &lt;code>&amp;quot;evaluation_path&amp;quot;: &lt;/code> option in the corresponding config file.&lt;/p>
@@ -158,7 +211,7 @@ The output path can be changed under the the &lt;code>&amp;quot;evaluation_path&
 &lt;h3 id="summarized-description-of-performance-metrics">Summarized Description of Performance Metrics&lt;/h3>
 &lt;p>If you need more details on which deterministic and probabilistic metrics we take to quantify if the produced forecast is considered &amp;ldquo;good&amp;rdquo; or &amp;ldquo;bad&amp;rdquo;, please take a look at the &lt;a href="https://sogno.github.io/proloaf/https://github.com/sogno-platform/proloaf/blob/master/notebooks/A%20User%20Guide%20on%20the%20ProLoaF%20Forecast%20Performance%20Metrics.ipynb">Tutorial Notebook&lt;/a>.&lt;/p>
 &lt;h3 id="reference-documentation">Reference Documentation&lt;/h3>
-&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/source/evaluate.html">docs&lt;/a> for
+&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/src/evaluate.html">docs&lt;/a> for
 this script.&lt;/p></description></item><item><title>Docs: config.json</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/config/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/config/</guid><description>
 &lt;h3 id="configuration">Configuration&lt;/h3>
 &lt;h4 id="main-config">Main Config&lt;/h4>
@@ -170,28 +223,28 @@ that your working directory is set to the main project path of the cloned
 &lt;a href="https://github.com/sogno-platform/proloaf">repository&lt;/a>.&lt;/p>
 &lt;h4 id="generating-a-configuration-file">Generating a Configuration File&lt;/h4>
 &lt;p>A &lt;em>new&lt;/em> config file can be generated automatically by using:&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">python source&lt;span style="color:#4e9a06">\c&lt;/span>onfigmaker.py --new targets/&amp;lt;STATION-NAME&amp;gt;/config.json
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">python src&lt;span style="color:#4e9a06">\c&lt;/span>onfigmaker.py --new targets/&amp;lt;STATION-NAME&amp;gt;/config.json
 &lt;/code>&lt;/pre>&lt;/div>&lt;p>or manually.&lt;/p>
 &lt;p>To &lt;em>modify&lt;/em> the file, you can change parameters with our helper or apply modifications manually.
 When using the helper, your modifications must be set in &lt;code>configmaker.py&lt;/code>. You can then run:&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">python source&lt;span style="color:#4e9a06">\c&lt;/span>onfigmaker.py --mod targets/&amp;lt;STATION-NAME&amp;gt;/config.json
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">python src&lt;span style="color:#4e9a06">\c&lt;/span>onfigmaker.py --mod targets/&amp;lt;STATION-NAME&amp;gt;/config.json
 &lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="configuration-loading">Configuration Loading&lt;/h4>
 &lt;p>The default location of the main configuration file is &lt;code>./targets/&lt;/code> or better &lt;code>./targets/&amp;lt;STATION&amp;gt;&lt;/code>.
 The best practice is to generate sub-directories for each forecasting exercise, i.e. a new &lt;em>station&lt;/em>.
 As the project originated from electrical load forecasting on substation-level,
-the term &lt;em>station&lt;/em> or &lt;em>target-station&lt;/em> is used to refer to the city or substation identifier
+the term &lt;em>station&lt;/em> or &lt;em>target-station&lt;/em> is used to refer to the location or substation identifier
 from which the measurement data is originating.&lt;br>
 Most of the example scripts in ProLoaF use the config file for training and evaluation,
 as it serves as a central place for parametrization.&lt;/p>
 &lt;p>At this stage you should have the main config file for your forecasting project: &lt;code>./targets/&amp;lt;STATION&amp;gt;/config.json&lt;/code>.
-&lt;a href="https://git.rwth-aachen.de/acs/public/automation/plf/plf-util">plf-util&lt;/a> comes with basic functions to parse,
+&lt;a href="https://github.com/sogno-platform/proloaf/tree/master/src/proloaf">ProLoaF&lt;/a> comes with basic functions to parse,
 edit and store the config file. We make use of this when calling e.g. our example training script:&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">$ python source&lt;span style="color:#4e9a06">\f&lt;/span>c_train.py -s gefcom2017/nh_data
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">$ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd
 &lt;/code>&lt;/pre>&lt;/div>&lt;p>The flag &lt;code>-s&lt;/code> allows us to specify the station name (=target directory) through the string that follows,
-i.e. &lt;em>gefcom2017/nh_data&lt;/em>. The &amp;lsquo;train&amp;rsquo; script will expect and parse the config.json given in the target directory.&lt;/p>
+i.e. &lt;em>opsd&lt;/em>. The &amp;lsquo;train&amp;rsquo; script will expect and parse the config.json given in the target directory.&lt;/p>
 &lt;!---
 ```sh
-from utils.cli import read_config, parse_with_loss
+from proloaf.cli import read_config, parse_with_loss
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 ARGS, LOSS_OPTIONS = parse_with_loss()
@@ -208,7 +261,7 @@ This so-called loss criterion can be changed to any metric that quantifies the (
 of the forecast. A common non-parametric option is the quantile loss.
 You can apply quantile loss criterion as follows:&lt;/p>
 &lt;/blockquote>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh"> $ python source&lt;span style="color:#4e9a06">\f&lt;/span>c_train.py -s gefcom2017/nh_data --quantiles 0.025 0.975
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh"> $ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd --quantiles 0.025 0.975
 &lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
 &lt;p>Here we have specified the 95% prediction interval, by setting &lt;code>q1=0.025&lt;/code> and &lt;code>q2=0.975&lt;/code>.&lt;/p>
 &lt;/blockquote>
@@ -396,19 +449,37 @@ different location on the machine.&lt;/p>
 &lt;/tbody>
 &lt;/table>
 &lt;p>&lt;strong>Shell Params Upon Script Execution&lt;/strong>&lt;/p>
-&lt;table>
+&lt;p>Example:&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh"> $ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd --rmse
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>or&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh"> $ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd --smoothed_quantiles 0.025 0.975
+&lt;/code>&lt;/pre>&lt;/div>&lt;table>
 &lt;thead>
 &lt;tr>
 &lt;th align="center">Parameter&lt;/th>
 &lt;th align="center">Data Type&lt;/th>
 &lt;th align="center">Value Range&lt;/th>
+&lt;th align="center">Short Description&lt;/th>
 &lt;/tr>
 &lt;/thead>
 &lt;tbody>
 &lt;tr>
-&lt;td align="center">&amp;ndash;&amp;lt;flag_loss&amp;gt;&lt;/td>
+&lt;td align="center">&amp;ndash;&amp;lt; loss &amp;gt;&lt;/td>
 &lt;td align="center">string in shell&lt;/td>
-&lt;td align="center">{mse, rmse, }&lt;/td>
+&lt;td align="center">{mse, mape, rmse, mis, nll_gauss, quantiles, smoothed_quantiles, crps}&lt;/td>
+&lt;td align="center">Set the loss function for training&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td align="center">&amp;ndash;ci&lt;/td>
+&lt;td align="center">boolean&lt;/td>
+&lt;td align="center">True or False&lt;/td>
+&lt;td align="center">Enables execution mode optimized for GitLab&amp;rsquo;s CI&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td align="center">&amp;ndash;logname&lt;/td>
+&lt;td align="center">str&lt;/td>
+&lt;td align="center">&amp;quot; &amp;quot;&lt;/td>
+&lt;td align="center">Name of the run, displayed in Tensorboard&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
@@ -438,4 +509,5 @@ data should be logged, a &lt;code>log.json&lt;/code> of following structure is u
 &lt;/code>&lt;/pre>&lt;p>Install Tensorboard and run the Tensorboard command-line interface as described &lt;a href="https://pytorch.org/tutorials/recipes/recipes/tensorboard_with_pytorch.html">here&lt;/a>. The default directory that runs get saved in is the &lt;code>runs/&lt;/code> directory.
 To display runs in Tensorboard, use &lt;code>tensorboard --logdir=runs&lt;/code>, then open a browser and navigate to &lt;a href="127.0.0.1:6006">127.0.0.1:6006&lt;/a>&lt;/p>
 &lt;h3 id="preprocessing-config">Preprocessing Config&lt;/h3></description></item><item><title>Docs: baselines.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/baselines/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/baselines/</guid><description>
-&lt;p>page under construction&lt;/p></description></item></channel></rss>
+&lt;p>Checkout the baselines benchmark notebook for further reading on the baseline models that are implemented in ProLoaF to benchmark the model.&lt;/p>
+&lt;p>Here: &lt;a href="https://github.com/sogno-platform/proloaf/tree/master/notebooks">Tutorial Notebooks&lt;/a>&lt;/p></description></item></channel></rss>
