@@ -7,4 +7,7 @@ description: >
   Train and compare your forecast with most common stats based models
 ---
 
-page under construction
+Checkout the baselines benchmark notebook for further reading on the baseline models that are implemented in ProLoaF to benchmark the model.
+ 
+
+Here: [Tutorial Notebooks](https://github.com/sogno-platform/proloaf/tree/master/notebooks)

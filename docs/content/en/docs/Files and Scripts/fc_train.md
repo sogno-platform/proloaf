@@ -93,5 +93,5 @@ One of the following:
 * ./oracles/model_station
 
 ### Reference Documentation
-If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/train.html" >}}) for 
+If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/src/train.html" >}}) for 
 this script.

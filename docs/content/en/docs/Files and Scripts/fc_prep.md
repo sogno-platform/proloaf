@@ -44,5 +44,5 @@ The prep config defines 4 parameters:
 * data path as defined in the used config.json
 
 ### Reference Documentation
-If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/source/preprocess.html" >}}) for 
+If you need more details, please take a look at the [docs]({{< resource url="reference/proloaf/proloaf/src/preprocess.html" >}}) for 
 this script.

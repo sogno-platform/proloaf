@@ -28,7 +28,7 @@ ProLoaF comes with the following scripts as entry points
 
 * Specify all required and desired settings and values in [config.json]({{< resource url="docs/files-and-scripts/config/" >}}) in the targets/ folder
 
-* Train a model using `python3 ./source/train.py -s <path_to_config_in_targets_folder>`
+* Train a model using `python3 ./src/train.py -s <path_to_config_in_targets_folder>`
 
 * Evaluate the model using evaluate.py in the same fashion.
 

@@ -38,9 +38,9 @@ This project contains 3 scripts that can be used in conjunction with one another
 
 * All scripts are located in the source folder.
 * To start one of the scripts use 'Python3 script.py argument', where the argument is either the name of a station (-s) (e.g. 'opsd') or the path (-c) of the corresponding config file located in the model_ folders.
-* To prepare load and weather data from selected stations run ./source/preprocess.py
-* To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./source/train.py
-* To analyze the performance of the forecast: ./source/evaluate.py
+* To prepare load and weather data from selected stations run ./src/preprocess.py
+* To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./src/train.py
+* To analyze the performance of the forecast: ./src/evaluate.py
 
 ## Config
 * The scripts use a config.json file located in the targets/ folder. This file is used to give further information and settings needed to train a model.
