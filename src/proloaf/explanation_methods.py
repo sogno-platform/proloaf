@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 import torch
 import numpy as np
@@ -26,6 +28,14 @@ from time import perf_counter
 
 logger = create_event_logger(__name__)
 
+# todo create config file for global config
+INTERPRETATION_PATH = os.path.join(MAIN_PATH, './oracles/interpretation/')
+if not os.path.exists(INTERPRETATION_PATH):
+    os.mkdir(INTERPRETATION_PATH)
+REF_BATCH_SIZE = 10
+MAX_EPOCHS = 1 # 10000
+N_TRIALS = 1 # 50  # hyperparameter tuning trials
+CRITERION = metrics.Rmse()  # loss function criterion
 
 class SaliencyMap:
 
@@ -33,11 +43,10 @@ class SaliencyMap:
             self,
             target: str,
             datetime: pd.DatetimeIndex,
-            ref_batch_size=10,
-            device='cpu',
+            ref_batch_size=REF_BATCH_SIZE,
             sep=';'
     ):
-        logger.debug('reading config...')
+        logger.info('reading model config...')
         config_path = './targets/' + target + '/config.json'
         model_config = ch.read_config(
             config_path=os.path.join(MAIN_PATH, config_path),
@@ -49,14 +58,29 @@ class SaliencyMap:
             main_path=MAIN_PATH,
         )
         # import data
-        logger.debug('importing data...')
+        logger.info('importing data...')
         df = pd.read_csv(os.path.join(MAIN_PATH, model_config["data_path"]), sep=sep)
         #time_column = df.loc[:, "Time"]
+
+        # setting device
+        logger.info('setting computation device...')
+        cuda_id = model_config["cuda_id"]  # todo read cuda_id from interpreter config
+        if torch.cuda.is_available():
+            self._device = 'cuda'
+            if cuda_id is not None:
+                torch.cuda.set_device(cuda_id)
+            logger.debug('Device: {}'.format(self._device))
+            logger.debug('Current CUDA ID: {}'.format(torch.cuda.current_device()))
+
+        else:
+            self._device = 'cpu'
+            logger.debug('Device: {}'.format(self._device))
 
         # get scaler
         scaler = dh.MultiScaler(model_config["feature_groups"])
 
-        # todo: preperation steps needed?
+        # create timeseries dataset
+        logger.info('preparing the dataset...')
         self._dataset = tl.TimeSeriesData(
             df,
             preparation_steps=[
@@ -67,20 +91,21 @@ class SaliencyMap:
                 scaler.fit_transform,
                 dh.check_continuity,
             ],
-            device=device,
+            device=self._device,
             **model_config
         )
 
-        # load the trained forecasting NN model
-        logger.debug('loading forecasting model...')
+        # create modelhandler
+        logger.debug('preparing the modelhandler...')
 
         self._modelhandler = mh.ModelHandler(
             work_dir=MAIN_PATH,
             config=model_config,
             tuning_config=model_tuning_config,
-            device=device,
+            device=self._device,
         )
 
+        #initialize saliency map
         logger.debug('initializing saliency map...')
         history_horizon = self._modelhandler.model_wrap.history_horizon
         forecasting_horizon = self._modelhandler.model_wrap.forecast_horizon
@@ -91,8 +116,8 @@ class SaliencyMap:
         logger.debug('number of decoder features: {}'.format(num_decoder_features))
 
         self._saliency_map = (
-            torch.zeros(history_horizon, num_encoder_features, requires_grad=True, device=device),
-            torch.zeros(forecasting_horizon, num_decoder_features, requires_grad=True, device=device)
+            torch.zeros(history_horizon, num_encoder_features, requires_grad=True, device=self._device),
+            torch.zeros(forecasting_horizon, num_decoder_features, requires_grad=True, device=self._device)
         )
 
         assert isinstance(datetime, pd.Timestamp)
@@ -109,7 +134,10 @@ class SaliencyMap:
                 )
 
         self._ref_batch_size = ref_batch_size
-        self._device = device
+
+        self._path = os.path.join(INTERPRETATION_PATH, target + '/')
+        if not os.path.exists(self._path):
+            os.mkdir(self._path)
 
     def _get_timestep(self):
         try:
@@ -191,7 +219,152 @@ class SaliencyMap:
     #__create_references = _create_references()
 
     def optimize(self):
-        pass
+
+        # todo rewrite function to automatically compute list of timestamps
+        #  without having to reload the model every time
+
+        def objective(trial):
+            """
+            Ojective function for the optuna optimizer, used for hyperparameter optimization.
+            The learning rate and mask initialization value are subject to hyperparameter optimization.
+            For each trial the objection function finds the saliency map with gradient descent,
+            by updating the saliency map parameters according to the calculated loss.
+            Stop counters help to speed up the process, by ending the trial, if the loss doesn't decrease fast enough.
+            For each trial the saliency map and other relevant tensors are saved,
+            so the tensors of the best trial can be loaded at the end of the hyperparameter search.
+            """
+            torch.autograd.set_detect_anomaly(True)
+
+            learning_rate = trial.suggest_loguniform("learning rate", low=1e-5, high=0.01)
+            mask_init_value = trial.suggest_uniform('mask initialisation value', 0., 1.)
+
+            inputs1_temp = torch.squeeze(encoder_input, dim=0).to(DEVICE)
+            inputs2_temp = torch.squeeze(decoder_input, dim=0).to(DEVICE)
+
+            # todo: rework saliency map as class
+            saliency_map = (
+                torch.full((CONFIG["history_horizon"], len(dataset.encoder_features)), fill_value=mask_init_value,
+                           device=DEVICE,
+                           requires_grad=True),
+                torch.full((CONFIG["forecast_horizon"], len(dataset.decoder_features)), fill_value=mask_init_value,
+                           device=DEVICE,
+                           requires_grad=True))
+
+            optimizer = torch.optim.Adam(saliency_map, lr=learning_rate)
+
+            stop_counter = 0
+
+            # calculate mask
+            for epoch in range(MAX_EPOCHS):  # mask 'training' epochs
+
+                # create inverse masks
+                inverse_saliency_map1 = torch.sub(torch.ones(inputs1_temp.shape, device=DEVICE),
+                                                  saliency_map[0]).to(DEVICE)  # elementwise 1-m
+                inverse_saliency_map2 = torch.sub(torch.ones(inputs2_temp.shape, device=DEVICE),
+                                                  saliency_map[1]).to(DEVICE)  # elementwise 1-m
+                input_summand1 = torch.mul(inputs1_temp, saliency_map[0]).to(DEVICE)  # element wise multiplication
+                input_summand2 = torch.mul(inputs2_temp, saliency_map[1]).to(DEVICE)  # element wise multiplication
+
+                # create perturbated series through mask
+                # todo: write function for getting perturbated inputs from a saliency map
+                reference_summand1 = torch.mul(features1_references, inverse_saliency_map1).to(DEVICE)
+                perturbated_input1 = torch.add(input_summand1, reference_summand1).to(DEVICE)
+                reference_summand2 = torch.mul(features2_references, inverse_saliency_map2).to(DEVICE)
+                perturbated_input2 = torch.add(input_summand2, reference_summand2).to(DEVICE)
+
+                # get prediction
+                forecasting_model.model.train()
+                perturbated_prediction = forecasting_model.predict(
+                    perturbated_input1,
+                    perturbated_input2
+                ).to(DEVICE)
+                loss, rmse = loss_function(
+                    criterion,
+                    prediction,
+                    perturbated_prediction,
+                    saliency_map
+                )
+
+                optimizer.zero_grad()  # set all gradients zero
+
+                # todo make stop counter function
+                if (epoch >= 1000) and (epoch < 3000):
+                    if (loss > 0.2) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
+                        stop_counter += 1  # stop counter to prevent stopping due to temporary loss jumps
+                        if stop_counter == 10:
+                            print('stopping...')
+                            break
+                    else:
+                        stop_counter = 0
+
+                elif (epoch >= 3000) and (epoch < 5000):
+                    if (loss > 0.1) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
+                        stop_counter += 1  # stop counter to prevent stopping due to temporary loss jumps
+                        if stop_counter == 10:
+                            print('stopping...')
+                            break
+                    else:
+                        stop_counter = 0
+
+                elif (epoch >= 5000) and (epoch < 10000):
+                    if (loss > 0.05) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
+                        stop_counter += 1  # stop counter to prevent stopping due to temporary loss jumps
+                        if stop_counter == 10:
+                            print('stopping...')
+                            break
+                    else:
+                        stop_counter = 0
+
+                loss.backward()  # backpropagate mean loss
+                optimizer.step()  # update mask parameters
+
+                if epoch % 1000 == 0:  # print every 100 epochs
+                    print('epoch ', epoch, '/', MAX_EPOCHS, '...    loss:', loss.item())
+
+            # trial_id = trial.number
+            trial.set_user_attr("saliency map", saliency_map)
+            trial.set_user_attr("rmse", rmse.detach())
+            trial.set_user_attr("perturbated_prediction", perturbated_prediction.detach())
+
+            return loss
+
+
+        # start counter
+        logger.info('starting timer...')
+        t1_start = perf_counter()
+
+        # create references
+        logger.info('creating references...')
+        self._create_references()
+
+        # load forecasting model
+        logger.info('loading the forecasting model')
+        forecasting_model = self._modelhandler.load_model()
+
+        # get original inputs and predictions
+        encoder_input = torch.unsqueeze(self._dataset[self._timestep][0], 0).to(self._device)
+        decoder_input = torch.unsqueeze(self._dataset[self._timestep][1], 0).to(self._device)
+        target = torch.unsqueeze(self._dataset[self._timestep][2], 0).to(self._device)
+
+        with torch.no_grad():
+            prediction = forecasting_model.predict(encoder_input, decoder_input).to(self._device)
+
+        # create saliency map
+
+        logger.info('create saliency map...')
+        study = optuna.create_study()
+        study.optimize(
+            objective,
+            n_trials=N_TRIALS)
+
+        t1_stop = perf_counter()
+        logger("Elapsed time: ", t1_stop - t1_start)
+
+        # load best saliency map
+        best_saliency_map = study.best_trial.user_attrs['saliency map']
+
+        # save saliency map
+
 
     def plot(self):
         pass
