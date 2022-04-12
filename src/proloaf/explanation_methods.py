@@ -8,7 +8,6 @@ import sys
 import os
 
 sys.path.append("../")
-
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 sys.path.append(MAIN_PATH)
 
@@ -36,8 +35,10 @@ REF_BATCH_SIZE = 10
 MAX_EPOCHS = 1 # 10000
 N_TRIALS = 1 # 50  # hyperparameter tuning trials
 CRITERION = metrics.Rmse()  # loss function criterion
+LR_LOW = 1e-5 #learning rate low boundary
+LR_HIGH = 0.01 #learning rate low boundary
 
-class SaliencyMap:
+class SaliencyMapUI:
 
     def __init__(
             self,
@@ -95,6 +96,15 @@ class SaliencyMap:
             **model_config
         )
 
+        self._history_horizon = self._dataset.history_horizon
+        self._forecast_horizon = self._dataset.forecast_horizon
+        self._num_encoder_features = len(self._dataset.encoder_features)
+        self._num_decoder_features = len(self._dataset.decoder_features)
+        logger.debug('history_horizon: {}'.format(self._history_horizon))
+        logger.debug('forecast_horizon: {}'.format(self._forecast_horizon))
+        logger.debug('number of encoder features: {}'.format(self._num_encoder_features))
+        logger.debug('number of decoder features: {}'.format(self._num_decoder_features))
+
         # create modelhandler
         logger.debug('preparing the modelhandler...')
 
@@ -107,17 +117,13 @@ class SaliencyMap:
 
         #initialize saliency map
         logger.debug('initializing saliency map...')
-        history_horizon = self._modelhandler.model_wrap.history_horizon
-        forecasting_horizon = self._modelhandler.model_wrap.forecast_horizon
-        # todo determine if there are features which are both encoder and decoder
-        num_encoder_features = len(self._modelhandler.model_wrap.encoder_features)
-        num_decoder_features = len(self._modelhandler.model_wrap.decoder_features)
-        logger.debug('number of encoder features: {}'.format(num_encoder_features))
-        logger.debug('number of decoder features: {}'.format(num_decoder_features))
 
+        # todo determine if there are features which are both encoder and decoder
+
+        # todo self._saliency_map._encoder_map = ...
         self._saliency_map = (
-            torch.zeros(history_horizon, num_encoder_features, requires_grad=True, device=self._device),
-            torch.zeros(forecasting_horizon, num_decoder_features, requires_grad=True, device=self._device)
+            torch.zeros(self._history_horizon, self._num_encoder_features, requires_grad=True, device=self._device),
+            torch.zeros(self._forecasting_horizon, self._num_decoder_features, requires_grad=True, device=self._device)
         )
 
         assert isinstance(datetime, pd.Timestamp)
@@ -126,9 +132,9 @@ class SaliencyMap:
                     'saliency map initialized for the forecast of {} hours after the '
                     'date: {}, with a history horizon of {}.\n'
                     'The current forecasting model is set to {} '.format(
-                        forecasting_horizon,
-                        datetime,
-                        history_horizon,
+                        self._forecast_horizon,
+                        self._datetime,
+                        self._history_horizon,
                         target
                     )
                 )
@@ -218,10 +224,123 @@ class SaliencyMap:
 
     #__create_references = _create_references()
 
-    def optimize(self):
+    def _fill_with(self, fill_value):
+        temp_saliency_map = (
+            torch.full(
+                (self._history_horizon, self._num_encoder_features),
+                fill_value=fill_value,
+                device=self._device,
+                requires_grad=True
+            ),
+            torch.full(
+                (self._forecast_horizon, self._num_decoder_features),
+                fill_value=fill_value,
+                device=self._device,
+                requires_grad=True)
+        )
+        return temp_saliency_map
+
+    def _write(self, new_saliency_map):
+        if not isinstance(new_saliency_map, list): #todo list of what?
+            TypeError("Saliency Map must be list of two 2D torch tensors")
+
+    def _get_perturbated_prediction(self):
+        pass
+
+    def _loss_function(
+            self,
+            criterion,
+            target_predictions,
+            perturbated_predictions,
+            mask,
+            lambda1=0.1,
+            lambda2=1e10,
+    ):
+        """
+        Calculates the loss function for the mask optimization process
+            which is calculated by the smallest supporting region principle.
+        A batch is the number of reference values created for each feature.
+        The smallest supporting region loss is calculated by adding up the criterion loss
+            the weighted mask weight and mask interval losses.
+        """
+
+        mask_encoder = mask[0]
+        mask_decoder = mask[1]
+
+        def mask_interval_loss():
+            """
+            this function encourages the mask values to stay in interval 0 to 1.
+            The loss function is zero when the mask value is between zero and 1, otherwise it takes a value linearly rising with the mask norm
+            """
+            tresh_plus = nn.Threshold(1, 0)  # thresh for >1
+            tresh_zero = nn.Threshold(0, 0)  # thresh for <0
+
+            mi_loss = (
+                    torch.norm(tresh_plus(mask_encoder))
+                    + torch.norm(tresh_plus(mask_decoder))
+                    + torch.norm(tresh_zero(torch.mul(mask_encoder, -1)))
+                    + torch.norm(tresh_zero(torch.mul(mask_decoder, -1)))
+            )
+
+            return mi_loss
+
+        def mask_weights_loss():  # penalizes high mask parameter values
+            """
+            penalizes high mask parameter values by calculating the frobenius
+            norm and dividing by the maximal possible norm
+            """
+            max_norm_encoder = torch.norm(torch.ones(mask_encoder.shape))
+            max_norm_decoder = torch.norm(torch.ones(mask_decoder.shape))
+            mask_encoder_matrix_norm = torch.norm(mask_encoder) / max_norm_encoder  # frobenius norm
+            mask_decoder_matrix_norm = torch.norm(mask_decoder) / max_norm_decoder  # frobenius norm
+
+            mw_loss = mask_encoder_matrix_norm + mask_decoder_matrix_norm
+            return mw_loss
+
+        batch_size = perturbated_predictions.shape[0]
+        target_prediction = target_predictions[0]
+        target_copies = torch.zeros(perturbated_predictions.shape).to(self._device)
+
+        for n in range(batch_size):  # target prediction is copied for all references in batch
+            target_copies[n] = target_prediction
+
+        loss1 = criterion(target_copies, perturbated_predictions)  # prediction loss
+        loss2 = lambda1 * mask_weights_loss(mask_encoder, mask_decoder)  # abs value of mask weights
+        loss3 = lambda2 * mask_interval_loss(mask_encoder, mask_decoder)
+
+        ssr_loss = loss1 + loss2 + loss3
+        # sdr_loss = -loss1 + loss2 + loss3
+        return ssr_loss, loss1
+
+    def optimize(
+            self,
+            encoder_input,
+            decoder_input,
+            lr_low=LR_LOW,
+            lr_high=LR_HIGH
+    ):
 
         # todo rewrite function to automatically compute list of timestamps
         #  without having to reload the model every time
+        # start counter
+        logger.info('starting timer...')
+        t1_start = perf_counter()
+
+        # create references
+        logger.info('creating references...')
+        (encoder_references, decoder_references) = self._create_references()
+
+        # load forecasting model
+        logger.info('loading the forecasting model')
+        forecasting_model = self._modelhandler.load_model()
+
+        # get original inputs and predictions
+        encoder_input = torch.unsqueeze(self._dataset[self._timestep][0], 0).to(self._device)
+        decoder_input = torch.unsqueeze(self._dataset[self._timestep][1], 0).to(self._device)
+        target = torch.unsqueeze(self._dataset[self._timestep][2], 0).to(self._device)
+
+        with torch.no_grad():
+            prediction = forecasting_model.predict(encoder_input, decoder_input).to(self._device)
 
         def objective(trial):
             """
@@ -229,60 +348,57 @@ class SaliencyMap:
             The learning rate and mask initialization value are subject to hyperparameter optimization.
             For each trial the objection function finds the saliency map with gradient descent,
             by updating the saliency map parameters according to the calculated loss.
+            The objective is to minimize the loss function.
             Stop counters help to speed up the process, by ending the trial, if the loss doesn't decrease fast enough.
             For each trial the saliency map and other relevant tensors are saved,
             so the tensors of the best trial can be loaded at the end of the hyperparameter search.
             """
+
             torch.autograd.set_detect_anomaly(True)
 
-            learning_rate = trial.suggest_loguniform("learning rate", low=1e-5, high=0.01)
+            learning_rate = trial.suggest_loguniform("learning rate", low=lr_low, high=lr_high)
             mask_init_value = trial.suggest_uniform('mask initialisation value', 0., 1.)
 
-            inputs1_temp = torch.squeeze(encoder_input, dim=0).to(DEVICE)
-            inputs2_temp = torch.squeeze(decoder_input, dim=0).to(DEVICE)
+            inputs1_temp = torch.squeeze(encoder_input, dim=0).to(self._device)
+            inputs2_temp = torch.squeeze(decoder_input, dim=0).to(self._device)
 
             # todo: rework saliency map as class
-            saliency_map = (
-                torch.full((CONFIG["history_horizon"], len(dataset.encoder_features)), fill_value=mask_init_value,
-                           device=DEVICE,
-                           requires_grad=True),
-                torch.full((CONFIG["forecast_horizon"], len(dataset.decoder_features)), fill_value=mask_init_value,
-                           device=DEVICE,
-                           requires_grad=True))
+            temp_saliency_map = self._fill_with(mask_init_value)
 
-            optimizer = torch.optim.Adam(saliency_map, lr=learning_rate)
+            optimizer = torch.optim.Adam(temp_saliency_map, lr=learning_rate)
 
             stop_counter = 0
 
             # calculate mask
             for epoch in range(MAX_EPOCHS):  # mask 'training' epochs
 
-                # create inverse masks
-                inverse_saliency_map1 = torch.sub(torch.ones(inputs1_temp.shape, device=DEVICE),
-                                                  saliency_map[0]).to(DEVICE)  # elementwise 1-m
-                inverse_saliency_map2 = torch.sub(torch.ones(inputs2_temp.shape, device=DEVICE),
-                                                  saliency_map[1]).to(DEVICE)  # elementwise 1-m
-                input_summand1 = torch.mul(inputs1_temp, saliency_map[0]).to(DEVICE)  # element wise multiplication
-                input_summand2 = torch.mul(inputs2_temp, saliency_map[1]).to(DEVICE)  # element wise multiplication
+                # create inverse masks # todo use _get perturbated prediction function
+                inverse_saliency_map1 = torch.sub(torch.ones(inputs1_temp.shape, device=self._device),
+                                                  temp_saliency_map[0]).to(self._device)  # elementwise 1-m
+                inverse_saliency_map2 = torch.sub(torch.ones(inputs2_temp.shape, device=self._device),
+                                                  temp_saliency_map[1]).to(self._device)  # elementwise 1-m
+                input_summand1 = torch.mul(inputs1_temp, temp_saliency_map[0]).to(self._device)  # element wise multiplication
+                input_summand2 = torch.mul(inputs2_temp, temp_saliency_map[1]).to(self._device)  # element wise multiplication
 
                 # create perturbated series through mask
                 # todo: write function for getting perturbated inputs from a saliency map
-                reference_summand1 = torch.mul(features1_references, inverse_saliency_map1).to(DEVICE)
-                perturbated_input1 = torch.add(input_summand1, reference_summand1).to(DEVICE)
-                reference_summand2 = torch.mul(features2_references, inverse_saliency_map2).to(DEVICE)
-                perturbated_input2 = torch.add(input_summand2, reference_summand2).to(DEVICE)
+                reference_summand1 = torch.mul(encoder_references, inverse_saliency_map1).to(self._device)
+                perturbated_input1 = torch.add(input_summand1, reference_summand1).to(self._device)
+                reference_summand2 = torch.mul(decoder_references, inverse_saliency_map2).to(self._device)
+                perturbated_input2 = torch.add(input_summand2, reference_summand2).to(self._device)
 
                 # get prediction
                 forecasting_model.model.train()
                 perturbated_prediction = forecasting_model.predict(
                     perturbated_input1,
                     perturbated_input2
-                ).to(DEVICE)
-                loss, rmse = loss_function(
-                    criterion,
+                ).to(self._device)
+
+                loss, rmse = self._loss_function(
                     prediction,
                     perturbated_prediction,
-                    saliency_map
+                    temp_saliency_map,
+                    criterion=CRITERION
                 )
 
                 optimizer.zero_grad()  # set all gradients zero
@@ -316,38 +432,17 @@ class SaliencyMap:
                         stop_counter = 0
 
                 loss.backward()  # backpropagate mean loss
-                optimizer.step()  # update mask parameters
+                optimizer.step()  # update mask parameters/minimize loss function
 
                 if epoch % 1000 == 0:  # print every 100 epochs
                     print('epoch ', epoch, '/', MAX_EPOCHS, '...    loss:', loss.item())
 
             # trial_id = trial.number
-            trial.set_user_attr("saliency map", saliency_map)
+            trial.set_user_attr("saliency map", temp_saliency_map)
             trial.set_user_attr("rmse", rmse.detach())
             trial.set_user_attr("perturbated_prediction", perturbated_prediction.detach())
 
             return loss
-
-
-        # start counter
-        logger.info('starting timer...')
-        t1_start = perf_counter()
-
-        # create references
-        logger.info('creating references...')
-        self._create_references()
-
-        # load forecasting model
-        logger.info('loading the forecasting model')
-        forecasting_model = self._modelhandler.load_model()
-
-        # get original inputs and predictions
-        encoder_input = torch.unsqueeze(self._dataset[self._timestep][0], 0).to(self._device)
-        decoder_input = torch.unsqueeze(self._dataset[self._timestep][1], 0).to(self._device)
-        target = torch.unsqueeze(self._dataset[self._timestep][2], 0).to(self._device)
-
-        with torch.no_grad():
-            prediction = forecasting_model.predict(encoder_input, decoder_input).to(self._device)
 
         # create saliency map
 
@@ -363,7 +458,9 @@ class SaliencyMap:
         # load best saliency map
         best_saliency_map = study.best_trial.user_attrs['saliency map']
 
+
         # save saliency map
+        self._saliency_map = best_saliency_map
 
 
     def plot(self):
