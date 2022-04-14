@@ -459,6 +459,94 @@ class SaliencyMapUtil:
         # save saliency map
         self._saliency_map = best_saliency_map
 
+    def plot(
+            self,
+            plot_path=''
+    ):
+        """
+        Creates the saliency map plot, a plot with the prediction targets and predictions, and plots for the original inputs.
+        The saliency map plot is split into an encoder(history horizon) part and a decoder(forecast horizon part) on the time axis.
+        Features are grouped into 3 groups being:
+            1 only Encoder
+            2 Encoder and Decoder
+            3 only Decoder
+        """
+        # function assumes 1 target
+        # todo: throw error message if more than 1 target variable
+        # todo: fix plot feature axes (says only features)
 
-    def plot(self):
-        pass
+        logger.info('creating saliency map plot...')
+        encoder_features = self._dataset.encoder_features
+        decoder_features = self._dataset.decoder_features
+
+        # font sizes
+        plt.rc('font', size=30)  # default font size
+        plt.rc('axes', labelsize=30)  # fontsize of the x and y labels
+        plt.rc('axes', titlesize=30)  # fontsize of the title
+
+        fig2, ax2 = plt.subplots(1, figsize=(20, 14))
+
+        # todo check for hourly resolution
+        # create time axis
+        start_index = self._datetime - pd.Timedelta(self._history_horizon, unit='h') # assumes hourly resolution
+        stop_index = self._datetime + pd.Timedelta(self._forecast_horizon-1, unit='h') #datetime is first timestep of forecasting horizon
+        time_axis = pd.date_range(start_index, stop_index, freq='h')
+        time_axis_length = len(time_axis)
+
+        # saliency heatmap
+        # common = list(
+        #     set(encoder_features) & set(decoder_features))  # features which are both encoder and decoder features
+        # feature_axis_length = len(encoder_features) + len(decoder_features) - len(common)
+
+        features = self._dataset.encoder_features + self._dataset.decoder_features
+        saliency_heatmap = np.full(
+            (time_axis_length, len(features)),
+            fill_value=np.nan
+        )  # for features not present in certain areas(nan), use different colour (white)
+
+        # copy saliency map into one connected map
+        saliency_heatmap[0:self._history_horizon, 0:self._num_encoder_features] = self._saliency_map[0].cpu().detach().numpy()
+        saliency_heatmap[self._history_horizon:, self._num_encoder_features:] = self._saliency_map[1].cpu().detach().numpy()
+
+        saliency_heatmap = np.transpose(saliency_heatmap)  # swap axes
+
+        im = ax2.imshow(saliency_heatmap, cmap='jet',
+                        norm=None, aspect='auto', interpolation='nearest', vmin=0, vmax=1, origin='lower')
+
+        # create datetime x-axis
+        plot_datetime = pd.array([''] * time_axis_length)  # looks better for plot
+        datetime = time_axis
+        for h in range(datetime.array.size):
+            if datetime.array.hour[h] == 0:  # only show full date once per day
+                plot_datetime[h] = datetime.array.strftime('%b %d %Y %H:%M')[h]
+            else:
+                if datetime.array.hour[h] % 12 == 0:  # every 12th hour
+                    plot_datetime[h] = datetime.array.strftime('%H:%M')[h]
+
+        # show ticks
+        ax2.set_xticks(np.arange(len(datetime)))
+        ax2.set_xticklabels(plot_datetime)
+        feature_ticks = np.arange(len(features))
+        ax2.set_yticks(feature_ticks)
+        ax2.set_yticklabels(features)
+
+        # rotate tick labels and set alignment
+        plt.setp(ax2.get_xticklabels(), rotation=45, ha="right",
+                 rotation_mode="anchor")
+
+        # set titles and legends
+        ax2.set_xlabel('Time')
+        ax2.set_ylabel('Features')
+        cbar = fig2.colorbar(im)  # add colorbar
+
+        # layout
+        fig2.tight_layout()
+
+        # save heatmap
+        if plot_path == '':  # if plot plath was not specified use default
+                plot_path = os.path.join(self._path, str(self._datetime.date()))
+
+        temp_save_path = plot_path + '_heatmap'
+        fig2.savefig(temp_save_path)
+        logger.info('plot saved in {}.'.format(temp_save_path))
+
