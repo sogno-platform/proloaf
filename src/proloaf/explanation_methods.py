@@ -34,11 +34,10 @@ if not os.path.exists(INTERPRETATION_PATH):
 REF_BATCH_SIZE = 10
 MAX_EPOCHS = 1 # 10000
 N_TRIALS = 1 # 50  # hyperparameter tuning trials
-CRITERION = metrics.Rmse()  # loss function criterion
 LR_LOW = 1e-5 #learning rate low boundary
 LR_HIGH = 0.01 #learning rate low boundary
 
-class SaliencyMapUI:
+class SaliencyMapUtil:
 
     def __init__(
             self,
@@ -123,7 +122,7 @@ class SaliencyMapUI:
         # todo self._saliency_map._encoder_map = ...
         self._saliency_map = (
             torch.zeros(self._history_horizon, self._num_encoder_features, requires_grad=True, device=self._device),
-            torch.zeros(self._forecasting_horizon, self._num_decoder_features, requires_grad=True, device=self._device)
+            torch.zeros(self._forecast_horizon, self._num_decoder_features, requires_grad=True, device=self._device)
         )
 
         assert isinstance(datetime, pd.Timestamp)
@@ -249,10 +248,10 @@ class SaliencyMapUI:
 
     def _loss_function(
             self,
-            criterion,
             target_predictions,
             perturbated_predictions,
             mask,
+            criterion=metrics.Rmse(),
             lambda1=0.1,
             lambda2=1e10,
     ):
@@ -305,8 +304,8 @@ class SaliencyMapUI:
             target_copies[n] = target_prediction
 
         loss1 = criterion(target_copies, perturbated_predictions)  # prediction loss
-        loss2 = lambda1 * mask_weights_loss(mask_encoder, mask_decoder)  # abs value of mask weights
-        loss3 = lambda2 * mask_interval_loss(mask_encoder, mask_decoder)
+        loss2 = lambda1 * mask_weights_loss()  # abs value of mask weights
+        loss3 = lambda2 * mask_interval_loss()
 
         ssr_loss = loss1 + loss2 + loss3
         # sdr_loss = -loss1 + loss2 + loss3
@@ -314,8 +313,6 @@ class SaliencyMapUI:
 
     def optimize(
             self,
-            encoder_input,
-            decoder_input,
             lr_low=LR_LOW,
             lr_high=LR_HIGH
     ):
@@ -332,7 +329,8 @@ class SaliencyMapUI:
 
         # load forecasting model
         logger.info('loading the forecasting model')
-        forecasting_model = self._modelhandler.load_model()
+        forecasting_model = self._modelhandler.model_wrap
+        forecasting_model.init_model()
 
         # get original inputs and predictions
         encoder_input = torch.unsqueeze(self._dataset[self._timestep][0], 0).to(self._device)
@@ -397,8 +395,7 @@ class SaliencyMapUI:
                 loss, rmse = self._loss_function(
                     prediction,
                     perturbated_prediction,
-                    temp_saliency_map,
-                    criterion=CRITERION
+                    temp_saliency_map
                 )
 
                 optimizer.zero_grad()  # set all gradients zero
@@ -453,7 +450,7 @@ class SaliencyMapUI:
             n_trials=N_TRIALS)
 
         t1_stop = perf_counter()
-        logger("Elapsed time: ", t1_stop - t1_start)
+        logger.info("Elapsed time: {}".format(t1_stop - t1_start))
 
         # load best saliency map
         best_saliency_map = study.best_trial.user_attrs['saliency map']
