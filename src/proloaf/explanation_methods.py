@@ -96,14 +96,23 @@ class SaliencyMapUtil:
         )
 
         # create modelhandler
-        logger.debug('preparing the modelhandler...')
+        #logger.debug('preparing the modelhandler...')
 
-        self._modelhandler = mh.ModelHandler(
+        modelhandler = mh.ModelHandler(
             work_dir=MAIN_PATH,
             config=model_config,
             tuning_config=model_tuning_config,
             device=self._device,
         )
+
+        # load forecasting model
+        try:
+            logger.info('loading the forecasting model')
+            model_wrap_path = os.path.join(MAIN_PATH, model_config["output_path"], model_config["model_name"] + '.pkl')
+            self._model_wrap = mh.ModelHandler.load_model(path=model_wrap_path, locate=self._device)
+        except:
+            logger.error("An error has occured while trying to load the forecasting model."
+                         "The model has to be trained and saved as a loadable file.")
 
         # initialize saliency map
         logger.debug('initializing saliency map...')
@@ -335,24 +344,13 @@ class SaliencyMapUtil:
         logger.info('creating references...')
         (encoder_references, decoder_references) = self._create_references()
 
-        # load forecasting model
-        try:
-            logger.info('loading the forecasting model')
-            self._modelhandler.load_model()
-            forecasting_model = self._modelhandler.model_wrap
-            forecasting_model.init_model()
-        except:
-            logger.error("An error has occured while trying to load the forecasting model."
-                         "The model has to be trained and saved as a loadable file.")
-
-
         # get original inputs and predictions
         encoder_input = torch.unsqueeze(self._dataset[self._time_step][0], 0).to(self._device)
         decoder_input = torch.unsqueeze(self._dataset[self._time_step][1], 0).to(self._device)
         target = torch.unsqueeze(self._dataset[self._time_step][2], 0).to(self._device)
 
         with torch.no_grad():
-            prediction = forecasting_model.predict(encoder_input, decoder_input).to(self._device)
+            prediction = self._model_wrap.predict(encoder_input, decoder_input).to(self._device)
 
         def objective(trial):
             """
@@ -400,8 +398,8 @@ class SaliencyMapUtil:
                 perturbated_input2 = torch.add(input_summand2, reference_summand2).to(self._device)
 
                 # get prediction
-                forecasting_model.model.train()
-                perturbated_prediction = forecasting_model.predict(
+                self._model_wrap.model.train()
+                perturbated_prediction = self._model_wrap.predict(
                     perturbated_input1,
                     perturbated_input2
                 ).to(self._device)
