@@ -1,11 +1,13 @@
-import logging
-
 import pandas as pd
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import os
+from random import seed
+import torch.nn as nn
+import optuna
+from time import perf_counter
 
 sys.path.append("../")
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -19,12 +21,6 @@ import proloaf.datahandler as dh
 import proloaf.modelhandler as mh
 import proloaf.tensorloader as tl
 
-from random import seed
-
-import torch.nn as nn
-import optuna
-from time import perf_counter
-
 logger = create_event_logger(__name__)
 
 # todo create config file for global config
@@ -36,6 +32,7 @@ MAX_EPOCHS = 1 # 10000
 N_TRIALS = 1 # 50  # hyperparameter tuning trials
 LR_LOW = 1e-5 #learning rate low boundary
 LR_HIGH = 0.01 #learning rate low boundary
+
 
 class SaliencyMapUtil:
 
@@ -60,21 +57,24 @@ class SaliencyMapUtil:
         # import data
         logger.info('importing data...')
         df = pd.read_csv(os.path.join(MAIN_PATH, model_config["data_path"]), sep=sep)
-        #time_column = df.loc[:, "Time"]
 
         # setting device
-        logger.info('setting computation device...')
-        cuda_id = model_config["cuda_id"]  # todo read cuda_id from interpreter config
-        if torch.cuda.is_available():
-            self._device = 'cuda'
-            if cuda_id is not None:
-                torch.cuda.set_device(cuda_id)
-            logger.debug('Device: {}'.format(self._device))
-            logger.debug('Current CUDA ID: {}'.format(torch.cuda.current_device()))
+        def set_device():
+            logger.info('setting computation device...')
+            cuda_id = model_config["cuda_id"]  # todo read cuda_id from interpreter config
+            if torch.cuda.is_available():
+                if cuda_id is not None:
+                    torch.cuda.set_device(cuda_id)
+                logger.debug('Current CUDA ID: {}'.format(torch.cuda.current_device()))
+                device = 'cuda'
+                return device
 
-        else:
-            self._device = 'cpu'
-            logger.debug('Device: {}'.format(self._device))
+            else:
+                device = 'cpu'
+                return device
+
+        self._device = set_device()
+        logger.debug('Device: {}'.format(self._device))
 
         # get scaler
         scaler = dh.MultiScaler(model_config["feature_groups"])
@@ -95,15 +95,6 @@ class SaliencyMapUtil:
             **model_config
         )
 
-        self._history_horizon = self._dataset.history_horizon
-        self._forecast_horizon = self._dataset.forecast_horizon
-        self._num_encoder_features = len(self._dataset.encoder_features)
-        self._num_decoder_features = len(self._dataset.decoder_features)
-        logger.debug('history_horizon: {}'.format(self._history_horizon))
-        logger.debug('forecast_horizon: {}'.format(self._forecast_horizon))
-        logger.debug('number of encoder features: {}'.format(self._num_encoder_features))
-        logger.debug('number of decoder features: {}'.format(self._num_decoder_features))
-
         # create modelhandler
         logger.debug('preparing the modelhandler...')
 
@@ -114,26 +105,44 @@ class SaliencyMapUtil:
             device=self._device,
         )
 
-        #initialize saliency map
+        # initialize saliency map
         logger.debug('initializing saliency map...')
 
         # todo determine if there are features which are both encoder and decoder
 
         # todo self._saliency_map._encoder_map = ...
         self._saliency_map = (
-            torch.zeros(self._history_horizon, self._num_encoder_features, requires_grad=True, device=self._device),
-            torch.zeros(self._forecast_horizon, self._num_decoder_features, requires_grad=True, device=self._device)
+            torch.zeros(self.history_horizon(), self.num_encoder_features(), requires_grad=True, device=self._device),
+            torch.zeros(self.forecast_horizon(), self.num_decoder_features(), requires_grad=True, device=self._device)
         )
 
         assert isinstance(datetime, pd.Timestamp)
         self._datetime = datetime
+
+        def datetime_to_timestep():
+            try:
+                time_step = self._dataset.data.index[
+                    pd.to_datetime(self._dataset.data.Time) == self._datetime
+                ]
+                time_step = time_step.values
+                assert len(time_step) == 1
+                time_step = int(time_step[0])
+                assert isinstance(time_step, int)
+                logger.debug('Timestep for saliency map with the date {!s} is {!s}'.format(self._datetime, time_step))
+                return time_step
+            except:
+                logger.error("An error has occurred while trying to read the datetime."
+                             " Please use pandas datetime and correct format.")
+
+        self._time_step = datetime_to_timestep()
+
         logger.debug(
                     'saliency map initialized for the forecast of {} hours after the '
                     'date: {}, with a history horizon of {}.\n'
                     'The current forecasting model is set to {} '.format(
-                        self._forecast_horizon,
+                        self.forecast_horizon(),
                         self._datetime,
-                        self._history_horizon,
+                        self.history_horizon(),
                         target
                     )
                 )
@@ -144,21 +153,21 @@ class SaliencyMapUtil:
         if not os.path.exists(self._path):
             os.mkdir(self._path)
 
-    def _get_timestep(self):
-        try:
-            timestep = self._dataset.data.index[
-                pd.to_datetime(self._dataset.data.Time) == self._datetime
-            ]
-            timestep = timestep.values
-            assert len(timestep) == 1
-            timestep = int(timestep[0])
-            assert isinstance(timestep, int)
-            self._timestep = timestep
-        except:
-            logger.error("An error has occurred while trying to read the datetime.")
-        logger.debug('Timestep for saliency map with the date {!s} is {!s}'.format(self._datetime, timestep))
-        return timestep
 
+
+        self._optimization_done = False
+
+    def history_horizon(self):
+        return self._dataset.history_horizon
+
+    def forecast_horizon(self):
+        return self._dataset.forecast_horizon
+
+    def num_encoder_features(self):
+        return len(self._dataset.encoder_features)
+
+    def num_decoder_features(self):
+        return len(self._dataset.decoder_features)
 
     def _create_references(self):
         """
@@ -185,65 +194,64 @@ class SaliencyMapUtil:
                 References for the decoder features
             """
 
-        dataset = self._dataset
-        batch_size = self._ref_batch_size
-        timestep = self._get_timestep()
-
         # creates reference for a certain timestep
-        history_horizon = dataset.history_horizon
-        forecast_horizon = dataset.forecast_horizon
-        num_encoder_features = len(dataset.encoder_features)
-        num_decoder_features = len(dataset.decoder_features)
         seed(1)  # seed random number generator
 
-        features1_references_np = np.zeros(shape=(batch_size, history_horizon, num_encoder_features))
-        features2_references_np = np.zeros(shape=(batch_size, forecast_horizon, num_decoder_features))
+        features1_references_np = np.zeros(
+            shape=(self._ref_batch_size,
+                   self.history_horizon(),
+                   self.num_encoder_features())
+        )
+        features2_references_np = np.zeros(
+            shape=(self._ref_batch_size,
+                   self.forecast_horizon(),
+                   self.num_decoder_features())
+        )
 
-        dataset.to_tensor()
-        inputs1_np = dataset[timestep][0].cpu().numpy()
-        inputs2_np = dataset[timestep][1].cpu().numpy()
+        self._dataset.to_tensor()
+        inputs1_np = self._dataset[self._time_step][0].cpu().numpy()
+        inputs2_np = self._dataset[self._time_step][1].cpu().numpy()
 
-        for x in range(num_encoder_features):  # iterate through encoder features
+        for x in range(self.num_encoder_features()):  # iterate through encoder features
             feature_x = inputs1_np[:, x]
             mu = 0
             sigma = abs(np.std(feature_x))  # 0.3 is chosen arbitrarily # hier np.std nehmen
-            for j in range(batch_size):
-                noise_feature1 = np.random.default_rng().normal(mu, sigma, history_horizon)  # create white noise series
+            for j in range(self._ref_batch_size):
+                noise_feature1 = np.random.default_rng().normal(mu, sigma, self.history_horizon())  # create white noise series
                 features1_references_np[j, :, x] = noise_feature1 + feature_x
 
-        for x in range(num_decoder_features):  # iterate through decoder features
+        for x in range(self.num_decoder_features()):  # iterate through decoder features
             feature_x = inputs2_np[:, x]
             mu = 0
             sigma = abs(np.std(feature_x))  # 0.3 is chosen arbitrarily
-            for j in range(batch_size):
-                noise_feature2 = np.random.default_rng().normal(mu, sigma, forecast_horizon)
+            for j in range(self._ref_batch_size):
+                noise_feature2 = np.random.default_rng().normal(mu, sigma, self.forecast_horizon())
                 features2_references_np[j, :, x] = noise_feature2 + feature_x
 
         return torch.Tensor(features1_references_np).to(self._device), torch.Tensor(features2_references_np).to(self._device)
 
-    #__create_references = _create_references()
+    def _fill_with(self, fill_value): # todo write documention string
 
-    def _fill_with(self, fill_value):
         temp_saliency_map = (
             torch.full(
-                (self._history_horizon, self._num_encoder_features),
+                (self.history_horizon(), self.num_encoder_features()),
                 fill_value=fill_value,
                 device=self._device,
                 requires_grad=True
             ),
             torch.full(
-                (self._forecast_horizon, self._num_decoder_features),
+                (self.forecast_horizon(), self.num_decoder_features()),
                 fill_value=fill_value,
                 device=self._device,
                 requires_grad=True)
         )
         return temp_saliency_map
 
-    def _write(self, new_saliency_map):
+    def _write(self, new_saliency_map): # todo write this function
         if not isinstance(new_saliency_map, list): #todo list of what?
             TypeError("Saliency Map must be list of two 2D torch tensors")
 
-    def _get_perturbated_prediction(self):
+    def _get_perturbated_prediction(self): # todo write this function
         pass
 
     def _loss_function(
@@ -328,14 +336,20 @@ class SaliencyMapUtil:
         (encoder_references, decoder_references) = self._create_references()
 
         # load forecasting model
-        logger.info('loading the forecasting model')
-        forecasting_model = self._modelhandler.model_wrap
-        forecasting_model.init_model()
+        try:
+            logger.info('loading the forecasting model')
+            self._modelhandler.load_model()
+            forecasting_model = self._modelhandler.model_wrap
+            forecasting_model.init_model()
+        except:
+            logger.error("An error has occured while trying to load the forecasting model."
+                         "The model has to be trained and saved as a loadable file.")
+
 
         # get original inputs and predictions
-        encoder_input = torch.unsqueeze(self._dataset[self._timestep][0], 0).to(self._device)
-        decoder_input = torch.unsqueeze(self._dataset[self._timestep][1], 0).to(self._device)
-        target = torch.unsqueeze(self._dataset[self._timestep][2], 0).to(self._device)
+        encoder_input = torch.unsqueeze(self._dataset[self._time_step][0], 0).to(self._device)
+        decoder_input = torch.unsqueeze(self._dataset[self._time_step][1], 0).to(self._device)
+        target = torch.unsqueeze(self._dataset[self._time_step][2], 0).to(self._device)
 
         with torch.no_grad():
             prediction = forecasting_model.predict(encoder_input, decoder_input).to(self._device)
@@ -456,8 +470,27 @@ class SaliencyMapUtil:
         best_saliency_map = study.best_trial.user_attrs['saliency map']
 
 
-        # save saliency map
+        # save best saliency map
         self._saliency_map = best_saliency_map
+        self._optimization_done = True
+
+    def rmse(self):  # todo write this function
+        pass
+
+    def save(self):
+        """
+        Saves the whole class instance after optimization for potential future use and analyzing
+        """
+        if self._optimization_done:
+            save_path = os.path.join(self._path, 'save')
+            torch.save(self, save_path)
+        else:
+            logger.error("Please use optimize(), before saving the instance.")
+
+    @staticmethod
+    def load(path):
+        self = torch.load(path)
+        return self
 
     def plot(
             self,
@@ -488,8 +521,8 @@ class SaliencyMapUtil:
 
         # todo check for hourly resolution
         # create time axis
-        start_index = self._datetime - pd.Timedelta(self._history_horizon, unit='h') # assumes hourly resolution
-        stop_index = self._datetime + pd.Timedelta(self._forecast_horizon-1, unit='h') #datetime is first timestep of forecasting horizon
+        start_index = self._datetime - pd.Timedelta(self.history_horizon(), unit='h') # assumes hourly resolution
+        stop_index = self._datetime + pd.Timedelta(self.forecast_horizon()-1, unit='h') #datetime is first timestep of forecasting horizon
         time_axis = pd.date_range(start_index, stop_index, freq='h')
         time_axis_length = len(time_axis)
 
@@ -505,8 +538,10 @@ class SaliencyMapUtil:
         )  # for features not present in certain areas(nan), use different colour (white)
 
         # copy saliency map into one connected map
-        saliency_heatmap[0:self._history_horizon, 0:self._num_encoder_features] = self._saliency_map[0].cpu().detach().numpy()
-        saliency_heatmap[self._history_horizon:, self._num_encoder_features:] = self._saliency_map[1].cpu().detach().numpy()
+        saliency_heatmap[0:self.history_horizon(), 0:self.num_encoder_features()] =\
+            self._saliency_map[0].cpu().detach().numpy()
+        saliency_heatmap[self.history_horizon():, self.num_encoder_features():] =\
+            self._saliency_map[1].cpu().detach().numpy()
 
         saliency_heatmap = np.transpose(saliency_heatmap)  # swap axes
 
