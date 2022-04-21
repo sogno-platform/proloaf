@@ -486,8 +486,18 @@ class SaliencyMapUtil:
             logger.error("Please use optimize(), before saving the instance.")
 
     @staticmethod
-    def load(path):
-        self = torch.load(path)
+    def load(target: str):
+        try:
+            default_path = os.path.join(INTERPRETATION_PATH, target + '/save')
+            self = torch.load(default_path)
+            if not isinstance(self, SaliencyMapUtil):
+                raise TypeError
+        except TypeError:
+            logger.error('The file you tried to load is not a SaliencyMapUtil instance')
+            self = None
+        except FileNotFoundError:
+            logger.error('There has not been created a save file for the target yet')
+            self = None
         return self
 
     def plot(
