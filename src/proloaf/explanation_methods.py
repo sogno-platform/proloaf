@@ -28,10 +28,10 @@ INTERPRETATION_PATH = os.path.join(MAIN_PATH, './oracles/interpretation/')
 if not os.path.exists(INTERPRETATION_PATH):
     os.mkdir(INTERPRETATION_PATH)
 REF_BATCH_SIZE = 10
-MAX_EPOCHS = 1 # 10000
-N_TRIALS = 1 # 50  # hyperparameter tuning trials
-LR_LOW = 1e-5 #learning rate low boundary
-LR_HIGH = 0.01 #learning rate low boundary
+MAX_EPOCHS = 10000
+N_TRIALS = 50  # hyperparameter tuning trials
+LR_LOW = 1e-5  # learning rate low boundary
+LR_HIGH = 0.01  # learning rate low boundary
 
 
 class SaliencyMapUtil:
@@ -94,6 +94,8 @@ class SaliencyMapUtil:
             device=self._device,
             **model_config
         )
+        index_copy = self._dataset.data.index #gets replaced by Time column after to_tensor()
+        self._dataset.to_tensor()  # prepare dataset
 
         # create modelhandler
         #logger.debug('preparing the modelhandler...')
@@ -130,8 +132,8 @@ class SaliencyMapUtil:
 
         def datetime_to_timestep():
             try:
-                time_step = self._dataset.data.index[
-                    pd.to_datetime(self._dataset.data.Time) == self._datetime
+                time_step = index_copy[
+                    pd.to_datetime(self._dataset.data.index) == self._datetime
                 ]
                 time_step = time_step.values
                 assert len(time_step) == 1
@@ -161,8 +163,6 @@ class SaliencyMapUtil:
         self._path = os.path.join(INTERPRETATION_PATH, target + '/')
         if not os.path.exists(self._path):
             os.mkdir(self._path)
-
-
 
         self._optimization_done = False
 
@@ -217,7 +217,6 @@ class SaliencyMapUtil:
                    self.num_decoder_features())
         )
 
-        self._dataset.to_tensor()
         inputs1_np = self._dataset[self._time_step][0].cpu().numpy()
         inputs2_np = self._dataset[self._time_step][1].cpu().numpy()
 
@@ -352,6 +351,8 @@ class SaliencyMapUtil:
         with torch.no_grad():
             prediction = self._model_wrap.predict(encoder_input, decoder_input).to(self._device)
 
+
+
         def objective(trial):
             """
             Ojective function for the optuna optimizer, used for hyperparameter optimization.
@@ -456,6 +457,9 @@ class SaliencyMapUtil:
         # create saliency map
 
         logger.info('create saliency map...')
+        optuna.logging.set_verbosity(optuna.logging.DEBUG)
+        optuna.logging.enable_propagation()
+        #optuna.logging.disable_default_handler()
         study = optuna.create_study()
         study.optimize(
             objective,
