@@ -16,6 +16,5 @@ def main():
     saliency_map.optimize()
     saliency_map.plot()
 
-
 if __name__ == "__main__":
     main()

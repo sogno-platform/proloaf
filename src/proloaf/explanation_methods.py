@@ -23,26 +23,24 @@ import proloaf.tensorloader as tl
 
 logger = create_event_logger(__name__)
 
-# todo create config file for global config
-INTERPRETATION_PATH = os.path.join(MAIN_PATH, './oracles/interpretation/')
-if not os.path.exists(INTERPRETATION_PATH):
-    os.mkdir(INTERPRETATION_PATH)
-REF_BATCH_SIZE = 10
-MAX_EPOCHS = 10000
-N_TRIALS = 50  # hyperparameter tuning trials
-LR_LOW = 1e-5  # learning rate low boundary
-LR_HIGH = 0.01  # learning rate low boundary
-
-
 class SaliencyMapUtil:
 
     def __init__(
             self,
             target: str,
             datetime: pd.DatetimeIndex,
-            ref_batch_size=REF_BATCH_SIZE,
             sep=';'
     ):
+
+        # read explanation config
+        logger.info('reading explanation.json config')
+        ex_config_path = os.path.join('targets', target, 'explanation.json')
+        self._explanation_config = ch.read_config(
+            config_path=ex_config_path,
+            main_path=MAIN_PATH
+        )
+
+        #read forecasting model config
         logger.info('reading model config...')
         config_path = './targets/' + target + '/config.json'
         model_config = ch.read_config(
@@ -123,8 +121,8 @@ class SaliencyMapUtil:
 
         # todo self._saliency_map._encoder_map = ...
         self._saliency_map = (
-            torch.zeros(self.history_horizon(), self.num_encoder_features(), requires_grad=True, device=self._device),
-            torch.zeros(self.forecast_horizon(), self.num_decoder_features(), requires_grad=True, device=self._device)
+            torch.zeros(self.history_horizon, self.num_encoder_features, requires_grad=True, device=self._device),
+            torch.zeros(self.forecast_horizon, self.num_decoder_features, requires_grad=True, device=self._device)
         )
 
         assert isinstance(datetime, pd.Timestamp)
@@ -151,30 +149,36 @@ class SaliencyMapUtil:
                     'saliency map initialized for the forecast of {} hours after the '
                     'date: {}, with a history horizon of {}.\n'
                     'The current forecasting model is set to {} '.format(
-                        self.forecast_horizon(),
+                        self.forecast_horizon,
                         self._datetime,
-                        self.history_horizon(),
+                        self.history_horizon,
                         target
                     )
                 )
 
-        self._ref_batch_size = ref_batch_size
-
-        self._path = os.path.join(INTERPRETATION_PATH, target + '/')
+        # set interpretation path
+        self._path = os.path.join(
+            MAIN_PATH,
+            self._explanation_config["rel_interpretation_path"],
+            target + '/')
         if not os.path.exists(self._path):
             os.mkdir(self._path)
 
         self._optimization_done = False
 
+    @property
     def history_horizon(self):
         return self._dataset.history_horizon
 
+    @property
     def forecast_horizon(self):
         return self._dataset.forecast_horizon
 
+    @property
     def num_encoder_features(self):
         return len(self._dataset.encoder_features)
 
+    @property
     def num_decoder_features(self):
         return len(self._dataset.decoder_features)
 
@@ -185,15 +189,6 @@ class SaliencyMapUtil:
             of the original feature.
             The references are created by adding random noise to each time step of the original feature.
             For each feature a number of references are created, set by the batch_size parameter
-
-            Parameters
-            ----------
-            dataloader: Tensor
-                        original data, created by the make_dataloader function
-            timestep:   integer
-                        timestep, at which the references are to be created
-            batch_size: integer
-                        number of references to be created per feature
 
             Returns
             -------
@@ -207,33 +202,33 @@ class SaliencyMapUtil:
         seed(1)  # seed random number generator
 
         features1_references_np = np.zeros(
-            shape=(self._ref_batch_size,
-                   self.history_horizon(),
-                   self.num_encoder_features())
+            shape=(self._explanation_config["ref_batch_size"],
+                   self.history_horizon,
+                   self.num_encoder_features)
         )
         features2_references_np = np.zeros(
-            shape=(self._ref_batch_size,
-                   self.forecast_horizon(),
-                   self.num_decoder_features())
+            shape=(self._explanation_config["ref_batch_size"],
+                   self.forecast_horizon,
+                   self.num_decoder_features)
         )
 
         inputs1_np = self._dataset[self._time_step][0].cpu().numpy()
         inputs2_np = self._dataset[self._time_step][1].cpu().numpy()
 
-        for x in range(self.num_encoder_features()):  # iterate through encoder features
+        for x in range(self.num_encoder_features):  # iterate through encoder features
             feature_x = inputs1_np[:, x]
             mu = 0
             sigma = abs(np.std(feature_x))  # 0.3 is chosen arbitrarily # hier np.std nehmen
-            for j in range(self._ref_batch_size):
-                noise_feature1 = np.random.default_rng().normal(mu, sigma, self.history_horizon())  # create white noise series
+            for j in range(self._explanation_config["ref_batch_size"]):
+                noise_feature1 = np.random.default_rng().normal(mu, sigma, self.history_horizon)  # create white noise series
                 features1_references_np[j, :, x] = noise_feature1 + feature_x
 
-        for x in range(self.num_decoder_features()):  # iterate through decoder features
+        for x in range(self.num_decoder_features):  # iterate through decoder features
             feature_x = inputs2_np[:, x]
             mu = 0
             sigma = abs(np.std(feature_x))  # 0.3 is chosen arbitrarily
-            for j in range(self._ref_batch_size):
-                noise_feature2 = np.random.default_rng().normal(mu, sigma, self.forecast_horizon())
+            for j in range(self._explanation_config["ref_batch_size"]):
+                noise_feature2 = np.random.default_rng().normal(mu, sigma, self.forecast_horizon)
                 features2_references_np[j, :, x] = noise_feature2 + feature_x
 
         return torch.Tensor(features1_references_np).to(self._device), torch.Tensor(features2_references_np).to(self._device)
@@ -242,13 +237,13 @@ class SaliencyMapUtil:
 
         temp_saliency_map = (
             torch.full(
-                (self.history_horizon(), self.num_encoder_features()),
+                (self.history_horizon, self.num_encoder_features),
                 fill_value=fill_value,
                 device=self._device,
                 requires_grad=True
             ),
             torch.full(
-                (self.forecast_horizon(), self.num_decoder_features()),
+                (self.forecast_horizon, self.num_decoder_features),
                 fill_value=fill_value,
                 device=self._device,
                 requires_grad=True)
@@ -327,11 +322,7 @@ class SaliencyMapUtil:
         # sdr_loss = -loss1 + loss2 + loss3
         return ssr_loss, loss1
 
-    def optimize(
-            self,
-            lr_low=LR_LOW,
-            lr_high=LR_HIGH
-    ):
+    def optimize(self):
 
         # todo rewrite function to automatically compute list of timestamps
         #  without having to reload the model every time
@@ -346,12 +337,10 @@ class SaliencyMapUtil:
         # get original inputs and predictions
         encoder_input = torch.unsqueeze(self._dataset[self._time_step][0], 0).to(self._device)
         decoder_input = torch.unsqueeze(self._dataset[self._time_step][1], 0).to(self._device)
-        target = torch.unsqueeze(self._dataset[self._time_step][2], 0).to(self._device)
+        #target = torch.unsqueeze(self._dataset[self._time_step][2], 0).to(self._device)
 
         with torch.no_grad():
             prediction = self._model_wrap.predict(encoder_input, decoder_input).to(self._device)
-
-
 
         def objective(trial):
             """
@@ -367,7 +356,10 @@ class SaliencyMapUtil:
 
             torch.autograd.set_detect_anomaly(True)
 
-            learning_rate = trial.suggest_loguniform("learning rate", low=lr_low, high=lr_high)
+            learning_rate = trial.suggest_loguniform(
+                "learning rate",
+                low=self._explanation_config["lr_low"],
+                high=self._explanation_config["lr_low"])
             mask_init_value = trial.suggest_uniform('mask initialisation value', 0., 1.)
 
             inputs1_temp = torch.squeeze(encoder_input, dim=0).to(self._device)
@@ -378,10 +370,10 @@ class SaliencyMapUtil:
 
             optimizer = torch.optim.Adam(temp_saliency_map, lr=learning_rate)
 
-            stop_counter = 0
-
             # calculate mask
-            for epoch in range(MAX_EPOCHS):  # mask 'training' epochs
+            assert self._explanation_config["max_epochs"] > 0
+
+            for epoch in range(self._explanation_config["max_epochs"]):  # mask 'training' epochs
 
                 # create inverse masks # todo use _get perturbated prediction function
                 inverse_saliency_map1 = torch.sub(torch.ones(inputs1_temp.shape, device=self._device),
@@ -413,39 +405,11 @@ class SaliencyMapUtil:
 
                 optimizer.zero_grad()  # set all gradients zero
 
-                # todo make stop counter function
-                if (epoch >= 1000) and (epoch < 3000):
-                    if (loss > 0.2) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
-                        stop_counter += 1  # stop counter to prevent stopping due to temporary loss jumps
-                        if stop_counter == 10:
-                            print('stopping...')
-                            break
-                    else:
-                        stop_counter = 0
-
-                elif (epoch >= 3000) and (epoch < 5000):
-                    if (loss > 0.1) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
-                        stop_counter += 1  # stop counter to prevent stopping due to temporary loss jumps
-                        if stop_counter == 10:
-                            print('stopping...')
-                            break
-                    else:
-                        stop_counter = 0
-
-                elif (epoch >= 5000) and (epoch < 10000):
-                    if (loss > 0.05) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
-                        stop_counter += 1  # stop counter to prevent stopping due to temporary loss jumps
-                        if stop_counter == 10:
-                            print('stopping...')
-                            break
-                    else:
-                        stop_counter = 0
-
                 loss.backward()  # backpropagate mean loss
                 optimizer.step()  # update mask parameters/minimize loss function
 
                 if epoch % 1000 == 0:  # print every 100 epochs
-                    print('epoch ', epoch, '/', MAX_EPOCHS, '...    loss:', loss.item())
+                    print('epoch ', epoch, '/', self._explanation_config["max_epochs"], '...    loss:', loss.item())
 
             # trial_id = trial.number
             trial.set_user_attr("saliency map", temp_saliency_map)
@@ -457,13 +421,10 @@ class SaliencyMapUtil:
         # create saliency map
 
         logger.info('create saliency map...')
-        optuna.logging.set_verbosity(optuna.logging.DEBUG)
-        optuna.logging.enable_propagation()
-        #optuna.logging.disable_default_handler()
         study = optuna.create_study()
         study.optimize(
             objective,
-            n_trials=N_TRIALS)
+            n_trials=self._explanation_config["n_trials"])
 
         t1_stop = perf_counter()
         logger.info("Elapsed time: {}".format(t1_stop - t1_start))
@@ -479,7 +440,7 @@ class SaliencyMapUtil:
     def rmse(self):  # todo write this function
         pass
 
-    def save(self):
+    def save(self):  # todo save with name of specific timestep
         """
         Saves the whole class instance after optimization for potential future use and analyzing
         """
@@ -490,9 +451,12 @@ class SaliencyMapUtil:
             logger.error("Please use optimize(), before saving the instance.")
 
     @staticmethod
-    def load(target: str):
+    def load(target: str):  # todo ask for timestep
         try:
-            default_path = os.path.join(INTERPRETATION_PATH, target + '/save')
+            default_path = os.path.join(
+                MAIN_PATH,
+                '/oracles/interpretation/',
+                target + '/save')
             self = torch.load(default_path)
             if not isinstance(self, SaliencyMapUtil):
                 raise TypeError
@@ -500,7 +464,7 @@ class SaliencyMapUtil:
             logger.error('The file you tried to load is not a SaliencyMapUtil instance')
             self = None
         except FileNotFoundError:
-            logger.error('There has not been created a save file for the target yet')
+            logger.error('no save file found in {}'.format(default_path))
             self = None
         return self
 
@@ -533,8 +497,8 @@ class SaliencyMapUtil:
 
         # todo check for hourly resolution
         # create time axis
-        start_index = self._datetime - pd.Timedelta(self.history_horizon(), unit='h') # assumes hourly resolution
-        stop_index = self._datetime + pd.Timedelta(self.forecast_horizon()-1, unit='h') #datetime is first timestep of forecasting horizon
+        start_index = self._datetime - pd.Timedelta(self.history_horizon, unit='h') # assumes hourly resolution
+        stop_index = self._datetime + pd.Timedelta(self.forecast_horizon-1, unit='h') #datetime is first timestep of forecasting horizon
         time_axis = pd.date_range(start_index, stop_index, freq='h')
         time_axis_length = len(time_axis)
 
@@ -550,9 +514,9 @@ class SaliencyMapUtil:
         )  # for features not present in certain areas(nan), use different colour (white)
 
         # copy saliency map into one connected map
-        saliency_heatmap[0:self.history_horizon(), 0:self.num_encoder_features()] =\
+        saliency_heatmap[0:self.history_horizon, 0:self.num_encoder_features] =\
             self._saliency_map[0].cpu().detach().numpy()
-        saliency_heatmap[self.history_horizon():, self.num_encoder_features():] =\
+        saliency_heatmap[self.history_horizon:, self.num_encoder_features:] =\
             self._saliency_map[1].cpu().detach().numpy()
 
         saliency_heatmap = np.transpose(saliency_heatmap)  # swap axes
@@ -597,3 +561,23 @@ class SaliencyMapUtil:
         fig2.savefig(temp_save_path)
         logger.info('plot saved in {}.'.format(temp_save_path))
 
+
+def stop_function(epoch, loss):
+    # todo probably going to be replaced by optuna.pruner or deleted completely
+    if (epoch >= 1000) and (epoch < 3000):
+        if (loss > 0.2) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
+            return False
+        else:
+            return True
+
+    elif (epoch >= 3000) and (epoch < 5000):
+        if (loss > 0.1) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
+            return False
+        else:
+            return True
+
+    elif (epoch >= 5000) and (epoch < 10000):
+        if (loss > 0.05) and (loss < 1):  # loss <1 to prevent stopping because mask out of [0,1] boundary
+            return False
+        else:
+            return True
