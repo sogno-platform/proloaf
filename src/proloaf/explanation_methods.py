@@ -23,12 +23,12 @@ import proloaf.tensorloader as tl
 
 logger = create_event_logger(__name__)
 
+
 class SaliencyMapUtil:
 
     def __init__(
             self,
             target: str,
-            datetime: pd.DatetimeIndex,
             sep=';'
     ):
 
@@ -40,7 +40,7 @@ class SaliencyMapUtil:
             main_path=MAIN_PATH
         )
 
-        #read forecasting model config
+        # read forecasting model config
         logger.info('reading model config...')
         config_path = './targets/' + target + '/config.json'
         model_config = ch.read_config(
@@ -92,18 +92,18 @@ class SaliencyMapUtil:
             device=self._device,
             **model_config
         )
-        index_copy = self._dataset.data.index #gets replaced by Time column after to_tensor()
+        self._index_copy = self._dataset.data.index  # gets replaced by Time column after to_tensor()
         self._dataset.to_tensor()  # prepare dataset
 
         # create modelhandler
         #logger.debug('preparing the modelhandler...')
 
-        modelhandler = mh.ModelHandler(
-            work_dir=MAIN_PATH,
-            config=model_config,
-            tuning_config=model_tuning_config,
-            device=self._device,
-        )
+        # modelhandler = mh.ModelHandler(
+        #         #     work_dir=MAIN_PATH,
+        #         #     config=model_config,
+        #         #     tuning_config=model_tuning_config,
+        #         #     device=self._device,
+        #         # )
 
         # load forecasting model
         try:
@@ -125,32 +125,14 @@ class SaliencyMapUtil:
             torch.zeros(self.forecast_horizon, self.num_decoder_features, requires_grad=True, device=self._device)
         )
 
-        assert isinstance(datetime, pd.Timestamp)
-        self._datetime = datetime
-
-        def datetime_to_timestep():
-            try:
-                time_step = index_copy[
-                    pd.to_datetime(self._dataset.data.index) == self._datetime
-                ]
-                time_step = time_step.values
-                assert len(time_step) == 1
-                time_step = int(time_step[0])
-                assert isinstance(time_step, int)
-                logger.debug('Timestep for saliency map with the date {!s} is {!s}'.format(self._datetime, time_step))
-                return time_step
-            except:
-                logger.error("An error has occurred while trying to read the datetime."
-                             " Please use pandas datetime and correct format.")
-
-        self._time_step = datetime_to_timestep()
+        self.datetime = pd.to_datetime(self._explanation_config["date"], format="%d.%m.%Y %H:%M:%S")
 
         logger.debug(
                     'saliency map initialized for the forecast of {} hours after the '
                     'date: {}, with a history horizon of {}.\n'
                     'The current forecasting model is set to {} '.format(
                         self.forecast_horizon,
-                        self._datetime,
+                        self.datetime,
                         self.history_horizon,
                         target
                     )
@@ -165,6 +147,45 @@ class SaliencyMapUtil:
             os.mkdir(self._path)
 
         self._optimization_done = False
+
+    @property
+    def datetime(self):
+        return self._datetime
+
+    @datetime.setter
+    def datetime(self, datetime):
+        if not isinstance(datetime, pd.Timestamp):
+            raise TypeError("Only pandas Timestamps are accepted as datetime variables")
+        self._datetime = datetime
+        logger.info("Date and Time set to: {}".format(datetime))
+
+        self._update_time_step()
+
+    def _update_time_step(self):
+        try:
+            time_step = self._index_copy[
+                pd.to_datetime(self._dataset.data.index) == self.datetime
+                ]
+            time_step = time_step.values
+            assert len(time_step) == 1
+            time_step = int(time_step[0])
+            assert isinstance(time_step, int)
+            logger.debug('Timestep for saliency map with the date {!s} is {!s}'.format(self.datetime, time_step))
+            self._time_step = time_step
+        except:
+            logger.error("An error has occurred while trying to read the datetime."
+                         " Please use pandas datetime and correct format.")
+
+    @property
+    def time_step(self):
+        if not hasattr(self, '_time_step'):
+           raise RuntimeError("Time step has not been set yet. Please set a date first")
+        return self._time_step
+
+    @time_step.setter
+    def time_step(self, time_step):
+        raise RuntimeError("The time step should not be set directly."
+                           "It is automatically set and updated, when setting the datetime property")
 
     @property
     def history_horizon(self):
@@ -212,8 +233,8 @@ class SaliencyMapUtil:
                    self.num_decoder_features)
         )
 
-        inputs1_np = self._dataset[self._time_step][0].cpu().numpy()
-        inputs2_np = self._dataset[self._time_step][1].cpu().numpy()
+        inputs1_np = self._dataset[self.time_step][0].cpu().numpy()
+        inputs2_np = self._dataset[self.time_step][1].cpu().numpy()
 
         for x in range(self.num_encoder_features):  # iterate through encoder features
             feature_x = inputs1_np[:, x]
@@ -335,9 +356,9 @@ class SaliencyMapUtil:
         (encoder_references, decoder_references) = self._create_references()
 
         # get original inputs and predictions
-        encoder_input = torch.unsqueeze(self._dataset[self._time_step][0], 0).to(self._device)
-        decoder_input = torch.unsqueeze(self._dataset[self._time_step][1], 0).to(self._device)
-        #target = torch.unsqueeze(self._dataset[self._time_step][2], 0).to(self._device)
+        encoder_input = torch.unsqueeze(self._dataset[self.time_step][0], 0).to(self._device)
+        decoder_input = torch.unsqueeze(self._dataset[self.time_step][1], 0).to(self._device)
+        #target = torch.unsqueeze(self._dataset[self.time_step][2], 0).to(self._device)
 
         with torch.no_grad():
             prediction = self._model_wrap.predict(encoder_input, decoder_input).to(self._device)
@@ -408,8 +429,8 @@ class SaliencyMapUtil:
                 loss.backward()  # backpropagate mean loss
                 optimizer.step()  # update mask parameters/minimize loss function
 
-                if epoch % 1000 == 0:  # print every 100 epochs
-                    print('epoch ', epoch, '/', self._explanation_config["max_epochs"], '...    loss:', loss.item())
+                self.print_epoch(epoch, loss)
+
 
             # trial_id = trial.number
             trial.set_user_attr("saliency map", temp_saliency_map)
@@ -436,6 +457,17 @@ class SaliencyMapUtil:
         # save best saliency map
         self._saliency_map = best_saliency_map
         self._optimization_done = True
+
+    def print_epoch(self, epoch, loss):
+
+        if epoch % 100 == 0:  # print every 100 epochs
+            logger.debug(
+                'epoch {} / {} \t loss: {}'.format(
+                    epoch,
+                    self._explanation_config["max_epochs"],
+                    loss.item()
+                )
+            )
 
     def rmse(self):  # todo write this function
         pass
@@ -497,8 +529,8 @@ class SaliencyMapUtil:
 
         # todo check for hourly resolution
         # create time axis
-        start_index = self._datetime - pd.Timedelta(self.history_horizon, unit='h') # assumes hourly resolution
-        stop_index = self._datetime + pd.Timedelta(self.forecast_horizon-1, unit='h') #datetime is first timestep of forecasting horizon
+        start_index = self.datetime - pd.Timedelta(self.history_horizon, unit='h') # assumes hourly resolution
+        stop_index = self.datetime + pd.Timedelta(self.forecast_horizon-1, unit='h') #datetime is first timestep of forecasting horizon
         time_axis = pd.date_range(start_index, stop_index, freq='h')
         time_axis_length = len(time_axis)
 
@@ -555,7 +587,7 @@ class SaliencyMapUtil:
 
         # save heatmap
         if plot_path == '':  # if plot plath was not specified use default
-                plot_path = os.path.join(self._path, str(self._datetime.date()))
+                plot_path = os.path.join(self._path, str(self.datetime.date()))
 
         temp_save_path = plot_path + '_heatmap'
         fig2.savefig(temp_save_path)
