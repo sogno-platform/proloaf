@@ -57,21 +57,7 @@ class SaliencyMapUtil:
         df = pd.read_csv(os.path.join(MAIN_PATH, model_config["data_path"]), sep=sep)
 
         # setting device
-        def set_device():
-            logger.info('setting computation device...')
-            cuda_id = model_config["cuda_id"]  # todo read cuda_id from interpreter config
-            if torch.cuda.is_available():
-                if cuda_id is not None:
-                    torch.cuda.set_device(cuda_id)
-                logger.debug('Current CUDA ID: {}'.format(torch.cuda.current_device()))
-                device = 'cuda'
-                return device
-
-            else:
-                device = 'cpu'
-                return device
-
-        self._device = set_device()
+        self._device = self.set_device(self._explanation_config["cuda_id"])
         logger.debug('Device: {}'.format(self._device))
 
         # get scaler
@@ -95,23 +81,13 @@ class SaliencyMapUtil:
         self._index_copy = self._dataset.data.index  # gets replaced by Time column after to_tensor()
         self._dataset.to_tensor()  # prepare dataset
 
-        # create modelhandler
-        #logger.debug('preparing the modelhandler...')
-
-        # modelhandler = mh.ModelHandler(
-        #         #     work_dir=MAIN_PATH,
-        #         #     config=model_config,
-        #         #     tuning_config=model_tuning_config,
-        #         #     device=self._device,
-        #         # )
-
-        # load forecasting model
+        # loading the forecasting model
         try:
             logger.info('loading the forecasting model')
             model_wrap_path = os.path.join(MAIN_PATH, model_config["output_path"], model_config["model_name"] + '.pkl')
             self._model_wrap = mh.ModelHandler.load_model(path=model_wrap_path, locate=self._device)
         except:
-            logger.error("An error has occured while trying to load the forecasting model."
+            logger.error("An error has occurred while trying to load the forecasting model."
                          "The model has to be trained and saved as a loadable file.")
 
         # initialize saliency map
@@ -147,6 +123,20 @@ class SaliencyMapUtil:
             os.mkdir(self._path)
 
         self._optimization_done = False
+
+    @staticmethod
+    def set_device(cuda_id):
+        logger.info('setting computation device...')
+        if torch.cuda.is_available():
+            if cuda_id is not None:
+                torch.cuda.set_device(cuda_id)
+            logger.debug('Current CUDA ID: {}'.format(torch.cuda.current_device()))
+            device = 'cuda'
+            return device
+
+        else:
+            device = 'cpu'
+            return device
 
     @property
     def datetime(self):
