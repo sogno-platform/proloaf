@@ -52,6 +52,7 @@ class SaliencyMapUtil:
             config_path=os.path.join(MAIN_PATH, tuning_config_path),
             main_path=MAIN_PATH,
         )
+
         # import data
         logger.info('importing data...')
         df = pd.read_csv(os.path.join(MAIN_PATH, model_config["data_path"]), sep=sep)
@@ -93,8 +94,6 @@ class SaliencyMapUtil:
         # initialize saliency map
         logger.debug('initializing saliency map...')
 
-        # todo determine if there are features which are both encoder and decoder
-
         # todo self._saliency_map._encoder_map = ...
         self._saliency_map = (
             torch.zeros(self.history_horizon, self.num_encoder_features, requires_grad=True, device=self._device),
@@ -102,17 +101,6 @@ class SaliencyMapUtil:
         )
 
         self.datetime = pd.to_datetime(self._explanation_config["date"], format="%d.%m.%Y %H:%M:%S")
-
-        logger.debug(
-                    'saliency map initialized for the forecast of {} hours after the '
-                    'date: {}, with a history horizon of {}.\n'
-                    'The current forecasting model is set to {} '.format(
-                        self.forecast_horizon,
-                        self.datetime,
-                        self.history_horizon,
-                        target
-                    )
-                )
 
         # set interpretation path
         self._path = os.path.join(
@@ -176,7 +164,6 @@ class SaliencyMapUtil:
     def time_step(self, time_step):
         raise RuntimeError("The time step should not be set directly."
                            "It is automatically set and updated, when setting the datetime property")
-
     @property
     def history_horizon(self):
         return self._dataset.history_horizon
@@ -193,6 +180,22 @@ class SaliencyMapUtil:
     def num_decoder_features(self):
         return len(self._dataset.decoder_features)
 
+    @property
+    def encoder_input(self):
+        return torch.unsqueeze(self._dataset[self.time_step][0], 0).to(self._device)
+
+    @property
+    def decoder_input(self):
+        return torch.unsqueeze(self._dataset[self.time_step][1], 0).to(self._device)
+
+    @property
+    def encoder_references(self):
+        return self._encoder_references
+
+    @property
+    def decoder_references(self):
+        return self._decoder_references
+
     def _create_references(self):
         """
             Creates the references for the saliency map optimization process.
@@ -201,12 +204,6 @@ class SaliencyMapUtil:
             The references are created by adding random noise to each time step of the original feature.
             For each feature a number of references are created, set by the batch_size parameter
 
-            Returns
-            -------
-            features1_references: Tensor
-                References for the encoder features
-            features2_references: Tensor
-                References for the decoder features
             """
 
         # creates reference for a certain timestep
@@ -242,9 +239,10 @@ class SaliencyMapUtil:
                 noise_feature2 = np.random.default_rng().normal(mu, sigma, self.forecast_horizon)
                 features2_references_np[j, :, x] = noise_feature2 + feature_x
 
-        return torch.Tensor(features1_references_np).to(self._device), torch.Tensor(features2_references_np).to(self._device)
+        self._encoder_references = torch.Tensor(features1_references_np).to(self._device)
+        self._decoder_references = torch.Tensor(features2_references_np).to(self._device)
 
-    def _fill_with(self, fill_value): # todo write documention string
+    def _fill_with(self, fill_value):  # todo write documention string
 
         temp_saliency_map = (
             torch.full(
@@ -261,12 +259,49 @@ class SaliencyMapUtil:
         )
         return temp_saliency_map
 
-    def _write(self, new_saliency_map): # todo write this function
-        if not isinstance(new_saliency_map, list): #todo list of what?
-            TypeError("Saliency Map must be list of two 2D torch tensors")
+    def _get_perturbated_input(self, saliency_map):  # todo write reference
 
-    def _get_perturbated_prediction(self): # todo write this function
-        pass
+        inverse_saliency_map1 = torch.sub(
+            torch.ones(saliency_map[0].shape, device=self._device),
+            saliency_map[0]
+        ).to(self._device)  # elementwise 1-m
+
+        inverse_saliency_map2 = torch.sub(
+            torch.ones(saliency_map[1].shape, device=self._device),
+            saliency_map[1]
+        ).to(self._device)  # elementwise 1-m
+
+        input_summand1 = torch.mul(
+            torch.squeeze(self.encoder_input, dim=0).to(self._device),
+            saliency_map[0]
+        ).to(self._device)  # element wise multiplication
+
+        input_summand2 = torch.mul(
+            torch.squeeze(self.decoder_input, dim=0).to(self._device),
+            saliency_map[1]
+        ).to(self._device)  # element wise multiplication
+
+        reference_summand1 = torch.mul(self.encoder_references, inverse_saliency_map1).to(self._device)
+        reference_summand2 = torch.mul(self.decoder_references, inverse_saliency_map2).to(self._device)
+
+        perturbated_input1 = torch.add(input_summand1, reference_summand1).to(self._device)
+        perturbated_input2 = torch.add(input_summand2, reference_summand2).to(self._device)
+
+        return perturbated_input1, perturbated_input2
+
+    def _get_perturbated_prediction(self, saliency_map):  # todo write reference
+
+        # perturbate input
+        perturbated_input1, perturbated_input2 = self._get_perturbated_input(saliency_map)
+
+        # get prediction of perturbated input
+        self._model_wrap.model.train()
+        perturbated_prediction = self._model_wrap.predict(
+            perturbated_input1,
+            perturbated_input2
+        ).to(self._device)
+
+        return perturbated_prediction
 
     def _loss_function(
             self,
@@ -343,15 +378,10 @@ class SaliencyMapUtil:
 
         # create references
         logger.info('creating references...')
-        (encoder_references, decoder_references) = self._create_references()
-
-        # get original inputs and predictions
-        encoder_input = torch.unsqueeze(self._dataset[self.time_step][0], 0).to(self._device)
-        decoder_input = torch.unsqueeze(self._dataset[self.time_step][1], 0).to(self._device)
-        #target = torch.unsqueeze(self._dataset[self.time_step][2], 0).to(self._device)
+        self._create_references()
 
         with torch.no_grad():
-            prediction = self._model_wrap.predict(encoder_input, decoder_input).to(self._device)
+            prediction = self._model_wrap.predict(self.encoder_input, self.decoder_input).to(self._device)
 
         def objective(trial):
             """
@@ -373,9 +403,6 @@ class SaliencyMapUtil:
                 high=self._explanation_config["lr_low"])
             mask_init_value = trial.suggest_uniform('mask initialisation value', 0., 1.)
 
-            inputs1_temp = torch.squeeze(encoder_input, dim=0).to(self._device)
-            inputs2_temp = torch.squeeze(decoder_input, dim=0).to(self._device)
-
             # todo: rework saliency map as class
             temp_saliency_map = self._fill_with(mask_init_value)
 
@@ -386,28 +413,7 @@ class SaliencyMapUtil:
 
             for epoch in range(self._explanation_config["max_epochs"]):  # mask 'training' epochs
 
-                # create inverse masks # todo use _get perturbated prediction function
-                inverse_saliency_map1 = torch.sub(torch.ones(inputs1_temp.shape, device=self._device),
-                                                  temp_saliency_map[0]).to(self._device)  # elementwise 1-m
-                inverse_saliency_map2 = torch.sub(torch.ones(inputs2_temp.shape, device=self._device),
-                                                  temp_saliency_map[1]).to(self._device)  # elementwise 1-m
-                input_summand1 = torch.mul(inputs1_temp, temp_saliency_map[0]).to(self._device)  # element wise multiplication
-                input_summand2 = torch.mul(inputs2_temp, temp_saliency_map[1]).to(self._device)  # element wise multiplication
-
-                # create perturbated series through mask
-                # todo: write function for getting perturbated inputs from a saliency map
-                reference_summand1 = torch.mul(encoder_references, inverse_saliency_map1).to(self._device)
-                perturbated_input1 = torch.add(input_summand1, reference_summand1).to(self._device)
-                reference_summand2 = torch.mul(decoder_references, inverse_saliency_map2).to(self._device)
-                perturbated_input2 = torch.add(input_summand2, reference_summand2).to(self._device)
-
-                # get prediction
-                self._model_wrap.model.train()
-                perturbated_prediction = self._model_wrap.predict(
-                    perturbated_input1,
-                    perturbated_input2
-                ).to(self._device)
-
+                perturbated_prediction = self._get_perturbated_prediction(temp_saliency_map)
                 loss, rmse = self._loss_function(
                     prediction,
                     perturbated_prediction,
@@ -420,7 +426,6 @@ class SaliencyMapUtil:
                 optimizer.step()  # update mask parameters/minimize loss function
 
                 self.print_epoch(epoch, loss)
-
 
             # trial_id = trial.number
             trial.set_user_attr("saliency map", temp_saliency_map)
@@ -442,7 +447,6 @@ class SaliencyMapUtil:
 
         # load best saliency map
         best_saliency_map = study.best_trial.user_attrs['saliency map']
-
 
         # save best saliency map
         self._saliency_map = best_saliency_map
@@ -467,18 +471,20 @@ class SaliencyMapUtil:
         Saves the whole class instance after optimization for potential future use and analyzing
         """
         if self._optimization_done:
-            save_path = os.path.join(self._path, 'save')
+            save_path = os.path.join(self._path, str(self.datetime.date()) + '_save')
             torch.save(self, save_path)
         else:
             logger.error("Please use optimize(), before saving the instance.")
 
     @staticmethod
-    def load(target: str):  # todo ask for timestep
+    def load(target: str, date: pd.Timestamp = ''):  # todo ask for timestep
         try:
             default_path = os.path.join(
                 MAIN_PATH,
-                '/oracles/interpretation/',
-                target + '/save')
+                'oracles/interpretation/',
+                target,
+                str(date.date()) + '_save'
+            )
             self = torch.load(default_path)
             if not isinstance(self, SaliencyMapUtil):
                 raise TypeError
