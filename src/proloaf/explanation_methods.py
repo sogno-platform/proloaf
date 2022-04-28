@@ -25,6 +25,17 @@ logger = create_event_logger(__name__)
 optuna.logging.enable_propagation()
 
 
+def timer(func):  # without return value
+    def wrapper(*args, **kwargs):
+        logger.info(f'starting timer for {__name__} function')
+        start_time = perf_counter()
+        func(*args, **kwargs)
+        end_time = perf_counter()
+        run_time = end_time-start_time
+        logger.info(f"{__name__} function finished in: {run_time} seconds")
+    return wrapper
+
+
 class SaliencyMapUtil:
 
     def __init__(
@@ -48,11 +59,11 @@ class SaliencyMapUtil:
             config_path=os.path.join(MAIN_PATH, config_path),
             main_path=MAIN_PATH
         )
-        tuning_config_path = './targets/' + target + '/tuning.json'
-        model_tuning_config = ch.read_config(
-            config_path=os.path.join(MAIN_PATH, tuning_config_path),
-            main_path=MAIN_PATH,
-        )
+        # tuning_config_path = './targets/' + target + '/tuning.json'
+        # model_tuning_config = ch.read_config(
+        #     config_path=os.path.join(MAIN_PATH, tuning_config_path),
+        #     main_path=MAIN_PATH,
+        # )
 
         # import data
         logger.info('importing data...')
@@ -67,6 +78,7 @@ class SaliencyMapUtil:
 
         # create timeseries dataset
         logger.info('preparing the dataset...')
+
         self._dataset = tl.TimeSeriesData(
             df,
             preparation_steps=[
@@ -80,6 +92,7 @@ class SaliencyMapUtil:
             device=self._device,
             **model_config
         )
+
         self._index_copy = self._dataset.data.index  # gets replaced by Time column after to_tensor()
         self._dataset.to_tensor()  # prepare dataset
 
@@ -112,6 +125,7 @@ class SaliencyMapUtil:
             os.mkdir(self._path)
 
         self._optimization_done = False
+        self.model_prediction = self._get_model_prediction()
 
     @staticmethod
     def set_device(cuda_id):
@@ -146,20 +160,27 @@ class SaliencyMapUtil:
                 pd.to_datetime(self._dataset.data.index) == self.datetime
                 ]
             time_step = time_step.values
-            assert len(time_step) == 1
+            if not len(time_step) == 1:
+                raise ValueError
             time_step = int(time_step[0])
-            assert isinstance(time_step, int)
+            if not isinstance(time_step, int):
+                raise TypeError
             logger.debug('Timestep for saliency map with the date {!s} is {!s}'.format(self.datetime, time_step))
             self._time_step = time_step
-        except:
+
+        except ValueError:
             logger.error("An error has occurred while trying to read the datetime."
-                         " Please use pandas datetime and correct format.")
+                         "More then one time step.")
+        except TypeError:
+            logger.error("An error has occurred while trying to read the datetime."
+                         "Time step index is no integer")
 
     @property
     def time_step(self):
         if not hasattr(self, '_time_step'):
-           raise RuntimeError("Time step has not been set yet. Please set a date first")
-        return self._time_step
+            logger.error("Time step has not been set yet. Please set a date first")
+        else:
+            return self._time_step
 
     @time_step.setter
     def time_step(self, time_step):
@@ -184,11 +205,11 @@ class SaliencyMapUtil:
 
     @property
     def encoder_input(self):
-        return torch.unsqueeze(self._dataset[self.time_step][0], 0).to(self._device)
+        return self._dataset[self.time_step][0]
 
     @property
     def decoder_input(self):
-        return torch.unsqueeze(self._dataset[self.time_step][1], 0).to(self._device)
+        return self._dataset[self.time_step][1]
 
     @property
     def encoder_references(self):
@@ -222,8 +243,8 @@ class SaliencyMapUtil:
                    self.num_decoder_features)
         )
 
-        inputs1_np = self._dataset[self.time_step][0].cpu().numpy()
-        inputs2_np = self._dataset[self.time_step][1].cpu().numpy()
+        inputs1_np = self.encoder_input.cpu().numpy()
+        inputs2_np = self.decoder_input.cpu().numpy()
 
         for x in range(self.num_encoder_features):  # iterate through encoder features
             feature_x = inputs1_np[:, x]
@@ -262,7 +283,7 @@ class SaliencyMapUtil:
         )
         return temp_saliency_map
 
-    def _get_perturbated_input(self, saliency_map):  # todo write reference
+    def _get_perturbated_input(self, saliency_map):  # todo write doc
 
         inverse_saliency_map1 = torch.sub(
             torch.ones(saliency_map[0].shape, device=self._device),
@@ -275,12 +296,12 @@ class SaliencyMapUtil:
         ).to(self._device)  # elementwise 1-m
 
         input_summand1 = torch.mul(
-            torch.squeeze(self.encoder_input, dim=0).to(self._device),
+            self.encoder_input,  # todo check if correct device when cuda is used
             saliency_map[0]
         ).to(self._device)  # element wise multiplication
 
         input_summand2 = torch.mul(
-            torch.squeeze(self.decoder_input, dim=0).to(self._device),
+            self.decoder_input,  # todo check if correct device when cuda is used
             saliency_map[1]
         ).to(self._device)  # element wise multiplication
 
@@ -306,12 +327,39 @@ class SaliencyMapUtil:
 
         return perturbated_prediction
 
+    @property
+    def model_prediction(self):
+        return self._model_prediction
+
+    @model_prediction.setter
+    def model_prediction(self, model_prediction):
+
+        if hasattr(self, '_model_prediction'):
+            return  # model prediction only has to be made once
+        else:
+            self._model_prediction = model_prediction
+
+    def _get_model_prediction(self):
+        with torch.no_grad():
+            return self._model_wrap.predict(
+                torch.unsqueeze(self.encoder_input, 0),
+                torch.unsqueeze(self.decoder_input, 0),
+            ).to(self._device)
+
+    def criterion_loss(self, perturbated_predictions, criterion=metrics.Rmse()):
+        target_prediction = self.model_prediction[0]
+        target_copies = torch.zeros(perturbated_predictions.shape).to(self._device)
+
+        for n in range(
+                self._explanation_config["ref_batch_size"]):  # target prediction is copied for all references in batch
+            target_copies[n] = target_prediction
+
+        return criterion(target_copies, perturbated_predictions)
+
     def _loss_function(
             self,
-            target_predictions,
             perturbated_predictions,
             mask,
-            criterion=metrics.Rmse(),
             lambda1=0.1,
             lambda2=1e10,
     ):
@@ -358,13 +406,13 @@ class SaliencyMapUtil:
             return mw_loss
 
         batch_size = perturbated_predictions.shape[0]
-        target_prediction = target_predictions[0]
+        target_prediction = self.model_prediction[0]
         target_copies = torch.zeros(perturbated_predictions.shape).to(self._device)
 
         for n in range(batch_size):  # target prediction is copied for all references in batch
             target_copies[n] = target_prediction
 
-        loss1 = criterion(target_copies, perturbated_predictions)  # prediction loss
+        loss1 = self.criterion_loss(perturbated_predictions)  # prediction loss
         loss2 = lambda1 * mask_weights_loss()  # abs value of mask weights
         loss3 = lambda2 * mask_interval_loss()
 
@@ -372,20 +420,16 @@ class SaliencyMapUtil:
         # sdr_loss = -loss1 + loss2 + loss3
         return ssr_loss, loss1
 
-    def optimize(self):
+    @timer
+    def create_saliency_map(self):
+        self._optimize_time_step()
+        #  todo possibly add feature to be able to configure more than one time step at a time
 
-        # todo rewrite function to automatically compute list of timestamps
-        #  without having to reload the model every time
-        # start counter
-        logger.info('starting timer...')
-        t1_start = perf_counter()
+    def _optimize_time_step(self):
 
         # create references
         logger.info('creating references...')
         self._create_references()
-
-        with torch.no_grad():
-            prediction = self._model_wrap.predict(self.encoder_input, self.decoder_input).to(self._device)
 
         def objective(trial):
             """
@@ -419,7 +463,6 @@ class SaliencyMapUtil:
 
                 perturbated_prediction = self._get_perturbated_prediction(temp_saliency_map)
                 loss, rmse = self._loss_function(
-                    prediction,
                     perturbated_prediction,
                     temp_saliency_map
                 )
@@ -446,15 +489,14 @@ class SaliencyMapUtil:
             objective,
             n_trials=self._explanation_config["n_trials"])
 
-        t1_stop = perf_counter()
-        logger.info("Elapsed time: {}".format(t1_stop - t1_start))
-
         # load best saliency map
         best_saliency_map = study.best_trial.user_attrs['saliency map']
+        best_perturbated_prediction = study.best_trial.user_attrs['perturbated_prediction']
 
         # save best saliency map
         self._saliency_map = best_saliency_map
         self._optimization_done = True
+        self._perturbated_prediction = best_perturbated_prediction
 
     def print_epoch(self, epoch, loss):
 
@@ -467,10 +509,7 @@ class SaliencyMapUtil:
                 )
             )
 
-    def rmse(self):  # todo write this function
-        pass
-
-    def save(self):  # todo save with name of specific timestep
+    def save(self):
         """
         Saves the whole class instance after optimization for potential future use and analyzing
         """
@@ -481,7 +520,7 @@ class SaliencyMapUtil:
             logger.error("Please use optimize(), before saving the instance.")
 
     @staticmethod
-    def load(target: str, date: pd.Timestamp = ''):  # todo ask for timestep
+    def load(target: str, date: pd.Timestamp = ''):
         try:
             default_path = os.path.join(
                 MAIN_PATH,
@@ -512,10 +551,8 @@ class SaliencyMapUtil:
             2 Encoder and Decoder
             3 only Decoder
         """
-        # function assumes 1 target
-        # todo: throw error message if more than 1 target variable
-        # todo: fix plot feature axes (says only features)
 
+        assert len(self._model_wrap.target_id) == 1  # function assumes 1 target
         logger.info('creating saliency map plot...')
 
         # font sizes
@@ -527,8 +564,9 @@ class SaliencyMapUtil:
 
         # todo check for hourly resolution
         # create time axis
-        start_index = self.datetime - pd.Timedelta(self.history_horizon, unit='h') # assumes hourly resolution
-        stop_index = self.datetime + pd.Timedelta(self.forecast_horizon-1, unit='h') #datetime is first timestep of forecasting horizon
+        start_index = self.datetime - pd.Timedelta(self.history_horizon, unit='h')  # assumes hourly resolution
+        stop_index = self.datetime + pd.Timedelta(self.forecast_horizon - 1,
+                                                  unit='h')  # datetime is first timestep of forecasting horizon
         time_axis = pd.date_range(start_index, stop_index, freq='h')
         time_axis_length = len(time_axis)
 
@@ -544,9 +582,9 @@ class SaliencyMapUtil:
         )  # for features not present in certain areas(nan), use different colour (white)
 
         # copy saliency map into one connected map
-        saliency_heatmap[0:self.history_horizon, 0:self.num_encoder_features] =\
+        saliency_heatmap[0:self.history_horizon, 0:self.num_encoder_features] = \
             self._saliency_map[0].cpu().detach().numpy()
-        saliency_heatmap[self.history_horizon:, self.num_encoder_features:] =\
+        saliency_heatmap[self.history_horizon:, self.num_encoder_features:] = \
             self._saliency_map[1].cpu().detach().numpy()
 
         saliency_heatmap = np.transpose(saliency_heatmap)  # swap axes
@@ -585,7 +623,7 @@ class SaliencyMapUtil:
 
         # save heatmap
         if plot_path == '':  # if plot plath was not specified use default
-                plot_path = os.path.join(self._path, str(self.datetime.date()))
+            plot_path = os.path.join(self._path, str(self.datetime.date()))
 
         temp_save_path = plot_path + '_heatmap'
         fig2.savefig(temp_save_path)
@@ -611,3 +649,4 @@ def stop_function(epoch, loss):
             return False
         else:
             return True
+

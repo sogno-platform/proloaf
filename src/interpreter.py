@@ -16,7 +16,7 @@ def main():
 
     args = parse_basic()
     saliency_map_util = SaliencyMapUtil(args.station)
-    saliency_map_util.optimize()
+    saliency_map_util.create_saliency_map()
     saliency_map_util.plot()
     saliency_map_util.save()
 
