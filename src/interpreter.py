@@ -7,6 +7,9 @@ sys.path.append(MAIN_PATH)
 
 from proloaf.explanation_methods import SaliencyMapUtil
 from proloaf.cli import parse_basic
+from proloaf.event_logging import create_event_logger
+
+logger = create_event_logger('interpreter')
 
 
 def main():

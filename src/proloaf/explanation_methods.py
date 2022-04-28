@@ -22,6 +22,7 @@ import proloaf.modelhandler as mh
 import proloaf.tensorloader as tl
 
 logger = create_event_logger(__name__)
+optuna.logging.enable_propagation()
 
 
 class SaliencyMapUtil:
@@ -164,6 +165,7 @@ class SaliencyMapUtil:
     def time_step(self, time_step):
         raise RuntimeError("The time step should not be set directly."
                            "It is automatically set and updated, when setting the datetime property")
+
     @property
     def history_horizon(self):
         return self._dataset.history_horizon
@@ -228,7 +230,8 @@ class SaliencyMapUtil:
             mu = 0
             sigma = abs(np.std(feature_x))  # 0.3 is chosen arbitrarily # hier np.std nehmen
             for j in range(self._explanation_config["ref_batch_size"]):
-                noise_feature1 = np.random.default_rng().normal(mu, sigma, self.history_horizon)  # create white noise series
+                # create white noise series
+                noise_feature1 = np.random.default_rng().normal(mu, sigma, self.history_horizon)
                 features1_references_np[j, :, x] = noise_feature1 + feature_x
 
         for x in range(self.num_decoder_features):  # iterate through decoder features
@@ -326,7 +329,8 @@ class SaliencyMapUtil:
         def mask_interval_loss():
             """
             this function encourages the mask values to stay in interval 0 to 1.
-            The loss function is zero when the mask value is between zero and 1, otherwise it takes a value linearly rising with the mask norm
+            The loss function is zero when the mask value is between zero and 1,
+            otherwise it takes a value linearly rising with the mask norm
             """
             tresh_plus = nn.Threshold(1, 0)  # thresh for >1
             tresh_zero = nn.Threshold(0, 0)  # thresh for <0
@@ -513,8 +517,6 @@ class SaliencyMapUtil:
         # todo: fix plot feature axes (says only features)
 
         logger.info('creating saliency map plot...')
-        encoder_features = self._dataset.encoder_features
-        decoder_features = self._dataset.decoder_features
 
         # font sizes
         plt.rc('font', size=30)  # default font size
