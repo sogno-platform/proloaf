@@ -1,6 +1,7 @@
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch.optim.lr_scheduler
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
@@ -108,8 +109,7 @@ class SaliencyMapUtil:
         # initialize saliency map
         logger.debug('initializing saliency map...')
 
-        # todo self._saliency_map._encoder_map = ...
-        self._saliency_map = (
+        self._best_mask = (
             torch.zeros(self.history_horizon, self.num_encoder_features, requires_grad=True, device=self._device),
             torch.zeros(self.forecast_horizon, self.num_decoder_features, requires_grad=True, device=self._device)
         )
@@ -297,7 +297,7 @@ class SaliencyMapUtil:
         )
         return saliency_map
 
-    def _get_perturbated_input(self, saliency_map):  # todo write doc
+    def _get_perturbated_input(self, saliency_map, batch_number):  # todo write doc
 
         inverse_saliency_map1 = torch.sub(
             torch.ones(saliency_map[0].shape, device=self._device),
@@ -319,27 +319,27 @@ class SaliencyMapUtil:
             saliency_map[1]
         ).to(self._device)  # element wise multiplication
 
-        reference_summand1 = torch.mul(self.encoder_references, inverse_saliency_map1).to(self._device)
-        reference_summand2 = torch.mul(self.decoder_references, inverse_saliency_map2).to(self._device)
+        reference_summand1 = torch.mul(self.encoder_references[batch_number], inverse_saliency_map1).to(self._device)
+        reference_summand2 = torch.mul(self.decoder_references[batch_number], inverse_saliency_map2).to(self._device)
 
         perturbated_input1 = torch.add(input_summand1, reference_summand1).to(self._device)
         perturbated_input2 = torch.add(input_summand2, reference_summand2).to(self._device)
 
         return perturbated_input1, perturbated_input2
 
-    def _get_perturbated_prediction(self, saliency_map):  # todo write reference
+    def _get_perturbated_prediction(self, saliency_map, batch_number):  # todo write reference
 
         # perturbate input
-        perturbated_input1, perturbated_input2 = self._get_perturbated_input(saliency_map)
+        perturbated_input1, perturbated_input2 = self._get_perturbated_input(saliency_map, batch_number)
 
         # get prediction of perturbated input
         self._model_wrap.model.train()
         perturbated_prediction = self._model_wrap.predict(
-            perturbated_input1,
-            perturbated_input2
+            torch.unsqueeze(perturbated_input1, dim=0),
+            torch.unsqueeze(perturbated_input2, dim=0)
         ).to(self._device)
 
-        return perturbated_prediction  # [batch_size,forecast_horizon, predictions]
+        return torch.squeeze(perturbated_prediction, dim=0)  # [batch_size,forecast_horizon, predictions]
 
     @property
     def model_prediction(self):
@@ -361,18 +361,13 @@ class SaliencyMapUtil:
                 torch.unsqueeze(self.decoder_input, 0),
             ).to(self._device)
 
-    def criterion_loss(self, perturbated_predictions, criterion=metrics.Rmse()):   # todo try using gnll criterion
-        # model_prediction returns [batch_size,forecast_horizon, predictions]
+    def criterion_loss(self, perturbated_prediction, criterion=metrics.Rmse()):   # todo try using gnll criterion
+        # model_prediction returns [batch,forecast_horizon, predictions]
         # batch size = 1
+
         target_prediction = self.model_prediction[0]  # -> [forecast_horizon, predictions]
-        target_copies = torch.zeros(perturbated_predictions.shape).to(self._device)
 
-        for n in range(
-                self._explanation_config["ref_batch_size"]
-        ):  # target prediction is copied for times the reference batch number
-            target_copies[n] = target_prediction  # -> [reference_batch_size,forecast_horizon, predictions]
-
-        return criterion(target_copies, perturbated_predictions)
+        return criterion(target_prediction, perturbated_prediction)
 
     @staticmethod
     def mask_weights_loss(saliency_map):  # penalizes high mask parameter values
@@ -394,8 +389,9 @@ class SaliencyMapUtil:
 
     def _loss_function(
             self,
-            mask,
-            lambda_=0.1,
+            saliency_map,
+            perturbated_prediction,
+            lambda_,
     ):
         """
         Calculates the loss function for the mask optimization process
@@ -404,22 +400,75 @@ class SaliencyMapUtil:
         The smallest supporting region loss is calculated by adding up the criterion loss
             the weighted mask weight and mask interval losses.
         """
-        saliency_map = self._apply_sigmoid(mask)  # force a probabilistic distribution ([0,1] bounds)
+          # force a probabilistic distribution ([0,1] bounds)
 
-        perturbated_predictions = self._get_perturbated_prediction(saliency_map)
-
-        loss1 = self.criterion_loss(perturbated_predictions)  # prediction loss
+        loss1 = self.criterion_loss(perturbated_prediction)  # prediction loss
         loss2 = lambda_ * self.mask_weights_loss(saliency_map)  # abs value of mask weights
 
-        ssr_loss = loss1 + loss2
+        ssr_loss = loss1 + loss2 - lambda_
         # sdr_loss = -loss1 + loss2
         return ssr_loss, loss1
 
+    def _batch_loss(self, mask, lambda_):
+        batch_loss = 0
+        for batch in range(self._explanation_config["ref_batch_size"]):
+            saliency_map = self._apply_sigmoid(mask)
+            perturbated_prediction = self._get_perturbated_prediction(saliency_map, batch)
+            loss, rmse = self._loss_function(
+                saliency_map,
+                perturbated_prediction,
+                lambda_
+            )
+            # logger.debug(f"batch:{batch!s}\t loss: {loss.item()}")
+            batch_loss += loss
+        return batch_loss
+
     def find_lambda(self):
         # todo create a function to automatically adjust the lambda value
-        # todo the objective for the lambda value is to be big enough, in order for the mask values
+        # the objective for the lambda value is to be big enough, in order for the mask values to be forced
+        # to be small,
+        # but small enough so the supporting regions can actually develop and grow bigger than zero.
+        # lambda needs to be the biggest possible lambda, without making it impossible for the forecasting model
+        # to be able to accurately predict the target prediction with the perturbated inputs (within a certain margin).
+        # this boils the question "how big should lambda be?" down to another one:
+        # how big should the error margin between perturbated prediction and target prediction be allowed to be?
+        # task: start with lambda = zero. Increase lambda until the error margin rule is broken
+        # possible solution: introduce lambda as a hyperparameter and substract it from the loss function,
+        # so that lambda maximizes
+
+        # another idea: set lambda = 0 find a learning rate, with which the model learns to set all saliency map
+        # elements to 1 (equals: take only the original features and don't perturbate)
+        # start with low epoch number and increase for promising learning rates
+        # also increase batch number until loss reaches zero
+        # this loss should go down to near zero
+        # find a lambda value with this learning rate and epoch number. Don't use hyperparameter search
         lambda_ = 0
         return lambda_
+
+    def find_mask_init_value(self, lambda_=0):  # todo change lombda
+        # idea: find mask init value, for which the loss function returns lowest loss
+
+        start_value = -5
+        stop_value = 5
+
+        logger.info('finding best mask initialization value...')
+
+        def find_in(min_value, max_value, num):
+            best_loss = np.inf
+            best_value = 0
+            for value in np.linspace(min_value, max_value, num):
+                candidate = self._fill_with(float(value))
+                loss = self._batch_loss(candidate, lambda_)
+                logger.debug(f'loss of mask init value {value} is {loss.item()}')
+                if loss.item() < best_loss:
+                    best_loss = loss.item()
+                    best_value = value
+                    logger.debug(f'new best mask init value is {best_value} with loss {best_loss}')
+            return best_value
+        rough_best_value = find_in(start_value, stop_value, 10)  #stop_value-start_value
+        precise_best_value = find_in(rough_best_value-1, rough_best_value+1, 10)
+        return precise_best_value
+
 
     def _objective(self, trial):
         """
@@ -434,39 +483,43 @@ class SaliencyMapUtil:
         """
 
         torch.autograd.set_detect_anomaly(True)
+        lambda_ = 0  # todo suggest hyperparameter
+        # learning_rate = trial.suggest_uniform(  # todo: change to suggest_log ?
+        #     "learning rate",
+        #     low=self._explanation_config["lr_low"],
+        #     high=self._explanation_config["lr_high"])
 
-        learning_rate = trial.suggest_uniform(  # todo: change to suggest_log ?
-            "learning rate",
-            low=self._explanation_config["lr_low"],
-            high=self._explanation_config["lr_high"])
-        #mask_init_value = trial.suggest_uniform('mask initialisation value', -10., 10.)
+        mask_init_value = self.find_mask_init_value(lambda_)
         # todo rethink init value when internal mask values can actually be anything
         # init value prob. not necessary anymore
 
         # todo: rework saliency map as class
-        mask = self._fill_with(0.)
-
-        optimizer = torch.optim.Adam(mask, lr=learning_rate)
-
+        mask = self._fill_with(mask_init_value)
+        start_lr = 1
+        optimizer = torch.optim.SGD(mask, lr=start_lr)
+        scheduler = torch.optim.lr_scheduler.CyclicLR(
+            optimizer,
+            base_lr=0.0000001,
+            max_lr=100000,
+            step_size_up=self._explanation_config["ref_batch_size"],
+            scale_mode='iterations'
+        )
         # calculate mask
         assert self._explanation_config["max_epochs"] > 0
 
         for epoch in range(self._explanation_config["max_epochs"]):  # mask 'training' epochs
-
-            loss, rmse = self._loss_function(
-                mask
-            )
-
+            loss = self._batch_loss(mask, lambda_)
             optimizer.zero_grad()  # set all gradients zero
             loss.backward()  # backpropagate mean loss
             optimizer.step()  # update mask parameters/minimize loss function
+            scheduler.step()
 
+            if trial.should_prune():
+                raise optuna.TrialPruned()
             self.print_epoch(epoch, loss)
 
         # trial_id = trial.number
         trial.set_user_attr("mask", mask)
-        trial.set_user_attr("rmse", rmse.detach())
-        #trial.set_user_attr("perturbated_prediction", perturbated_prediction.detach())
 
         return loss
 
@@ -484,25 +537,26 @@ class SaliencyMapUtil:
         # create saliency map
 
         logger.info('create saliency map...')
-        study = optuna.create_study()
+        study = optuna.create_study(
+            pruner=optuna.pruners.MedianPruner()
+        )
         study.optimize(
             self._objective,
-            n_trials=self._explanation_config["n_trials"])
+            n_trials=self._explanation_config["n_trials"]
+        )
 
         # load best saliency map
-        best_saliency_map = study.best_trial.user_attrs['saliency map']
-        best_perturbated_prediction = study.best_trial.user_attrs['perturbated_prediction']
+        best_mask = study.best_trial.user_attrs['mask']
 
         # save best saliency map
-        self._saliency_map = best_saliency_map
+        self._best_mask = best_mask
         self._optimization_done = True
-        self._perturbated_prediction = best_perturbated_prediction
 
-    def print_epoch(self, epoch, loss):
+    def print_epoch(self, epoch, loss, print_every: int = 1):
 
-        if epoch % 5 == 0:  # print every 10 epochs
+        if epoch % print_every == 0:  # print every 10 epochs
             logger.debug(
-                'epoch {} / {} \t loss: {}'.format(
+                'epoch {} / {} \t epoch loss: {}'.format(
                     epoch,
                     self._explanation_config["max_epochs"],
                     loss.item()
@@ -583,7 +637,7 @@ class SaliencyMapUtil:
         )  # for features not present in certain areas(nan), use different colour (white)
 
         # apply sigmoid again (0,1 boundary)
-        sigmoid_map = self._apply_sigmoid(self._saliency_map)
+        sigmoid_map = self._apply_sigmoid(self._best_mask)
 
         # copy saliency map into one connected map
         saliency_heatmap[0:self.history_horizon, 0:self.num_encoder_features] = \
