@@ -1,11 +1,11 @@
 import pandas as pd
 import torch
+import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import os
 from random import seed
-import torch.nn as nn
 import optuna
 from time import perf_counter
 
@@ -283,7 +283,18 @@ class SaliencyMapUtil:
         )
         return temp_saliency_map
 
+    @staticmethod
+    def _apply_sigmoid(saliency_map):  # bound to [0,1]
+
+        sigmoid_map = (
+            torch.sigmoid(saliency_map[0]),
+            torch.sigmoid(saliency_map[1])
+        )
+        return sigmoid_map
+
     def _get_perturbated_input(self, saliency_map):  # todo write doc
+        ' TODO RENAME'
+        saliency_map = self._apply_sigmoid(saliency_map)  # force a probabilistic distribution ([0,1] bounds)
 
         inverse_saliency_map1 = torch.sub(
             torch.ones(saliency_map[0].shape, device=self._device),
@@ -335,6 +346,7 @@ class SaliencyMapUtil:
     def model_prediction(self, model_prediction):
 
         if hasattr(self, '_model_prediction'):
+            logger.warning('Model prediction has already been made.')
             return  # model prediction only has to be made once
         else:
             self._model_prediction = model_prediction
@@ -374,23 +386,23 @@ class SaliencyMapUtil:
         mask_encoder = mask[0]
         mask_decoder = mask[1]
 
-        def mask_interval_loss():
-            """
-            this function encourages the mask values to stay in interval 0 to 1.
-            The loss function is zero when the mask value is between zero and 1,
-            otherwise it takes a value linearly rising with the mask norm
-            """
-            tresh_plus = nn.Threshold(1, 0)  # thresh for >1
-            tresh_zero = nn.Threshold(0, 0)  # thresh for <0
-
-            mi_loss = (
-                    torch.norm(tresh_plus(mask_encoder))
-                    + torch.norm(tresh_plus(mask_decoder))
-                    + torch.norm(tresh_zero(torch.mul(mask_encoder, -1)))
-                    + torch.norm(tresh_zero(torch.mul(mask_decoder, -1)))
-            )
-
-            return mi_loss
+        # def mask_interval_loss():
+        #     """
+        #     this function encourages the mask values to stay in interval 0 to 1.
+        #     The loss function is zero when the mask value is between zero and 1,
+        #     otherwise it takes a value linearly rising with the mask norm
+        #     """
+        #     tresh_plus = nn.Threshold(1, 0)  # thresh for >1
+        #     tresh_zero = nn.Threshold(0, 0)  # thresh for <0
+        #
+        #     mi_loss = (
+        #             torch.norm(tresh_plus(mask_encoder))
+        #             + torch.norm(tresh_plus(mask_decoder))
+        #             + torch.norm(tresh_zero(torch.mul(mask_encoder, -1)))
+        #             + torch.norm(tresh_zero(torch.mul(mask_decoder, -1)))
+        #     )
+        #
+        #     return mi_loss
 
         def mask_weights_loss():  # penalizes high mask parameter values
             """
@@ -414,79 +426,81 @@ class SaliencyMapUtil:
 
         loss1 = self.criterion_loss(perturbated_predictions)  # prediction loss
         loss2 = lambda1 * mask_weights_loss()  # abs value of mask weights
-        loss3 = lambda2 * mask_interval_loss()
+        # loss3 =  lambda2 * mask_interval_loss()
 
-        ssr_loss = loss1 + loss2 + loss3
+        ssr_loss = loss1 + loss2   # + loss3
         # sdr_loss = -loss1 + loss2 + loss3
         return ssr_loss, loss1
 
+    def _objective(self, trial):
+        """
+        Ojective function for the optuna optimizer, used for hyperparameter optimization.
+        The learning rate and mask initialization value are subject to hyperparameter optimization.
+        For each trial the objection function finds the saliency map with gradient descent,
+        by updating the saliency map parameters according to the calculated loss.
+        The objective is to minimize the loss function.
+        Stop counters help to speed up the process, by ending the trial, if the loss doesn't decrease fast enough.
+        For each trial the saliency map and other relevant tensors are saved,
+        so the tensors of the best trial can be loaded at the end of the hyperparameter search.
+        """
+
+        torch.autograd.set_detect_anomaly(True)
+
+        learning_rate = trial.suggest_uniform(  # todo: change to suggest_log ?
+            "learning rate",
+            low=self._explanation_config["lr_low"],
+            high=self._explanation_config["lr_high"])
+        #mask_init_value = trial.suggest_uniform('mask initialisation value', -10., 10.)
+        # todo rethink init value when internal mask values can actually be anything
+        # init value prob. not necessary anymore
+
+        # todo: rework saliency map as class
+        temp_saliency_map = self._fill_with(0.)
+
+        optimizer = torch.optim.Adam(temp_saliency_map, lr=learning_rate)
+
+        # calculate mask
+        assert self._explanation_config["max_epochs"] > 0
+
+        for epoch in range(self._explanation_config["max_epochs"]):  # mask 'training' epochs
+
+            perturbated_prediction = self._get_perturbated_prediction(temp_saliency_map)
+            loss, rmse = self._loss_function(
+                perturbated_prediction,
+                temp_saliency_map
+            )
+
+            optimizer.zero_grad()  # set all gradients zero
+            loss.backward()  # backpropagate mean loss
+            optimizer.step()  # update mask parameters/minimize loss function
+
+            self.print_epoch(epoch, loss)
+
+        # trial_id = trial.number
+        # todo apply sigmoid again?
+        trial.set_user_attr("saliency map", temp_saliency_map)
+        trial.set_user_attr("rmse", rmse.detach())
+        trial.set_user_attr("perturbated_prediction", perturbated_prediction.detach())
+
+        return loss
+
     @timer
     def create_saliency_map(self):
-        self._optimize_time_step()
+        self._optimize_time_step(self._objective)
         #  todo possibly add feature to be able to configure more than one time step at a time
 
-    def _optimize_time_step(self):
+    def _optimize_time_step(self, objective_function):
 
         # create references
         logger.info('creating references...')
         self._create_references()
-
-        def objective(trial):
-            """
-            Ojective function for the optuna optimizer, used for hyperparameter optimization.
-            The learning rate and mask initialization value are subject to hyperparameter optimization.
-            For each trial the objection function finds the saliency map with gradient descent,
-            by updating the saliency map parameters according to the calculated loss.
-            The objective is to minimize the loss function.
-            Stop counters help to speed up the process, by ending the trial, if the loss doesn't decrease fast enough.
-            For each trial the saliency map and other relevant tensors are saved,
-            so the tensors of the best trial can be loaded at the end of the hyperparameter search.
-            """
-
-            torch.autograd.set_detect_anomaly(True)
-
-            learning_rate = trial.suggest_loguniform(
-                "learning rate",
-                low=self._explanation_config["lr_low"],
-                high=self._explanation_config["lr_low"])
-            mask_init_value = trial.suggest_uniform('mask initialisation value', 0., 1.)
-
-            # todo: rework saliency map as class
-            temp_saliency_map = self._fill_with(mask_init_value)
-
-            optimizer = torch.optim.Adam(temp_saliency_map, lr=learning_rate)
-
-            # calculate mask
-            assert self._explanation_config["max_epochs"] > 0
-
-            for epoch in range(self._explanation_config["max_epochs"]):  # mask 'training' epochs
-
-                perturbated_prediction = self._get_perturbated_prediction(temp_saliency_map)
-                loss, rmse = self._loss_function(
-                    perturbated_prediction,
-                    temp_saliency_map
-                )
-
-                optimizer.zero_grad()  # set all gradients zero
-
-                loss.backward()  # backpropagate mean loss
-                optimizer.step()  # update mask parameters/minimize loss function
-
-                self.print_epoch(epoch, loss)
-
-            # trial_id = trial.number
-            trial.set_user_attr("saliency map", temp_saliency_map)
-            trial.set_user_attr("rmse", rmse.detach())
-            trial.set_user_attr("perturbated_prediction", perturbated_prediction.detach())
-
-            return loss
 
         # create saliency map
 
         logger.info('create saliency map...')
         study = optuna.create_study()
         study.optimize(
-            objective,
+            objective_function,
             n_trials=self._explanation_config["n_trials"])
 
         # load best saliency map
@@ -500,7 +514,7 @@ class SaliencyMapUtil:
 
     def print_epoch(self, epoch, loss):
 
-        if epoch % 100 == 0:  # print every 100 epochs
+        if epoch % 5 == 0:  # print every 10 epochs
             logger.debug(
                 'epoch {} / {} \t loss: {}'.format(
                     epoch,
@@ -581,11 +595,14 @@ class SaliencyMapUtil:
             fill_value=np.nan
         )  # for features not present in certain areas(nan), use different colour (white)
 
+        # apply sigmoid again (0,1 boundary)
+        sigmoid_map = self._apply_sigmoid(self._saliency_map)
+
         # copy saliency map into one connected map
         saliency_heatmap[0:self.history_horizon, 0:self.num_encoder_features] = \
-            self._saliency_map[0].cpu().detach().numpy()
+            sigmoid_map[0].cpu().detach().numpy()
         saliency_heatmap[self.history_horizon:, self.num_encoder_features:] = \
-            self._saliency_map[1].cpu().detach().numpy()
+            sigmoid_map[1].cpu().detach().numpy()
 
         saliency_heatmap = np.transpose(saliency_heatmap)  # swap axes
 
