@@ -36,7 +36,9 @@ def timer(func):  # without return value
         logger.info(f"{__name__} function finished in: {run_time} seconds")
     return wrapper
 
-
+# todo terminologie einheitlich machen
+# todo jupyter notebook
+# todo tensorboard log
 class SaliencyMapUtil:
 
     def __init__(
@@ -113,6 +115,14 @@ class SaliencyMapUtil:
             torch.zeros(self.history_horizon, self.num_encoder_features, requires_grad=True, device=self._device),
             torch.zeros(self.forecast_horizon, self.num_decoder_features, requires_grad=True, device=self._device)
         )
+        
+        # normation for matrix norm calculation
+        self._max_norm = torch.norm(
+            torch.ones(
+                self.history_horizon+self.forecast_horizon,
+                self.num_encoder_features + self.num_decoder_features
+            )
+        )
 
         self.datetime = pd.to_datetime(self._explanation_config["date"], format="%d.%m.%Y %H:%M:%S") # todo func=read_datetime_list
 
@@ -121,11 +131,25 @@ class SaliencyMapUtil:
             MAIN_PATH,
             self._explanation_config["rel_interpretation_path"],
             target + '/')
+        if not os.path.exists(
+            os.path.join(
+                MAIN_PATH,
+                self._explanation_config["rel_interpretation_path"]
+            )
+        ):
+            os.mkdir(
+                os.path.join(
+                    MAIN_PATH,
+                    self._explanation_config["rel_interpretation_path"]
+                )
+            )
+        
         if not os.path.exists(self._path):
             os.mkdir(self._path)
 
         self._optimization_done = False
         self.model_prediction = self._get_model_prediction()
+        
 
     @staticmethod
     def set_device(cuda_id):
@@ -362,29 +386,25 @@ class SaliencyMapUtil:
             ).to(self._device)
 
     def criterion_loss(self, perturbated_prediction, criterion=metrics.Rmse()):   # todo try using gnll criterion
-        # model_prediction returns [batch,forecast_horizon, predictions]
+        # model_prediction returns [batch,forecast_horizon, predictions] # todo implement criterion as flag when calling interpreter.py
         # batch size = 1
 
         target_prediction = self.model_prediction[0]  # -> [forecast_horizon, predictions]
 
         return criterion(target_prediction, perturbated_prediction)
 
-    @staticmethod
-    def mask_weights_loss(saliency_map):  # penalizes high mask parameter values
+    
+    def mask_weights_loss(self, saliency_map):  # penalizes high mask parameter values
         """
         penalizes high mask parameter values by calculating the frobenius
-        norm and dividing by the maximal possible norm
+        norm and normalize by dividing through "max_norm"
         naming convention "saliency map" implies a mask, which is restricted by [0,1] bounds (after sigmoid function)
         """
 
-        saliency_map_encoder = saliency_map[0]
-        saliency_map_decoder = saliency_map[1]
-        max_norm_encoder = torch.norm(torch.ones(saliency_map_encoder.shape))
-        max_norm_decoder = torch.norm(torch.ones(saliency_map_decoder.shape))
-        mask_encoder_matrix_norm = torch.norm(saliency_map_encoder) / max_norm_encoder  # frobenius norm
-        mask_decoder_matrix_norm = torch.norm(saliency_map_decoder) / max_norm_decoder  # frobenius norm
-
-        mw_loss = mask_encoder_matrix_norm + mask_decoder_matrix_norm
+        mw_loss = (
+            torch.norm(saliency_map[0]) + torch.norm(saliency_map[1])
+        )/self._max_norm
+        
         return mw_loss
 
     def _loss_function(
@@ -402,10 +422,10 @@ class SaliencyMapUtil:
         """
           # force a probabilistic distribution ([0,1] bounds)
 
-        loss1 = self.criterion_loss(perturbated_prediction)  # prediction loss
+        loss1 = self.criterion_loss(perturbated_prediction)/self._explanation_config["ref_batch_size"]  # prediction loss
         loss2 = lambda_ * self.mask_weights_loss(saliency_map)  # abs value of mask weights
 
-        ssr_loss = loss1 + loss2 - lambda_
+        ssr_loss = loss1 + loss2
         # sdr_loss = -loss1 + loss2
         return ssr_loss, loss1
 
@@ -423,52 +443,6 @@ class SaliencyMapUtil:
             batch_loss += loss
         return batch_loss
 
-    def find_lambda(self):
-        # todo create a function to automatically adjust the lambda value
-        # the objective for the lambda value is to be big enough, in order for the mask values to be forced
-        # to be small,
-        # but small enough so the supporting regions can actually develop and grow bigger than zero.
-        # lambda needs to be the biggest possible lambda, without making it impossible for the forecasting model
-        # to be able to accurately predict the target prediction with the perturbated inputs (within a certain margin).
-        # this boils the question "how big should lambda be?" down to another one:
-        # how big should the error margin between perturbated prediction and target prediction be allowed to be?
-        # task: start with lambda = zero. Increase lambda until the error margin rule is broken
-        # possible solution: introduce lambda as a hyperparameter and substract it from the loss function,
-        # so that lambda maximizes
-
-        # another idea: set lambda = 0 find a learning rate, with which the model learns to set all saliency map
-        # elements to 1 (equals: take only the original features and don't perturbate)
-        # start with low epoch number and increase for promising learning rates
-        # also increase batch number until loss reaches zero
-        # this loss should go down to near zero
-        # find a lambda value with this learning rate and epoch number. Don't use hyperparameter search
-        lambda_ = 0
-        return lambda_
-
-    def find_mask_init_value(self, lambda_=0):  # todo change lombda
-        # idea: find mask init value, for which the loss function returns lowest loss
-
-        start_value = -5
-        stop_value = 5
-
-        logger.info('finding best mask initialization value...')
-
-        def find_in(min_value, max_value, num):
-            best_loss = np.inf
-            best_value = 0
-            for value in np.linspace(min_value, max_value, num):
-                candidate = self._fill_with(float(value))
-                loss = self._batch_loss(candidate, lambda_)
-                logger.debug(f'loss of mask init value {value} is {loss.item()}')
-                if loss.item() < best_loss:
-                    best_loss = loss.item()
-                    best_value = value
-                    logger.debug(f'new best mask init value is {best_value} with loss {best_loss}')
-            return best_value
-        rough_best_value = find_in(start_value, stop_value, 10)  #stop_value-start_value
-        precise_best_value = find_in(rough_best_value-1, rough_best_value+1, 10)
-        return precise_best_value
-
 
     def _objective(self, trial):
         """
@@ -483,40 +457,37 @@ class SaliencyMapUtil:
         """
 
         torch.autograd.set_detect_anomaly(True)
-        lambda_ = 0  # todo suggest hyperparameter
-        # learning_rate = trial.suggest_uniform(  # todo: change to suggest_log ?
-        #     "learning rate",
-        #     low=self._explanation_config["lr_low"],
-        #     high=self._explanation_config["lr_high"])
+        lambda_ = 1  # todo suggest hyperparameter
+        learning_rate = trial.suggest_loguniform(  # todo: change to suggest_log ?
+            "learning rate",
+            low=self._explanation_config["lr_low"],
+            high=self._explanation_config["lr_high"]
+        )
 
-        mask_init_value = self.find_mask_init_value(lambda_)
-        # todo rethink init value when internal mask values can actually be anything
-        # init value prob. not necessary anymore
-
+       
         # todo: rework saliency map as class
-        mask = self._fill_with(mask_init_value)
+        mask = self._fill_with(0.)
         start_lr = 1
         optimizer = torch.optim.SGD(mask, lr=start_lr)
-        scheduler = torch.optim.lr_scheduler.CyclicLR(
-            optimizer,
-            base_lr=0.0000001,
-            max_lr=100000,
-            step_size_up=self._explanation_config["ref_batch_size"],
-            scale_mode='iterations'
-        )
+        #scheduler = torch.optim.lr_scheduler.CyclicLR(
+        #    optimizer,
+        #    base_lr=self._explanation_config["lr_low"],
+        #    max_lr=self._explanation_config["lr_high"],
+        #    step_size_up=10,
+       # )
         # calculate mask
         assert self._explanation_config["max_epochs"] > 0
 
         for epoch in range(self._explanation_config["max_epochs"]):  # mask 'training' epochs
-            loss = self._batch_loss(mask, lambda_)
+            loss = self._batch_loss(mask, self._explanation_config["lambda"])
             optimizer.zero_grad()  # set all gradients zero
             loss.backward()  # backpropagate mean loss
             optimizer.step()  # update mask parameters/minimize loss function
-            scheduler.step()
+            #scheduler.step()
 
             if trial.should_prune():
                 raise optuna.TrialPruned()
-            self.print_epoch(epoch, loss)
+            self.print_epoch(epoch, loss, print_every = 1000)
 
         # trial_id = trial.number
         trial.set_user_attr("mask", mask)
@@ -554,7 +525,7 @@ class SaliencyMapUtil:
 
     def print_epoch(self, epoch, loss, print_every: int = 1):
 
-        if epoch % print_every == 0:  # print every 10 epochs
+        if epoch % print_every == 0:  # print every .. epochs
             logger.debug(
                 'epoch {} / {} \t epoch loss: {}'.format(
                     epoch,

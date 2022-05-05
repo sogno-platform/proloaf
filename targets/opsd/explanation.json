@@ -1,10 +1,11 @@
 {
-    "rel_interpretation_path": "./oracles/interpretation/",
+    "rel_interpretation_path": "oracles/interpretation/",
     "date": "27.07.2019 00:00:00",
-    "ref_batch_size": 10,
-    "max_epochs": 1,
-    "n_trials": 1,
-    "lr_low": 1e-5,
-    "lr_high": 0.01,
+    "ref_batch_size": 2,
+    "max_epochs": 3000,
+    "n_trials": 5,
+    "lr_low": 1e-6,
+    "lr_high": 0.1,
+    "lambda": 1,
     "cuda_id" : 0
 }
