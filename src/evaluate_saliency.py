@@ -18,6 +18,7 @@ def main():
     saliency_map_handler = SaliencyMapHandler(args.station)
     saliency_map_handler.create_saliency_map()
     saliency_map_handler.plot()
+    saliency_map_handler.plot_predictions()
     saliency_map_handler.save()
 
 

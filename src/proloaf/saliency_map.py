@@ -25,6 +25,9 @@ import proloaf.tensorloader as tl
 logger = create_event_logger(__name__)
 optuna.logging.enable_propagation()
 
+plt.rc('font', size=30)  # default font size
+plt.rc('axes', labelsize=30)  # fontsize of the x and y labels
+plt.rc('axes', titlesize=30)  # fontsize of the title
 
 def timer(func):  # without return value
     def wrapper(*args, **kwargs):
@@ -437,7 +440,6 @@ class SaliencyMapHandler:
         """
         # model_prediction returns [batch,forecast_horizon, predictions]
         # batch size = 1
-
         target_prediction = self.model_prediction[0]  # -> [forecast_horizon, predictions]
 
         return criterion(target_prediction, perturbated_prediction)
@@ -532,13 +534,16 @@ class SaliencyMapHandler:
         mask = self._fill_with(0.)
         start_lr = 1
         optimizer = torch.optim.SGD(mask, lr=learning_rate)
-        #scheduler = torch.optim.lr_scheduler.CyclicLR(
+
+        # todo test cyclical lr
+        # scheduler = torch.optim.lr_scheduler.CyclicLR(
         #    optimizer,
         #    base_lr=self._explanation_config["lr_low"],
         #    max_lr=self._explanation_config["lr_high"],
         #    step_size_up=10,
-       # )
+        # )
         # calculate mask
+
         assert self._saliency_config["max_epochs"] > 0
         loss = np.inf
         for epoch in range(self._saliency_config["max_epochs"]):  # mask 'training' epochs
@@ -644,12 +649,7 @@ class SaliencyMapHandler:
         assert len(self._model_wrap.target_id) == 1  # function assumes 1 target
         logger.info('creating saliency map plot...')
 
-        # font sizes
-        plt.rc('font', size=30)  # default font size
-        plt.rc('axes', labelsize=30)  # fontsize of the x and y labels
-        plt.rc('axes', titlesize=30)  # fontsize of the title
-
-        fig2, ax2 = plt.subplots(1, figsize=(20, 14))
+        fig, ax = plt.subplots(1, figsize=(20, 14))
 
         # create time axis
         start_index = self.datetime - pd.Timedelta(self.history_horizon, unit='h')  # assumes hourly resolution
@@ -680,8 +680,8 @@ class SaliencyMapHandler:
 
         saliency_heatmap = np.transpose(saliency_heatmap)  # swap axes
 
-        im = ax2.imshow(saliency_heatmap, cmap='jet',
-                        norm=None, aspect='auto', interpolation='nearest', vmin=0, vmax=1, origin='lower')
+        im = ax.imshow(saliency_heatmap, cmap='jet',
+                       norm=None, aspect='auto', interpolation='nearest', vmin=0, vmax=1, origin='lower')
 
         # create datetime x-axis
         plot_datetime = pd.array([''] * time_axis_length)  # looks better for plot
@@ -694,30 +694,52 @@ class SaliencyMapHandler:
                     plot_datetime[h] = datetime.array.strftime('%H:%M')[h]
 
         # show ticks
-        ax2.set_xticks(np.arange(len(datetime)))
-        ax2.set_xticklabels(plot_datetime)
+        ax.set_xticks(np.arange(len(datetime)))
+        ax.set_xticklabels(plot_datetime)
         feature_ticks = np.arange(len(features))
-        ax2.set_yticks(feature_ticks)
-        ax2.set_yticklabels(features)
+        ax.set_yticks(feature_ticks)
+        ax.set_yticklabels(features)
 
         # rotate tick labels and set alignment
-        plt.setp(ax2.get_xticklabels(), rotation=45, ha="right",
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
                  rotation_mode="anchor")
 
         # set titles and legends
-        ax2.set_xlabel('Time')
-        ax2.set_ylabel('Features')
-        cbar = fig2.colorbar(im)  # add colorbar
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Features')
+        cbar = fig.colorbar(im)  # add colorbar
 
         # layout
-        fig2.tight_layout()
+        fig.tight_layout()
 
         # save heatmap
         if plot_path == '':  # if plot plath was not specified use default
             plot_path = os.path.join(self._path, str(self.datetime.date()))
 
         temp_save_path = plot_path + '_heatmap'
-        fig2.savefig(temp_save_path)
+        fig.savefig(temp_save_path)
         logger.info('plot saved in {}.'.format(temp_save_path))
 
+    def plot_predictions(self):
+        if not self._optimization_done:
+            logger.error("The saliency map hasn't been optimized yet.")
+            return
+        else:
+            saliency_map = self._apply_sigmoid(self._best_mask)
+            target = self._dataset[self.time_step][2].detach().numpy()
+            perturbed_predictions = [
+                torch.unsqueeze(self._get_perturbated_prediction(saliency_map, i), dim=0)
+                for i in range(self._saliency_config["ref_batch_size"])
+            ]
+            mean_perturbed_prediction = torch.mean(torch.cat(perturbed_predictions), dim=0)[:, 0].detach().numpy()
+            model_prediction = self.model_prediction[0, :, 0].detach().numpy()
+            fig, ax = plt.subplots(1, figsize=(20, 14))
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Predictions')
+
+            plt.plot(target, label='target')
+            plt.plot(mean_perturbed_prediction, label='mean perturbed prediction')
+            plt.plot(model_prediction, label='model prediction')
+            ax.legend()
+            plt.show()
 
