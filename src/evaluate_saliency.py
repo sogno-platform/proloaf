@@ -1,21 +1,22 @@
 import os
 import sys
 
+import proloaf.saliency_map as sm
+from src.proloaf.cli import parse_basic
+import src.proloaf.event_logging as el
+
 sys.path.append("../")
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
 
-from proloaf.saliency_map import SaliencyMapHandler
-from proloaf.cli import parse_basic
-from proloaf.event_logging import create_event_logger
 
-logger = create_event_logger('interpreter')
+logger = el.create_event_logger('interpreter')
 
 
 def main():
 
     args = parse_basic()
-    saliency_map_handler = SaliencyMapHandler(args.station)
+    saliency_map_handler = sm.SaliencyMapHandler(args.station)
     saliency_map_handler.create_saliency_map()
     saliency_map_handler.plot()
     saliency_map_handler.plot_predictions()

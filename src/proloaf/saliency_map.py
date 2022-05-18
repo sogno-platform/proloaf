@@ -9,25 +9,24 @@ import os
 from random import seed
 import optuna
 from time import perf_counter
-
-sys.path.append("../")
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-sys.path.append(MAIN_PATH)
-
 from proloaf import metrics
-from proloaf import models
-from proloaf.event_logging import create_event_logger
+import proloaf.event_logging as el
 import proloaf.confighandler as ch
 import proloaf.datahandler as dh
 import proloaf.modelhandler as mh
 import proloaf.tensorloader as tl
 
-logger = create_event_logger(__name__)
+sys.path.append("../")
+MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sys.path.append(MAIN_PATH)
+
+logger = el.create_event_logger(__name__)
 optuna.logging.enable_propagation()
 
 plt.rc('font', size=30)  # default font size
 plt.rc('axes', labelsize=30)  # fontsize of the x and y labels
 plt.rc('axes', titlesize=30)  # fontsize of the title
+
 
 def timer(func):  # without return value
     def wrapper(*args, **kwargs):
@@ -39,8 +38,54 @@ def timer(func):  # without return value
         logger.info(f"{__name__} function finished in: {run_time} seconds")
     return wrapper
 
-# todo jupyter notebook
 # todo tensorboard log
+
+
+class _SaliencyMap:
+
+    def __init__(
+            self,
+            history_horizon,
+            forecast_horizon,
+            num_encoder_features,
+            num_decoder_features,
+            device,
+            fill_value=float(0)
+    ):
+
+        self.encoder_map = torch.full(
+            (history_horizon, num_encoder_features),
+            fill_value=fill_value,
+            device=device,
+            requires_grad=True
+        )
+
+        self.decoder_map = torch.full(
+            (forecast_horizon, num_decoder_features),
+            fill_value=fill_value,
+            device=device,
+            requires_grad=True
+        )
+
+    def tensor_repr(self):
+        return self.encoder_map, self.decoder_map
+
+    def sigmoid_repr(self):  # bound to [0,1]
+        """"
+        applies the sigmoid function element wise to the mask, to create a saliency map.
+        The internal parameters can take any arbitrary values
+        while the actual saliency map can only have values between zero and one
+        """
+
+        return self.encoder_sigmoid_map, self.decoder_sigmoid_map
+
+    @property
+    def encoder_sigmoid_map(self):
+        return torch.sigmoid(self.encoder_map)
+
+    @property
+    def decoder_sigmoid_map(self):
+        return torch.sigmoid(self.decoder_map)
 
 
 class SaliencyMapHandler:
@@ -110,11 +155,8 @@ class SaliencyMapHandler:
         # initialize saliency map
         logger.debug('initializing saliency map...')
 
-        self._best_mask = (
-            torch.zeros(self.history_horizon, self.num_encoder_features, requires_grad=True, device=self._device),
-            torch.zeros(self.forecast_horizon, self.num_decoder_features, requires_grad=True, device=self._device)
-        )
-        
+        self._best_mask = self.init_saliency_map()
+
         # normation for matrix norm calculation
         self._max_norm = torch.norm(
             torch.ones(
@@ -149,7 +191,17 @@ class SaliencyMapHandler:
 
         self._optimization_done = False
         self.model_prediction = self._get_model_prediction()
-        
+
+    def init_saliency_map(self, init_value: float = float(0)):
+        return _SaliencyMap(
+            self.history_horizon,
+            self.forecast_horizon,
+            self.num_encoder_features,
+            self.num_decoder_features,
+            self._device,
+            init_value
+        )
+
     @staticmethod
     def set_device(cuda_id):
         logger.info('setting computation device...')
@@ -242,6 +294,26 @@ class SaliencyMapHandler:
     def decoder_references(self):
         return self._decoder_references
 
+    @property
+    def model_prediction(self):
+        return self._model_prediction
+
+    @model_prediction.setter
+    def model_prediction(self, model_prediction):
+
+        if hasattr(self, '_model_prediction'):
+            logger.warning('Model prediction has already been made.')
+            return  # model prediction only has to be made once
+        else:
+            self._model_prediction = model_prediction
+
+    def _get_model_prediction(self):
+        with torch.no_grad():
+            return self._model_wrap.predict(
+                torch.unsqueeze(self.encoder_input, 0),
+                torch.unsqueeze(self.decoder_input, 0),
+            ).to(self._device)
+
     def _create_references(self):
         """
             Creates the references for the saliency map optimization process.
@@ -289,48 +361,7 @@ class SaliencyMapHandler:
         self._encoder_references = torch.Tensor(features1_references_np).to(self._device)
         self._decoder_references = torch.Tensor(features2_references_np).to(self._device)
 
-    def _fill_with(self, fill_value):
-        """
-        creates a new saliency map with every value set to the fill value
-        Parameters
-
-        ----------
-        fill_value: value all saliency map parameters are set to
-
-        Returns
-        A new saliency map, filled with the given value, represented by two torch Tensors
-
-        """
-        temp_saliency_map = (
-            torch.full(
-                (self.history_horizon, self.num_encoder_features),
-                fill_value=fill_value,
-                device=self._device,
-                requires_grad=True
-            ),
-            torch.full(
-                (self.forecast_horizon, self.num_decoder_features),
-                fill_value=fill_value,
-                device=self._device,
-                requires_grad=True)
-        )
-        return temp_saliency_map
-
-    @staticmethod
-    def _apply_sigmoid(mask):  # bound to [0,1]
-        """"
-        applies the sigmoid function element wise to the mask, to create a saliency map.
-        The convention used here implies that the "mask" can take any arbitrary values
-        while the saliency map can only have values between zero and one
-        """
-
-        saliency_map = (
-            torch.sigmoid(mask[0]),
-            torch.sigmoid(mask[1])
-        )
-        return saliency_map
-
-    def _get_perturbated_input(self, saliency_map, batch_number):
+    def _get_perturbated_input(self, saliency_map: _SaliencyMap, batch_number):
         """
         Perturbs the input data with the references. Each saliency map should take a value between zero and one
         for each time step and feature. A saliency map value of one leads to no perturbation and keeps the original
@@ -352,23 +383,23 @@ class SaliencyMapHandler:
 
         """
         inverse_saliency_map1 = torch.sub(
-            torch.ones(saliency_map[0].shape, device=self._device),
-            saliency_map[0]
+            torch.ones(saliency_map.encoder_sigmoid_map.shape, device=self._device),
+            saliency_map.encoder_sigmoid_map
         ).to(self._device)  # elementwise 1-m
 
         inverse_saliency_map2 = torch.sub(
-            torch.ones(saliency_map[1].shape, device=self._device),
-            saliency_map[1]
+            torch.ones(saliency_map.decoder_sigmoid_map.shape, device=self._device),
+            saliency_map.decoder_sigmoid_map
         ).to(self._device)  # elementwise 1-m
 
         input_summand1 = torch.mul(
             self.encoder_input,
-            saliency_map[0]
+            saliency_map.encoder_sigmoid_map
         ).to(self._device)  # element wise multiplication
 
         input_summand2 = torch.mul(
             self.decoder_input,
-            saliency_map[1]
+            saliency_map.decoder_sigmoid_map
         ).to(self._device)  # element wise multiplication
 
         reference_summand1 = torch.mul(self.encoder_references[batch_number], inverse_saliency_map1).to(self._device)
@@ -379,7 +410,7 @@ class SaliencyMapHandler:
 
         return perturbated_input1, perturbated_input2
 
-    def _get_perturbated_prediction(self, saliency_map, batch_number):
+    def _get_perturbated_prediction(self, saliency_map: _SaliencyMap, batch_number):
         """
         calculates the perturbed prediction by feeding the prediction model with the perturbed input.
 
@@ -406,26 +437,6 @@ class SaliencyMapHandler:
 
         return torch.squeeze(perturbated_prediction, dim=0)  # [batch_size,forecast_horizon, predictions]
 
-    @property
-    def model_prediction(self):
-        return self._model_prediction
-
-    @model_prediction.setter
-    def model_prediction(self, model_prediction):
-
-        if hasattr(self, '_model_prediction'):
-            logger.warning('Model prediction has already been made.')
-            return  # model prediction only has to be made once
-        else:
-            self._model_prediction = model_prediction
-
-    def _get_model_prediction(self):
-        with torch.no_grad():
-            return self._model_wrap.predict(
-                torch.unsqueeze(self.encoder_input, 0),
-                torch.unsqueeze(self.decoder_input, 0),
-            ).to(self._device)
-
     def criterion_loss(self, perturbated_prediction, criterion=metrics.Rmse()):
         """
 
@@ -444,7 +455,7 @@ class SaliencyMapHandler:
 
         return criterion(target_prediction, perturbated_prediction)
 
-    def mask_weights_loss(self, saliency_map):  # penalizes high mask parameter values
+    def mask_weights_loss(self, saliency_map: _SaliencyMap):  # penalizes high mask parameter values
         """
         penalizes high mask parameter values by calculating the frobenius
         norm and normalize by dividing through "max_norm"
@@ -452,14 +463,14 @@ class SaliencyMapHandler:
         """
 
         mw_loss = (
-            torch.norm(saliency_map[0]) + torch.norm(saliency_map[1])
+            torch.norm(saliency_map.encoder_sigmoid_map) + torch.norm(saliency_map.decoder_sigmoid_map)
         )/self._max_norm
         
         return mw_loss
 
     def _loss_function(
             self,
-            saliency_map,
+            saliency_map: _SaliencyMap,
             perturbated_prediction,
             lambda_,
     ):
@@ -472,6 +483,7 @@ class SaliencyMapHandler:
         Lambda determines how big the mask weight loss should be weighted in the summation of the loss.
 
         """
+
         # force a probabilistic distribution ([0,1] bounds)
 
         loss1 = self.criterion_loss(perturbated_prediction)/self._saliency_config["ref_batch_size"]  # prediction loss
@@ -481,7 +493,7 @@ class SaliencyMapHandler:
         # sdr_loss = -loss1 + loss2
         return ssr_loss, loss1
 
-    def _batch_loss(self, mask, lambda_):
+    def _batch_loss(self, mask: _SaliencyMap, lambda_):
         """
         calculates the loss for the whole batch of references by summing the individual losses up.
         Before the loss is calculated for each reference, the sigmoid function is applied to the saliency map,
@@ -499,10 +511,10 @@ class SaliencyMapHandler:
         """
         batch_loss = torch.tensor(0., device=self._device)
         for batch in range(self._saliency_config["ref_batch_size"]):
-            saliency_map = self._apply_sigmoid(mask)
-            perturbated_prediction = self._get_perturbated_prediction(saliency_map, batch)
+
+            perturbated_prediction = self._get_perturbated_prediction(mask, batch)
             loss, rmse = self._loss_function(
-                saliency_map,
+                mask,
                 perturbated_prediction,
                 lambda_
             )
@@ -529,11 +541,9 @@ class SaliencyMapHandler:
             high=self._saliency_config["lr_high"]
         )
 
-       
-        # todo: rework saliency map as class
-        mask = self._fill_with(0.)
+        mask = self.init_saliency_map(init_value=float(0))
         start_lr = 1
-        optimizer = torch.optim.SGD(mask, lr=learning_rate)
+        optimizer = torch.optim.SGD(mask.tensor_repr(), lr=learning_rate)
 
         # todo test cyclical lr
         # scheduler = torch.optim.lr_scheduler.CyclicLR(
@@ -635,7 +645,6 @@ class SaliencyMapHandler:
             self = None
         return self
 
-    # todo make plot function for the perturbated prediction (ideally with mean and variance)
     def plot(
             self,
             plot_path=''
@@ -670,7 +679,7 @@ class SaliencyMapHandler:
         )  # for features not present in certain areas(nan), use different colour (white)
 
         # apply sigmoid again (0,1 boundary)
-        sigmoid_map = self._apply_sigmoid(self._best_mask)
+        sigmoid_map = self._best_mask.sigmoid_repr()
 
         # copy saliency map into one connected map
         saliency_heatmap[0:self.history_horizon, 0:self.num_encoder_features] = \
@@ -721,11 +730,18 @@ class SaliencyMapHandler:
         logger.info('plot saved in {}.'.format(temp_save_path))
 
     def plot_predictions(self):
+        """
+        creates a plot with the target, the forecasting model prediction without perturbation
+        and the forecasting model prediction with mask perturbation.
+        Can only be called after the mask/saliency map has been calculated.
+        The perturbed prediction is calculated by taking the mean over the whole random noise batch batch.
+
+        """
         if not self._optimization_done:
             logger.error("The saliency map hasn't been optimized yet.")
             return
         else:
-            saliency_map = self._apply_sigmoid(self._best_mask)
+            saliency_map = self._best_mask
             target = self._dataset[self.time_step][2].detach().numpy()
             perturbed_predictions = [
                 torch.unsqueeze(self._get_perturbated_prediction(saliency_map, i), dim=0)
