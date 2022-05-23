@@ -1,12 +1,11 @@
 ---
-title: 'interpreter.py'
-linkTitle: 'interpreter.py'
-date: 2022-02-16
+title: "evaluate_saliency.py"
+linkTitle: "evaluate_saliency.py"
+date: 2022-05-23
 weight: 3
 description: >
-    Basic information on the interpretation script.
+  Basic information on the interpreter script.
 ---
-
 ### Overview
 
 This script evaluates a trained neural network on its salient features regarding the time and feature dimension and creates a saliency heatmap.
