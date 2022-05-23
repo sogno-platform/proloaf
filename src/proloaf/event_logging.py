@@ -5,6 +5,7 @@ from proloaf.confighandler import read_config
 
 MAIN_PATH = os.path.dirname(os.path.abspath(__file__))
 
+
 def create_event_logger(
         name: str,
         config_path: os.path = os.path.join(MAIN_PATH, 'event_logging_conf.json'),

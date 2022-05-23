@@ -39,6 +39,8 @@ def timer(func):  # without return value
     return wrapper
 
 # todo tensorboard log
+# todo run notebook
+# todo embed saliency_map.md into website
 
 
 class _SaliencyMap:
@@ -165,7 +167,7 @@ class SaliencyMapHandler:
             )
         )
 
-        self.datetime = pd.to_datetime(self._saliency_config["date"], format="%d.%m.%Y %H:%M:%S") # todo func=read_datetime_list
+        self.datetime = pd.to_datetime(self._saliency_config["date"], format="%d.%m.%Y %H:%M:%S")
 
         # set interpretation path
         self._path = os.path.join(
@@ -201,6 +203,12 @@ class SaliencyMapHandler:
             self._device,
             init_value
         )
+
+    @property
+    def saliency_map(self):
+        if not self._optimization_done:
+            logger.error('The saliency map has not been optimized yet. The result shows only initialization values')
+        return self._best_mask.sigmoid_repr()
 
     @staticmethod
     def set_device(cuda_id):
@@ -545,15 +553,6 @@ class SaliencyMapHandler:
         start_lr = 1
         optimizer = torch.optim.SGD(mask.tensor_repr(), lr=learning_rate)
 
-        # todo test cyclical lr
-        # scheduler = torch.optim.lr_scheduler.CyclicLR(
-        #    optimizer,
-        #    base_lr=self._explanation_config["lr_low"],
-        #    max_lr=self._explanation_config["lr_high"],
-        #    step_size_up=10,
-        # )
-        # calculate mask
-
         assert self._saliency_config["max_epochs"] > 0
         loss = np.inf
         for epoch in range(self._saliency_config["max_epochs"]):  # mask 'training' epochs
@@ -561,7 +560,6 @@ class SaliencyMapHandler:
             optimizer.zero_grad()  # set all gradients zero
             loss.backward()  # backpropagate mean loss
             optimizer.step()  # update mask parameters/minimize loss function
-            #scheduler.step()
 
             if trial.should_prune():
                 raise optuna.TrialPruned()
@@ -575,7 +573,6 @@ class SaliencyMapHandler:
     @timer
     def create_saliency_map(self):
         self._optimize_time_step()
-        #  todo possibly add feature to be able to configure more than one time step at a time
 
     def _optimize_time_step(self):
         """
