@@ -84,6 +84,10 @@
       "level": "DEBUG",
       "filters": null
     },
+    "proloaf.saliency_map": {
+      "level": "DEBUG",
+      "filters": null
+    },
     "optuna": {
       "level": "DEBUG",
       "filters": null
