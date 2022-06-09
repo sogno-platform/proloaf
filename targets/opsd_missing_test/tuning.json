@@ -1,0 +1,122 @@
+{
+    "number_of_tests": 2,
+    "settings": {
+        "learning_rate": {
+            "function": "suggest_loguniform",
+            "kwargs": {
+                "name": "learning_rate",
+                "low": 1e-06,
+                "high": 0.0001
+            }
+        },
+        "history_horizon": {
+            "function": "suggest_int",
+            "kwargs": {
+                "name": "history_horizon",
+                "low": 1,
+                "high": 168
+            }
+        },
+        "batch_size": {
+            "function": "suggest_int",
+            "kwargs": {
+                "name": "batch_size",
+                "low": 12,
+                "high": 120
+            }
+        },
+        "model_parameters": {
+            "recurrent": {
+                "core_net": {
+                    "function": "suggest_categorical",
+                    "kwargs": {
+                        "name": "core_net",
+                        "choices": [
+                            "torch.nn.LSTM",
+                            "torch.nn.GRU",
+                            "torch.nn.RNN"
+                        ]
+                    }
+                },
+                "core_layers": {
+                    "function": "suggest_int",
+                    "kwargs": {
+                        "name": "core_layers",
+                        "low": 1,
+                        "high": 5
+                    }
+                },
+                "dropout_fc": {
+                    "function": "suggest_float",
+                    "kwargs": {
+                        "name": "dropout_fc",
+                        "low": 0.0,
+                        "high": 1.0
+                    }
+                },
+                "dropout_core": {
+                    "function": "suggest_float",
+                    "kwargs": {
+                        "name": "dropout_core",
+                        "low": 0.0,
+                        "high": 1.0
+                    }
+                },
+                "rel_linear_hidden_size": {
+                    "function": "suggest_float",
+                    "kwargs": {
+                        "name": "rel_linear_hidden_size",
+                        "low": 0.0,
+                        "high": 1.0
+                    }
+                },
+                "rel_core_hidden_size": {
+                    "function": "suggest_float",
+                    "kwargs": {
+                        "name": "rel_core_hidden_size",
+                        "low": 0.0,
+                        "high": 1.0
+                    }
+                },
+                "relu_leak": {
+                    "function": "suggest_float",
+                    "kwargs": {
+                        "name": "relu_leak",
+                        "low": 0.0,
+                        "high": 0.2
+                    }
+                }
+            },
+            "simple_transformer": {
+                "num_layers": {
+                    "function": "suggest_int",
+                    "kwargs": {
+                        "name": "num_layers",
+                        "low": 1,
+                        "high": 10
+                    }
+                },
+                "dropout": {
+                    "function": "suggest_float",
+                    "kwargs": {
+                        "name": "dropout",
+                        "low": 0.0,
+                        "high": 0.2
+                    }
+                },
+                "n_heads": {
+                    "function": "suggest_categorical",
+                    "kwargs": {
+                        "name": "n_heads",
+                        "choices": [
+                            1,
+                            2,
+                            3,
+                            6
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

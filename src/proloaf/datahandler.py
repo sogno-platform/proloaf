@@ -362,7 +362,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
 
     - finds the range of intervals of missing values
     - for each of the missing value in these intervals
-        + collect the the previous day's value and the next day's value (t-24 & t+24) at that time instant
+        + collect the previous day's value and the next day's value (t-24 & t+24) at that time instant
         + if any of them are missing, go for the next day(t-48 , t+48 and so on)
         + take their average
         + to account for the trend, shift the values by the slope of the interval extremes
@@ -382,60 +382,63 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     """
     rows, columns = np.where(pd.isnull(df))
     miss_rows_ranges = ranges(rows)
-
-    for i in range(len(miss_rows_ranges)):
+    # loop over all ranges
+    for i in range(len(miss_rows_ranges)-1):  # todo should this be range(len(miss_rows_ranges)-1) ?
 
         start, end = miss_rows_ranges[i]
+        col = columns[rows == start]  # corresponding column to the rows
+        assert col == columns[rows == end]  # should be the same
+
         # dur = end - start
         p = periodicity  # periodicity
-
-        for col in range(len(df.columns)):
-            seas = np.zeros(len(df))
-            if (
-                start == end and end + 1 <= df.shape[0] and start - 1 >= 0
-            ):  # if single point, take average of the nearby ones
-                t = start
-                try:
-                    df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
-                except TypeError as err:
-                    if df.iloc[t - 1, col] == df.iloc[t + 1, col]:
-                        df.iloc[t, col] = df.iloc[t - 1, col]
-                    else:
-                        raise err
-            elif start == end and (
-                end + 1 > df.shape[0] or start - 1 <= 0
-            ):  # if single point, but the single point is at the beginning or end of the series, take the nearby one
-                t = start
-                if start - 1 <= 0:
-                    df.iloc[t, col] = df.iloc[t + 1, col]
-                if end + 1 > df.shape[0]:
+        # todo is the whole loop over df.columns unnecessary since the indexes of columns directly correspond to indexes of rows
+        # todo why loop over all columns and not just the ones that need interpolating? does this cause problems?
+        seas = np.zeros(len(df))
+        if (
+            start == end and end + 1 <= df.shape[0] and start - 1 >= 0
+        ):  # if single point and previous and next value exists, take average of the nearby ones
+            t = start
+            try:
+                df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2  # todo does this change values in columns which that don't need interpolating?
+            except TypeError as err:
+                if df.iloc[t - 1, col] == df.iloc[t + 1, col]:
                     df.iloc[t, col] = df.iloc[t - 1, col]
-            else:
-                # now we are dealing with a range
-                if (start - p) <= 0 or (end + p) > (df.shape[0]):
-                    df = df.interpolate(method="pchip")  # check this if ok
                 else:
-                    for t in range(start, end + 1):
-                        p1 = p
-                        p2 = p
-                        while np.isnan(df.iloc[t - p1, col]):
-                            p1 += p
-                        while np.isnan(df.iloc[t + p2, col]):
-                            p2 += p
+                    raise err
+        elif start == end and (
+            end + 1 > df.shape[0] or start - 1 <= 0
+        ):  # if single point, but the single point is at the beginning or end of the series, take the nearby one
+            t = start
+            if start - 1 <= 0:
+                df.iloc[t, col] = df.iloc[t + 1, col]
+            if end + 1 > df.shape[0]:
+                df.iloc[t, col] = df.iloc[t - 1, col]
+        else:
+            # now we are dealing with a range
+            if (start - p) <= 0 or (end + p) > (df.shape[0]):
+                df.iloc[:, col].interpolate(method="pchip", limit_direction='backward')  # check this if ok # todo this applies pchip to the whole df (intended?)
+            else:
+                for t in range(start, end + 1):
+                    p1 = p
+                    p2 = p
+                    while np.isnan(df.iloc[t - p1, col]):
+                        p1 += p
+                    while np.isnan(df.iloc[t + p2, col]):
+                        p2 += p
 
-                        seas[t] = (df.iloc[t - p1, col] + df.iloc[t + p2, col]) / 2
-                    trend1 = np.poly1d(
-                        np.polyfit([start, end], [seas[start], seas[end]], 1)
+                    seas[t] = (df.iloc[t - p1, col] + df.iloc[t + p2, col]) / 2
+                trend1 = np.poly1d(
+                    np.polyfit([start, end], [seas[start], seas[end]], 1)
+                )
+                trend2 = np.poly1d(
+                    np.polyfit(
+                        [start - 1, end + 1],
+                        [df.iloc[start - 1, col], df.iloc[end + 1, col]],
+                        1,
                     )
-                    trend2 = np.poly1d(
-                        np.polyfit(
-                            [start - 1, end + 1],
-                            [df.iloc[start - 1, col], df.iloc[end + 1, col]],
-                            1,
-                        )
-                    )
-                    for t in range(start, end + 1):
-                        df.iloc[t, col] = seas[t] - trend1(t) + trend2(t)
+                )
+                for t in range(start, end + 1):
+                    df.iloc[t, col] = seas[t] - trend1(t) + trend2(t)
     return df
 
 
