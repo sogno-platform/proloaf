@@ -380,43 +380,66 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     pandas.DataFrame
         DataFrame with interpolated values
     """
-    rows, columns = np.where(pd.isnull(df))
-    miss_rows_ranges = ranges(rows)
-    # loop over all ranges
-    for i in range(len(miss_rows_ranges)-1):  # todo should this be range(len(miss_rows_ranges)-1) ?
+    rows, columns = np.where(pd.isnull(df))  # all rows and columns with missing values
 
+    # find the ranges of missing values within each column:
+
+    miss_rows_ranges = []  # all ranges of missing rows
+    num_columns = df.shape[1]
+    miss_columns = []  # all columns with missing rows, but in order from first column to last column
+    for c in range(num_columns):  # for all possible columns
+        miss_rows = rows[columns == c]  # each missing row for that column
+        if len(miss_rows) != 0:  # if this column has missing values
+            # find ranges of rows for that column and append to end of list
+            new_ranges = ranges(miss_rows)  # all ranges of missing values for column c
+            miss_rows_ranges.extend(new_ranges)  # add new ranges to list of all ranges
+            for n in range(len(new_ranges)):
+                # append x times the number of the column, where x is the number of ranges for that column
+                miss_columns.append(c)
+
+
+    #miss_rows_ranges = ranges(rows)
+    last_index = df.shape[0] - 1
+    assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
+    # loop over all ranges
+    for i in range(len(miss_rows_ranges)):
         start, end = miss_rows_ranges[i]
-        col = columns[rows == start]  # corresponding column to the rows
-        assert col == columns[rows == end]  # should be the same
+        col = miss_columns[i]  # corresponding column to the rows, which need interpolating
+        assert type(col) == int
+
 
         # dur = end - start
         p = periodicity  # periodicity
-        # todo is the whole loop over df.columns unnecessary since the indexes of columns directly correspond to indexes of rows
-        # todo why loop over all columns and not just the ones that need interpolating? does this cause problems?
         seas = np.zeros(len(df))
         if (
-            start == end and end + 1 <= df.shape[0] and start - 1 >= 0
-        ):  # if single point and previous and next value exists, take average of the nearby ones
+            start == end and end + 1 <= last_index and start - 1 >= 0
+        ):
+            # if single point and previous and next value exists, take average of the nearby ones
             t = start
-            try:
-                df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2  # todo does this change values in columns which that don't need interpolating?
-            except TypeError as err:
-                if df.iloc[t - 1, col] == df.iloc[t + 1, col]:
-                    df.iloc[t, col] = df.iloc[t - 1, col]
-                else:
-                    raise err
+            df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
+
         elif start == end and (
-            end + 1 > df.shape[0] or start - 1 <= 0
-        ):  # if single point, but the single point is at the beginning or end of the series, take the nearby one
+            end + 1 > last_index or start - 1 <= 0
+        ):
+            # if single point, but the single point is at the beginning or end of the series, take the nearby one
             t = start
-            if start - 1 <= 0:
+            if start - 1 <= 0:  # point is first value of the series
                 df.iloc[t, col] = df.iloc[t + 1, col]
-            if end + 1 > df.shape[0]:
+            if end + 1 > last_index:  # point is last value of the series
                 df.iloc[t, col] = df.iloc[t - 1, col]
         else:
             # now we are dealing with a range
-            if (start - p) <= 0 or (end + p) > (df.shape[0]):
-                df.iloc[:, col].interpolate(method="pchip", limit_direction='backward')  # check this if ok # todo this applies pchip to the whole df (intended?)
+            if (start - p) <= 0 or (end + p) > (df.shape[0]): # if the range is close to the beginning or end
+
+                if start == 0:  # special case: range begins with first value
+                    # fill all beginning NaN values with the next existing value
+                    df.iloc[start:end+1, col] = df.iloc[end+1, col] #todo user warning
+                elif end == last_index:  # special case: range ends on last value
+                    # fill all last NaN values with the last existing value
+                    df.iloc[start:end + 1, col] = df.iloc[end-1, col] #todo user warning
+                else:
+                    new_column = df.iloc[:, col].interpolate(method="pchip")
+                    df.iloc[start:end + 1, col] = new_column[start:end + 1]
             else:
                 for t in range(start, end + 1):
                     p1 = p
@@ -439,6 +462,9 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
                 )
                 for t in range(start, end + 1):
                     df.iloc[t, col] = seas[t] - trend1(t) + trend2(t)
+    test = np.where(pd.isnull(df)) # test if all values are filled
+    assert len(test[0]) == 0
+    assert len(test[1]) == 0
     return df
 
 
