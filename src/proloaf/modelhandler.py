@@ -45,6 +45,7 @@ from proloaf.loghandler import (
     end_tensorboard,
 )
 from proloaf.event_logging import create_event_logger
+from proloaf.event_logging import timer
 
 logger = create_event_logger(__name__)
 
@@ -861,6 +862,7 @@ class ModelHandler:
         end_tensorboard(tb, hparams, values)
         return temp_model_wrap
 
+    @timer(logger)
     def fit(
         self,
         train_data: proloaf.tensorloader.TimeSeriesData,
@@ -900,6 +902,7 @@ class ModelHandler:
             )
         return self
 
+    @timer(logger)
     def predict(self, inputs_enc: torch.Tensor, inputs_dec: torch.Tensor):
         """
         Get the predictions for the given model and data
