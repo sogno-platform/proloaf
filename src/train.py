@@ -97,7 +97,8 @@ def main(
             device=device,
             preparation_steps=[
                 dh.set_to_hours,
-                dh.fill_if_missing,  # todo check if periodicity has to be given
+                # todo check if periodicity is correct
+                partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
                 scaler.fit_transform,

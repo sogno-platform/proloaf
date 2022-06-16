@@ -381,10 +381,11 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
         DataFrame with interpolated values
     """
     rows, columns = np.where(pd.isnull(df))  # all rows and columns with missing values
+    # the missing values in "rows" are organized by row number, from first to last row
+    # the values with the same index in "columns" are the corresponding columns, in which the value is missing
+    # goal: find the ranges of missing values within each column, organized by columns:
 
-    # find the ranges of missing values within each column:
-
-    miss_rows_ranges = []  # all ranges of missing rows
+    miss_rows_ranges = []  # all ranges of missing rows (for all columns)
     num_columns = df.shape[1]
     miss_columns = []  # all columns with missing rows, but in order from first column to last column
     for c in range(num_columns):  # for all possible columns
@@ -392,13 +393,11 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
         if len(miss_rows) != 0:  # if this column has missing values
             # find ranges of rows for that column and append to end of list
             new_ranges = ranges(miss_rows)  # all ranges of missing values for column c
-            miss_rows_ranges.extend(new_ranges)  # add new ranges to list of all ranges
+            miss_rows_ranges.extend(new_ranges)  # add new ranges to list of all ranges of all columns
             for n in range(len(new_ranges)):
                 # append x times the number of the column, where x is the number of ranges for that column
-                miss_columns.append(c)
+                miss_columns.append(c)  # corresponding columns to "miss_rows_ranges"
 
-
-    #miss_rows_ranges = ranges(rows)
     last_index = df.shape[0] - 1
     assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
     # loop over all ranges
@@ -406,7 +405,6 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
         start, end = miss_rows_ranges[i]
         col = miss_columns[i]  # corresponding column to the rows, which need interpolating
         assert type(col) == int
-
 
         # dur = end - start
         p = periodicity  # periodicity
@@ -429,14 +427,14 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
                 df.iloc[t, col] = df.iloc[t - 1, col]
         else:
             # now we are dealing with a range
-            if (start - p) <= 0 or (end + p) > (df.shape[0]): # if the range is close to the beginning or end
+            if (start - p) <= 0 or (end + p) > (df.shape[0]):  # if the range is close to the beginning or end
 
                 if start == 0:  # special case: range begins with first value
                     # fill all beginning NaN values with the next existing value
-                    df.iloc[start:end+1, col] = df.iloc[end+1, col] #todo user warning
+                    df.iloc[start:end+1, col] = df.iloc[end+1, col]
                 elif end == last_index:  # special case: range ends on last value
                     # fill all last NaN values with the last existing value
-                    df.iloc[start:end + 1, col] = df.iloc[end-1, col] #todo user warning
+                    df.iloc[start:end + 1, col] = df.iloc[start-1, col]
                 else:
                     new_column = df.iloc[:, col].interpolate(method="pchip")
                     df.iloc[start:end + 1, col] = new_column[start:end + 1]
@@ -462,7 +460,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
                 )
                 for t in range(start, end + 1):
                     df.iloc[t, col] = seas[t] - trend1(t) + trend2(t)
-    test = np.where(pd.isnull(df)) # test if all values are filled
+    test = np.where(pd.isnull(df))  # test if all values are filled
     assert len(test[0]) == 0
     assert len(test[1]) == 0
     return df
