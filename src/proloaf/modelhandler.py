@@ -783,7 +783,7 @@ class ModelHandler:
                 logger.info(f"benchmarking {model.name}")
                 inputs_enc, inputs_dec, targets = next(iter(dataloader))
                 quantiles = model.loss_metric.get_quantile_prediction(
-                    predictions=model.predict(inputs_enc, inputs_dec),  # todo error is here
+                    predictions=model.predict(inputs_enc, inputs_dec),
                     target=targets,
                 )
 
