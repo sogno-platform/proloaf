@@ -730,6 +730,10 @@ class ModelHandler:
         ModelWrapper
             The most performant model
         """
+        for model in models:  # check if all models have same target
+            if model.target_id != models[0].target_id:
+                raise Exception("At least one model has a different target_id than the other ones. "
+                                "You can only compare models with the same target_id")
         perf_df = self.benchmark(data, models, [loss], avg_over="all")
         logger.info(f"Performance was:\n {perf_df}")
         idx = perf_df.iloc[0].to_numpy().argmin()
@@ -768,13 +772,18 @@ class ModelHandler:
 
         with torch.no_grad():
             bench = {}
+
             for model in models:
                 # Dataloader is setup to be only one batch
-                dataloader = data.make_data_loader(batch_size=None, shuffle=False)
+                dataloader = data.make_data_loader(
+                    encoder_features=model.encoder_features,
+                    decoder_features=model.decoder_features,
+                    batch_size=None, shuffle=False
+                )
                 logger.info(f"benchmarking {model.name}")
                 inputs_enc, inputs_dec, targets = next(iter(dataloader))
                 quantiles = model.loss_metric.get_quantile_prediction(
-                    predictions=model.predict(inputs_enc, inputs_dec),
+                    predictions=model.predict(inputs_enc, inputs_dec),  # todo error is here
                     target=targets,
                 )
 
