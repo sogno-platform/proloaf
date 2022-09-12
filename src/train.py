@@ -87,7 +87,7 @@ def main(
     config = deepcopy(config)
     # log_df = log.init_logging(model_name=station_name, work_dir=work_dir, config=config)
     try:
-        df = pd.read_csv(infile, sep=",", index_col=0)
+        df = pd.read_csv(infile, sep=";", index_col=0)
 
         train_df, val_df = dh.split(df, [config.get("train_split", 0.7)])
 
