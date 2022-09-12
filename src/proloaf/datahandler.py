@@ -401,9 +401,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     last_index = df.shape[0] - 1
     assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
     # loop over all ranges
-    for i in range(len(miss_rows_ranges)):
-        start, end = miss_rows_ranges[i]
-        col = miss_columns[i]  # corresponding column to the rows, which need interpolating
+    for col, (start, end) in zip(miss_columns, miss_rows_ranges):
         assert type(col) == int
 
         # dur = end - start
