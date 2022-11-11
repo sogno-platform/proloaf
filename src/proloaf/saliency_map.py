@@ -21,12 +21,6 @@ from proloaf.event_logging import timer
 
 logger = create_event_logger(__name__)
 
-        end_tensorboard(tb, hparams, values)
-        return temp_model_wrap
-
-    @timer(logger)
-
-
 sys.path.append("../")
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 sys.path.append(MAIN_PATH)
