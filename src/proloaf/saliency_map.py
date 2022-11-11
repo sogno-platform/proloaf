@@ -16,6 +16,17 @@ import proloaf.datahandler as dh
 import proloaf.modelhandler as mh
 import proloaf.tensorloader as tl
 
+from proloaf.event_logging import create_event_logger
+from proloaf.event_logging import timer
+
+logger = create_event_logger(__name__)
+
+        end_tensorboard(tb, hparams, values)
+        return temp_model_wrap
+
+    @timer(logger)
+
+
 sys.path.append("../")
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 sys.path.append(MAIN_PATH)
@@ -26,17 +37,6 @@ optuna.logging.enable_propagation()
 plt.rc('font', size=30)  # default font size
 plt.rc('axes', labelsize=30)  # fontsize of the x and y labels
 plt.rc('axes', titlesize=30)  # fontsize of the title
-
-
-def timer(func):  # without return value
-    def wrapper(*args, **kwargs):
-        logger.info(f'starting timer for {__name__} function')
-        start_time = perf_counter()
-        func(*args, **kwargs)
-        end_time = perf_counter()
-        run_time = end_time-start_time
-        logger.info(f"{__name__} function finished in: {run_time} seconds")
-    return wrapper
 
 # todo tensorboard log
 # todo run notebook
@@ -570,7 +570,7 @@ class SaliencyMapHandler:
 
         return loss
 
-    @timer
+    @timer(logger)
     def create_saliency_map(self):
         self._optimize_time_step()
 
