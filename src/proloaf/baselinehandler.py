@@ -562,47 +562,6 @@ def make_forecasts(
 # predictioninterval functions
 # =============================================================================
 
-
-def naive_predictioninterval(forecasts, endog_val, forecast_horizon, alpha=1.96):
-    """
-    Calculate the prediction interval for the given forecasts using the Naive method https://otexts.com/fpp2/prediction-intervals.html
-    It is rather an ex-post uncertainty measure than one for probabilistic forecasting as it
-    assumes availability of the future target values.
-
-    Parameters
-    ----------
-    forecasts : pandas.Series
-        List of forecasts (with length = forecast_horizon)
-    endog_val : pandas.Series
-        List of true values for given forecasts (with length = forecast_horizon)
-    forecast_horizon : int
-        Number of future steps to be forecasted
-    alpha : float, default = 1.96
-        Measure to adjust confidence interval. Default is set to 1.96, which equals to 95% confidence
-
-    Returns
-    -------
-    pandas.Series
-        upper interval for given forecasts with length:= forecast_horizon
-    pandas.Series
-        lower interval for given forecasts with length:= forecast_horizon
-    """
-
-    residuals = endog_val - forecasts
-    sigma = np.std(residuals)
-
-    # for r in range(forecast_horizon): sigma_h.append(sigma * np.sqrt(r+1))
-    sigma_h = [sigma * np.sqrt(x + 1) for x in range(forecast_horizon)]
-
-    sigma_hn = pd.Series(sigma_h)
-    sigma_hn.index = endog_val.index
-
-    fc_u = forecasts + alpha * sigma_hn
-    fc_l = forecasts - alpha * sigma_hn
-
-    return fc_u, fc_l
-
-
 def GARCH_predictioninterval(
     endog_train,
     endog_val,
@@ -707,64 +666,6 @@ def GARCH_predictioninterval(
     )
     print("Training and validating GARCH model completed.")
     return np.asarray(expected_value), np.asarray(fc_u), np.asarray(fc_l)
-
-
-def apply_PI_params(
-    model, fitted, input_matrix, output_matrix, target, exog, forecast_horizon
-):
-    """
-    Calculate custom prediction interval --> Confidence intervals are used as model parameters.
-    Intervals are added to the forecast.
-
-    Parameters
-    ----------
-    model : statsmodels.tsa.statespace.sarimax.SARIMAX
-        The untrained model instance
-    fitted : statsmodels.tsa.statespace.sarimax.SARIMAXResultsWrapper
-        The fitted model instance
-    input_matrix : list
-        list of DataFrames for input
-    output_matrix : list
-        list of DataFrames for output
-    target : string
-        Name of target column
-    exog : string
-        Feature names
-    forecast_horizon : int
-        Number of future steps to be forecasted
-
-    Returns
-    -------
-    list
-        The upper interval for the given forecasts
-    list
-        The lower interval for the given forecasts
-    """
-
-    lower_limits = []
-    upper_limits = []
-
-    params_conf = fitted.conf_int()
-
-    lower_params = params_conf[0]
-    upper_params = params_conf[1]
-
-    m_l = copy.deepcopy(fitted)
-    m_u = copy.deepcopy(fitted)
-
-    m_l.initialize(model=model, params=lower_params)
-    m_u.initialize(model=model, params=upper_params)
-
-    for i in range(len(input_matrix)):
-        m_l = m_l.apply(input_matrix[i][target], exog=input_matrix[i][exog])
-        fc_l = m_l.forecast(forecast_horizon, exog=output_matrix[i][exog])
-        lower_limits.append(fc_l)
-
-        m_u = m_u.apply(input_matrix[i][target], exog=input_matrix[i][exog])
-        fc_u = m_u.forecast(forecast_horizon, exog=output_matrix[i][exog])
-        upper_limits.append(fc_u)
-
-    return upper_limits, lower_limits
 
 
 def simple_naive(series, horizon):
