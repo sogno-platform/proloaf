@@ -8,7 +8,6 @@
     "target_id": [
         "DE_load_actual_entsoe_transparency"
     ],
-    "target_list": null,
     "start_date": null,
     "history_horizon": 147,
     "forecast_horizon": 24,
@@ -161,7 +160,26 @@
         "simple_transformer": {
             "num_layers": 3,
             "dropout": 0.4,
-            "n_heads": 6
+            "max_n_heads": 6,
+            "dim_feedforward": 1024
+        },
+        "autoencoder": {
+            "core_net": "torch.nn.LSTM",
+            "core_layers": 1,
+            "dropout_fc": 0.4,
+            "dropout_core": 0.3,
+            "rel_linear_hidden_size": 1.0,
+            "rel_core_hidden_size": 1.0,
+            "relu_leak": 0.1
+        },
+        "dualmodel": {
+            "core_net": "torch.nn.LSTM",
+            "core_layers": 1,
+            "dropout_fc": 0.4,
+            "dropout_core": 0.3,
+            "rel_linear_hidden_size": 1.0,
+            "rel_core_hidden_size": 1.0,
+            "relu_leak": 0.1
         }
     }
 }

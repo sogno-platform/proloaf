@@ -26,7 +26,8 @@ Some functions are no longer used directly in the project, but may nonetheless b
 useful for testing or future applications.
 """
 
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict, List, Union
 import numpy as np
 import pandas as pd
 import sklearn
@@ -464,7 +465,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     return df
 
 
-def fill_if_missing(df: pd.DataFrame, periodicity: int = 1) -> pd.DataFrame:
+def fill_if_missing(df: pd.DataFrame, periodicity: int = 24) -> pd.DataFrame:
     """
     If the given pandas.DataFrame has any NaN values, they are replaced with interpolated values
 
@@ -473,7 +474,7 @@ def fill_if_missing(df: pd.DataFrame, periodicity: int = 1) -> pd.DataFrame:
     df : pandas.DataFrame
         A pandas.DataFrame for which NaN values need to be replaced by interpolated values
 
-    periodicity : int, default = 1
+    periodicity : int, default = 24
         An int value that allows the customized intepolation method, which makes use of the timeseries periodicity
 
     Returns
@@ -732,21 +733,21 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.is_fitted_ = True
 
 
-def split(df: pd.DataFrame, splits: List[float]):
+def split(df: pd.DataFrame, splits: List[Union[float, datetime]]):
     """Splits a dataframe at the specified points.
 
     Parameters
     ----------
     df: pandas.DataFrame
         Dataframe to be split
-    splits: List[float]
-        Relative points at which the DataFrame should be split (e.g. [0.8,0.9]). Should be in ascending order.
+    splits: List[float || datetime]
+        Relative points at which the DataFrame should be split (e.g. [0.8,0.9] or ["2019-06-01 01:00:00", "2020-01-31 16:00:00"]). Should be in ascending order.
 
     Returns
     -------
     List[pandas.DataFrame]
         List of DataFrames into which the input has been split.
     """
-    split_index = [int(len(df) * split) for split in splits]
+    split_index = [int(len(df) * split) if isinstance(split, float) else split for split in splits]
     intervals = zip([None, *split_index], [*split_index, None])
     return [df[a:b] for a, b in intervals]

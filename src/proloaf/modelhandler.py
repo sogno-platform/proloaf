@@ -31,7 +31,7 @@ import sys
 import tempfile
 import optuna
 import torch
-from typing import Any, Callable, Union, List, Dict, Literal
+from typing import Any, Callable, Iterable, Union, List, Dict, Literal
 from copy import deepcopy
 
 import proloaf
@@ -110,7 +110,7 @@ class EarlyStopping:
             logger.info(
                 f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ..."
             )
-        temp_dir = tempfile.mktemp()
+        temp_dir = "./"  # tempfile.mktemp()
         torch.save(model.state_dict(), temp_dir + "checkpoint.pt")
         self.val_loss_min = val_loss
         self.temp_dir = temp_dir
@@ -130,6 +130,8 @@ class ModelWrapper:
         Features the encoder of the model needs, for documentation only (will change in the future)
     decoder_features: List[str] = None,
         Features the encoder of the model needs, for documentation only (will change in the future)
+    aux_features: List[str] = None,
+        Auxillary features both encoder and decoder use, for documentation only (will change in the future)
     scalers: sklearn.transformer, default = None,
         scaler(s) that has/have been used on the data, for documentation only (will change in the future)
     training_metric: str, default = "nllgaus",
@@ -161,9 +163,10 @@ class ModelWrapper:
     def __init__(
         self,
         name: str = "model",
-        target_id: Union[str, int] = "target",
+        target_id: Union[str, int] = None,
         encoder_features: List[str] = None,
         decoder_features: List[str] = None,
+        aux_features: List[str] = None,
         scalers=None,
         training_metric: str = None,
         metric_options: Dict[str, Any] = None,
@@ -182,9 +185,10 @@ class ModelWrapper:
         self.last_training = None
         self.model = None
         self.name = "model"
-        self.target_id = "target"
-        self.encoder_features = None
-        self.decoder_features = None
+        self.target_id = ["target"]
+        self.encoder_features = []
+        self.decoder_features = []
+        self.aux_features = []
         self.scalers = None
         self.set_loss(loss="nllgauss", loss_options={})
 
@@ -204,6 +208,7 @@ class ModelWrapper:
             target_id=target_id,
             encoder_features=encoder_features,
             decoder_features=decoder_features,
+            aux_features=aux_features,
             scalers=scalers,
             training_metric=training_metric,
             metric_options=metric_options,
@@ -256,6 +261,7 @@ class ModelWrapper:
         target_id: Union[str, int] = None,
         encoder_features: List[str] = None,
         decoder_features: List[str] = None,
+        aux_features: List[str] = None,
         scalers=None,
         training_metric: str = None,
         metric_options: Dict[str, Any] = None,
@@ -289,6 +295,8 @@ class ModelWrapper:
             self.encoder_features = deepcopy(encoder_features)
         if decoder_features is not None:
             self.decoder_features = deepcopy(decoder_features)
+        if aux_features is not None:
+            self.aux_features = deepcopy(aux_features)
         if scalers is not None:
             self.scalers = scalers
         if training_metric is not None:
@@ -364,6 +372,7 @@ class ModelWrapper:
             target_id=self.target_id,
             encoder_features=self.encoder_features,
             decoder_features=self.decoder_features,
+            aux_features=self.aux_features,
             scalers=self.scalers,
             training_metric=self._loss,
             metric_options=self._loss_options,
@@ -379,6 +388,7 @@ class ModelWrapper:
             history_horizon=self.history_horizon,
         )
         # TODO include trainingparameters
+        temp_mh.init_model()
         if self.model is not None:
             temp_mh.model.load_state_dict(self.model.state_dict())
             temp_mh.initialzed = self.initialzed
@@ -388,23 +398,48 @@ class ModelWrapper:
         """Initializes the wrapped model."""
         logger.debug(f"{self.model_class = }")
         logger.debug(f"{self.model_parameters = }")
-        model_parameters = self.model_parameters.get(self.model_class)
+
+        # TODO adjust models according to "None means default", then replace
+        model_parameters = self.model_parameters[self.model_class]
+        # model_parameters = self.model_parameters.get(self.model_class)
+        # if model_parameters is None:
+        #     logger.warning(f"No configuration for model class {self.model_class}. Using default")
+        #     model_parameters = {}
 
         if self.model_class == "simple_transformer":
+            if len(self.target_id) > 1:
+                raise NotImplementedError(
+                    "simpletransformer does not support multiple target_ids yet."
+                )
+            n_heads = model_parameters.get("max_n_heads", 1)
+            f_size = max(len(self.encoder_features), len(self.decoder_features)) + len(
+                self.aux_features
+            )
+
+            # Count down until f_size is a multiple of n_heads
+            while (f_size // n_heads) * n_heads < f_size:
+                n_heads -= 1
+            if n_heads != model_parameters.get("max_n_heads", 1):
+                logger.info(
+                    f"Number of heads was not a divisor of number of features. {n_heads = }"
+                )
             self.model = models.Transformer(
-                feature_size=len(self.encoder_features),
+                feature_size=f_size,
                 num_layers=model_parameters.get("num_layers"),
                 dropout=model_parameters.get("dropout"),
-                n_heads=model_parameters.get("n_heads"),
+                n_heads=n_heads,
                 out_size=len(self.output_labels),
+                dim_feedforward=model_parameters.get("dim_feedforward", 1024),
+                # n_target_features=len(self.target_id),
                 encoder_features=self.encoder_features,
                 decoder_features=self.decoder_features,
             )
         elif self.model_class == "recurrent":
             self.model = models.EncoderDecoder(
-                enc_size=len(self.encoder_features),
-                dec_size=len(self.decoder_features),
-                out_size=len(self.output_labels),
+                enc_size=len(self.encoder_features) + len(self.aux_features),
+                dec_size=len(self.decoder_features) + len(self.aux_features),
+                out_size=len(self.output_labels) * len(self.target_id),
+                n_target_features=len(self.target_id),
                 dropout_fc=model_parameters.get("dropout_fc"),
                 dropout_core=model_parameters.get("dropout_core"),
                 rel_linear_hidden_size=model_parameters.get("rel_linear_hidden_size"),
@@ -413,6 +448,42 @@ class ModelWrapper:
                 relu_leak=model_parameters.get("relu_leak"),
                 core_layers=model_parameters.get("core_layers"),
             )
+        elif self.model_class == "autoencoder":
+            self.model = models.AutoEncoder(
+                enc_size=len(self.encoder_features) + len(self.aux_features),
+                dec_size=0,  # len(self.aux_features),  # TODO should the autoencoder have access to aux features
+                # Aux_features will be reconstructed to which we might not want but is necessary to compare to dual model
+                dropout_fc=model_parameters.get("dropout_fc"),
+                dropout_core=model_parameters.get("dropout_core"),
+                rel_linear_hidden_size=model_parameters.get("rel_linear_hidden_size"),
+                rel_core_hidden_size=model_parameters.get("rel_core_hidden_size"),
+                core_net=model_parameters.get("core_net"),
+                relu_leak=model_parameters.get("relu_leak"),
+                core_layers=model_parameters.get("core_layers"),
+            )
+            self.set_loss("autoencoderloss", {})
+
+        elif self.model_class == "dualmodel":
+            metr = self.loss_metric
+            if not isinstance(metr, metrics.AutoEncoderLoss):
+                self.set_loss("dualmodelloss", {"forecast_loss": metr})
+            self.model = models.DualModel(
+                enc_size=len(self.encoder_features) + len(self.aux_features),
+                dec_size=len(self.decoder_features)
+                + len(
+                    self.aux_features
+                ),  # TODO should the autoencoder have access to aux features
+                out_size=(len(self.output_labels[0]), len(self.output_labels[1])),
+                n_target_features=len(self.target_id),
+                dropout_fc=model_parameters.get("dropout_fc"),
+                dropout_core=model_parameters.get("dropout_core"),
+                rel_linear_hidden_size=model_parameters.get("rel_linear_hidden_size"),
+                rel_core_hidden_size=model_parameters.get("rel_core_hidden_size"),
+                core_net=model_parameters.get("core_net"),
+                relu_leak=model_parameters.get("relu_leak"),
+                core_layers=model_parameters.get("core_layers"),
+            )
+            # Use the requested loss for forecast in dual model
 
         for param in self.model.parameters():
             torch.nn.init.uniform_(param.data, -0.08, 0.08)
@@ -486,7 +557,12 @@ class ModelWrapper:
         return self
 
     def predict(
-        self, inputs_enc: torch.Tensor, inputs_dec: torch.Tensor
+        self,
+        inputs_enc: torch.Tensor,
+        inputs_enc_aux: torch.Tensor,
+        inputs_dec: torch.Tensor,
+        inputs_dec_aux: torch.Tensor,
+        last_value: torch.Tensor,
     ) -> torch.Tensor:
         """
         Get the predictions for the wrapped model
@@ -495,8 +571,14 @@ class ModelWrapper:
         ----------
         inputs_enc : torch.Tensor
             Contains the input data for the encoder
+        inputs_enc_aux : torch.Tensor
+            Contains auxillary input data for the encoder
         inputs_dec : torch.Tensor
             Contains the input data for the decoder
+        inputs_dec_aux : torch.Tensor
+            Contains auxillary input data for the decoder
+        last_value : torch.Tensor
+            Last known target value(s) in history horizon
 
         Returns
         -------
@@ -507,8 +589,11 @@ class ModelWrapper:
             raise RuntimeError(
                 "The model has not been initialized. Use .init_model() to do that"
             )
+
         self.to(inputs_enc.device)
-        val, _ = self.model(inputs_enc, inputs_dec)
+        val, _ = self.model(
+            inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value
+        )
         return val
 
 
@@ -566,6 +651,7 @@ class ModelHandler:
             target_id=config.get("target_id"),
             encoder_features=config.get("encoder_features"),
             decoder_features=config.get("decoder_features"),
+            aux_features=config.get("aux_features"),
             scalers=scalers,
             training_metric=loss,
             metric_options=loss_kwargs,
@@ -665,7 +751,7 @@ class ModelHandler:
                 train_data=train_data,
                 validation_data=validation_data,
             ),
-            n_trials=self.tuning_config["number_of_tests"],
+            n_trials=self.tuning_config.get("number_of_tests", None),
             timeout=self.tuning_config.get("timeout", None),
         )
 
@@ -692,20 +778,16 @@ class ModelHandler:
         )
 
         trial = study.best_trial
-        logger.info(
-            "Best trial"
-        )
-        logger.info(
-            " Value: {!s}\n".format(trial.value)
-        )
-        logger.info(
-            "Params:"
-        )
+        logger.info("Best trial")
+        logger.info(" Value: {!s}\n".format(trial.value))
+        logger.info("Params:")
         for key, value in trial.params.items():
             logger.info("    {}: {}".format(key, value))
 
-        self.config.update(trial.params)
+        # The order here is important as .get_config() pulls parameters directly from model_wrap
         self.model_wrap = trial.user_attrs["wrapped_model"]
+        self.config.update(self.get_config())
+
         return self
 
     def select_model(
@@ -732,8 +814,10 @@ class ModelHandler:
         """
         for model in models:  # check if all models have same target
             if model.target_id != models[0].target_id:
-                raise Exception("At least one model has a different target_id than the other ones. "
-                                "You can only compare models with the same target_id")
+                raise Exception(
+                    "At least one model has a different target_id than the other ones. "
+                    "You can only compare models with the same target_id"
+                )
         perf_df = self.benchmark(data, models, [loss], avg_over="all")
         logger.info(f"Performance was:\n {perf_df}")
         idx = perf_df.iloc[0].to_numpy().argmin()
@@ -772,37 +856,67 @@ class ModelHandler:
 
         with torch.no_grad():
             bench = {}
-
             for model in models:
-                # Dataloader is setup to be only one batch
                 dataloader = data.make_data_loader(
                     encoder_features=model.encoder_features,
                     decoder_features=model.decoder_features,
-                    batch_size=None, shuffle=False
+                    batch_size=None,
+                    shuffle=False,
                 )
-                logger.info(f"benchmarking {model.name}")
-                inputs_enc, inputs_dec, targets = next(iter(dataloader))
-                quantiles = model.loss_metric.get_quantile_prediction(
-                    predictions=model.predict(inputs_enc, inputs_dec),
-                    target=targets,
-                )
+                (
+                    inputs_enc,
+                    inputs_enc_aux,
+                    inputs_dec,
+                    inputs_dec_aux,
+                    last_value,
+                    targets,
+                ) = next(iter(dataloader))
+                # Dataloader is setup to be only one batch
 
-                performance = np.array(
-                    [
+                # Dataloader is setup to be only one batch
+
+                logger.info(f"benchmarking {model.name}")
+                quantiles = model.loss_metric.get_quantile_prediction(
+                    predictions=model.predict(
+                        inputs_enc=inputs_enc,
+                        inputs_enc_aux=inputs_enc_aux,
+                        inputs_dec=inputs_dec,
+                        inputs_dec_aux=inputs_dec_aux,
+                        last_value=last_value,
+                    ),
+                    target=targets,
+                    inputs_enc=inputs_enc,
+                    inputs_enc_aux=inputs_enc_aux,
+                )
+                performance = list()
+
+                for metric in test_metrics:
+                    if isinstance(model.loss_metric, metrics.AutoEncoderLoss):
+                        metric = metrics.AutoEncoderLoss(metric)
+                    if isinstance(
+                        model.loss_metric, metrics.DualModelLoss
+                    ) and not isinstance(metric, metrics.DualModelLoss):
+                        quants = quantiles[0]
+                    else:
+                        quants = quantiles
+                    performance.append(
                         metric.from_quantiles(
                             target=targets,
-                            quantile_prediction=quantiles,
+                            quantile_prediction=quants,
                             avg_over=avg_over,
+                            inputs_enc=inputs_enc,
+                            inputs_enc_aux=inputs_enc_aux,
                         )
+                        .squeeze()
                         .cpu()
                         .numpy()
-                        for metric in test_metrics
-                    ]
-                )
+                    )
+                performance = np.array(performance)
                 if len(performance.shape) == 1:
                     performance = performance[np.newaxis, ...]
                 else:
                     performance = performance.T
+
                 df = pd.DataFrame(
                     data=performance, columns=[met.id for met in test_metrics]
                 )
@@ -843,17 +957,22 @@ class ModelHandler:
         # to track the validation loss as the model trains
 
         config = deepcopy(self.config)
-        model_parameters = hparams.pop("model_parameters", None)
-        config.update(hparams)
+        # XXX this is a quick and dirty solution to enable continuing the training of a loaded model, should be refactored
+        if hparams:
+            model_parameters = hparams.pop("model_parameters", None)
+            config.update(hparams)
 
-        if model_parameters is not None:
-            hparams["model_parameters"] = model_parameters
-            for model_class, params in model_parameters.items():
-                config["model_parameters"][model_class].update(params)
-        temp_model_wrap: ModelWrapper = (
-            self.model_wrap.copy().update(**hparams).init_model()
-        ).to(self._device)
+            if model_parameters is not None:
+                hparams["model_parameters"] = model_parameters
+                for model_class, params in model_parameters.items():
+                    config["model_parameters"][model_class].update(params)
 
+            temp_model_wrap: ModelWrapper = (
+                self.model_wrap.copy().update(**hparams).init_model()
+            ).to(self._device)
+        else:
+            # XXX if no hparams the model is copied
+            temp_model_wrap = self.model_wrap.copy().to(self._device)
         tb = log_tensorboard(
             work_dir=self.work_dir,
             exploration=self.config["exploration"],
@@ -912,16 +1031,27 @@ class ModelHandler:
         return self
 
     @timer(logger)
-    def predict(self, inputs_enc: torch.Tensor, inputs_dec: torch.Tensor):
+    def predict(
+        self,
+        inputs_enc: torch.Tensor,
+        inputs_enc_aux: torch.Tensor,
+        inputs_dec: torch.Tensor,
+        inputs_dec_aux: torch.Tensor,
+        last_value: torch.Tensor,
+    ):
         """
         Get the predictions for the given model and data
 
         Parameters
         ----------
-        inputs_enc: torch.Tensor
-            input data for the encoder
-        inputs_dec: torch.Tensor
-            input data for the decoder
+        inputs_enc : torch.Tensor
+            Contains the input data for the encoder
+        inputs_enc_aux : torch.Tensor
+            Contains auxillary input data for the encoder
+        inputs_dec : torch.Tensor
+            Contains the input data for the decoder
+        inputs_dec_aux : torch.Tensor
+            Contains auxillary input data for the decoder
 
         Returns
         -------
@@ -931,10 +1061,16 @@ class ModelHandler:
         """
         if self.model_wrap is None:
             raise RuntimeError("No model has been created to perform a prediction with")
-        return self.model_wrap.predict(inputs_enc, inputs_dec)
+        return self.model_wrap.predict(
+            inputs_enc=inputs_enc,
+            inputs_enc_aux=inputs_enc_aux,
+            inputs_dec=inputs_dec,
+            inputs_dec_aux=inputs_dec_aux,
+            last_value=last_value,
+        )
 
     @staticmethod
-    def load_model(path: str = None, locate: str = 'cpu') -> ModelWrapper:
+    def load_model(path: str = None, locate: str = "cpu") -> ModelWrapper:
         """Loads model from given path.
 
         Parameters
@@ -943,7 +1079,7 @@ class ModelHandler:
             path to the saved model
 
         """
-        inst = torch.load(path,  map_location=torch.device(locate))
+        inst = torch.load(path, map_location=torch.device(locate))
         if not isinstance(inst, ModelWrapper):
             raise RuntimeError(
                 f"you tryied to load from '{path}' but the object was not a ModelWrapper"
@@ -1134,6 +1270,10 @@ class TrainingRun:
         Error on the training dataset.
     training_loss:float
         Error during training.
+    n_epochs: int || None
+        Number of epochs run in the training.
+
+
 
     All the parameters are saved in attributes of the same name.
     """
@@ -1179,6 +1319,7 @@ class TrainingRun:
         self.loss_function = loss_function
         self.step_counter = 0
         self.max_epochs = max_epochs
+        self.n_epochs = None
         self.early_stopping = EarlyStopping(
             patience=early_stopping_patience, delta=early_stopping_margin
         )
@@ -1244,6 +1385,7 @@ class TrainingRun:
             raise AttributeError(
                 "The model has to be initialized before the optimizer is set."
             )
+        #  params = filter(lambda p: p.requires_grad, self.model.parameters())
         if optimizer_name == "adam":
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         if optimizer_name == "sgd":
@@ -1282,10 +1424,30 @@ class TrainingRun:
 
         self.model.train()
         # train step
-        for (inputs1, inputs2, targets) in self.train_dl:
-            prediction, _ = self.model(inputs1, inputs2)
+        for (
+            inputs_enc,
+            inputs_enc_aux,
+            inputs_dec,
+            inputs_dec_aux,
+            last_value,
+            targets,
+        ) in self.train_dl:
+            prediction, _ = self.model(
+                inputs_enc=inputs_enc,
+                inputs_enc_aux=inputs_enc_aux,
+                inputs_dec=inputs_dec,
+                inputs_dec_aux=inputs_dec_aux,
+                last_value=last_value,
+            )
             self.optimizer.zero_grad()
-            loss = self.loss_function(targets, prediction)
+            loss = self.loss_function(
+                target=targets,
+                predictions=prediction,
+                inputs_enc=inputs_enc,
+                inputs_enc_aux=inputs_enc_aux,
+                inputs_dec=inputs_dec,
+                inputs_dec_aux=inputs_dec_aux,
+            )
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
             self.optimizer.step()
@@ -1299,10 +1461,26 @@ class TrainingRun:
         with torch.no_grad():
             self.model.eval()
             self.validation_loss = 0.0
-            for (inputs1, inputs2, targets) in self.validation_dl:
-                output, _ = self.model(inputs1, inputs2)
+            for (
+                inputs_enc,
+                inputs_enc_aux,
+                inputs_dec,
+                inputs_dec_aux,
+                last_value,
+                targets,
+            ) in self.train_dl:
+                prediction, _ = self.model(
+                    inputs_enc=inputs_enc,
+                    inputs_enc_aux=inputs_enc_aux,
+                    inputs_dec=inputs_dec,
+                    inputs_dec_aux=inputs_dec_aux,
+                    last_value=last_value,
+                )
                 self.validation_loss += self.loss_function(
-                    targets, output
+                    target=targets,
+                    predictions=prediction,
+                    inputs_enc=inputs_enc,
+                    inputs_enc_aux=inputs_enc_aux,
                 ).item() / len(self.validation_dl)
         return self
 
@@ -1328,8 +1506,19 @@ class TrainingRun:
                 )
         if self.log_tb:
             # is this actually for every run or model specific
-            inputs_enc, inputs_dec, targets = next(iter(self.train_dl))
-            self.log_tb.add_graph(self.model, [inputs_enc, inputs_dec])
+            (
+                inputs_enc,
+                inputs_enc_aux,
+                inputs_dec,
+                inputs_dec_aux,
+                last_value,
+                targets,
+            ) = next(iter(self.train_dl))
+
+            self.log_tb.add_graph(
+                self.model,
+                [inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value],
+            )
         self.training_start_time = perf_counter()
         logger.info("Begin training...")
         self.model.train()
@@ -1365,7 +1554,7 @@ class TrainingRun:
                     next_epoch=epoch + 1,
                     step_counter=self.step_counter,
                 )
-
+            self.n_epochs = epoch + 1
             if self.early_stopping.early_stop:
                 logger.info(
                     f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."

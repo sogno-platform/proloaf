@@ -226,11 +226,17 @@ def parse_with_loss(args=sys.argv[1:]):
         action="store_const",
     )
     # losses.add_argument("--mase", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.mase,2], help = "train with root mean absolute scaled error", action=flag_and_store)
-    # losses.add_argument("--picp", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.picp_loss,2], help = "train with 1 - prediction interval coverage",action=flag_and_store)
+    # losses.add_argument(
+    #     "--picp",
+    #     dest="loss",
+    #     const="PicpLoss",
+    #     help="train with sharpness",
+    #     action="store_const",
+    # )
     losses.add_argument(
         "--sharpness",
         dest="loss",
-        const="Shaprness",
+        const="Sharpness",
         help="train with sharpness",
         action="store_const",
     )

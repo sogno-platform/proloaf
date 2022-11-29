@@ -53,7 +53,7 @@ import proloaf.plot as plot
 import proloaf.modelhandler as mh
 from proloaf.event_logging import create_event_logger
 
-logger = create_event_logger('evaluate')
+logger = create_event_logger("evaluate")
 
 if __name__ == "__main__":
     ARGS = parse_basic()
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     # reload trained NN
     with torch.no_grad():
-        net = mh.ModelHandler.load_model(f"{INMODEL}.pkl", locate='cpu')
+        net = mh.ModelHandler.load_model(f"{INMODEL}.pkl", locate="cpu")
         net.to(DEVICE)
 
         train_df, test_df = dh.split(df, [SPLIT_RATIO])
@@ -195,11 +195,29 @@ if __name__ == "__main__":
         # )
         actual_time = pd.Series(pd.to_datetime(df.index), index=df.index, dtype=object)
         for i in testhours:
-            inputs_enc, inputs_dec, targets = test_data[i]
-            prediction = net.predict(inputs_enc.unsqueeze(0), inputs_dec.unsqueeze(0))
-            quantile_prediction = net.loss_metric.get_quantile_prediction(
-                predictions=prediction, target=targets.unsqueeze(0)
+            (
+                inputs_enc,
+                inputs_enc_aux,
+                inputs_dec,
+                inputs_dec_aux,
+                last_value,
+                targets,
+            ) = test_data[i]
+            prediction = net.predict(
+                inputs_enc=inputs_enc.unsqueeze(dim=0),
+                inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
+                inputs_dec=inputs_dec.unsqueeze(dim=0),
+                inputs_dec_aux=inputs_dec_aux.unsqueeze(dim=0),
+                last_value=last_value.unsqueeze(dim=0),
             )
+            quantile_prediction = net.loss_metric.get_quantile_prediction(
+                predictions=prediction,
+                target=targets.unsqueeze(0),
+                inputs_enc=inputs_enc.unsqueeze(dim=0),
+                inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
+            )
+            if isinstance(quantile_prediction, tuple):
+                quantile_prediction = quantile_prediction[0]
             expected_values = quantile_prediction.get_quantile(0.5)
             y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(
                 dim=2
@@ -222,18 +240,35 @@ if __name__ == "__main__":
         results_total_per_forecast.to_csv(
             os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
         )
-        logger.info('Results total per forecast:\n{!s}'.format(results_total_per_forecast))
-        inputs_enc, inputs_dec, targets = test_data[0]
+        logger.info(
+            "Results total per forecast:\n{!s}".format(results_total_per_forecast)
+        )
+        (
+            inputs_enc,
+            inputs_enc_aux,
+            inputs_dec,
+            inputs_dec_aux,
+            last_value,
+            targets,
+        ) = test_data[0]
         prediction = net.predict(
             inputs_enc=inputs_enc.unsqueeze(dim=0),
+            inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
             inputs_dec=inputs_dec.unsqueeze(dim=0),
+            inputs_dec_aux=inputs_dec_aux.unsqueeze(dim=0),
+            last_value=last_value.unsqueeze(dim=0),
         )
         quantile_prediction = net.loss_metric.get_quantile_prediction(
-            predictions=prediction, target=targets.unsqueeze(dim=0)
+            predictions=prediction,
+            target=targets.unsqueeze(dim=0),
+            inputs_enc=inputs_enc.unsqueeze(dim=0),
+            inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
         )
+        if isinstance(quantile_prediction, tuple):
+                quantile_prediction = quantile_prediction[0]
         expected_values = quantile_prediction.get_quantile(0.5)
-        y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=2)
-        y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(dim=2)
+        y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=-1)
+        y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(dim=-1)
         # BOXPLOTS
         plot.plot_boxplot(
             metrics_per_sample=results_per_sample_per_forecast[net.name],

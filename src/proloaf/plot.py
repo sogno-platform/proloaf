@@ -220,7 +220,7 @@ def plot_boxplot(
     -------
     No return value
     """
-
+    plt.clf()
     ax1 = metrics_per_sample.iloc[::sample_frequency].boxplot(
         color=dict(boxes="k", whiskers="k", medians="k", caps="k"),
     )
@@ -264,7 +264,6 @@ def plot_hist(
         fig = plt.figure(figsize=(16, 12))  # plt.figure()
         # print("Residuals DataFrame Head:",results.head())
         for element in data.columns:
-            print(f"{element = }")
             ax1 = data[element].plot(
                 kind="hist", bins=bins, alpha=0.5, label=element
             )

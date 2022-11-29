@@ -119,6 +119,7 @@ def add_tb_element(
 ):
     """
     Add scalars using TensorBoard's SummaryWriter. Corresponds to logging the status of one epoch.
+    Logs warning if unable to use TensorBoard.
 
     Parameters
     ----------
@@ -152,11 +153,14 @@ def add_tb_element(
     tb.add_scalar("val_loss_steps", validation_loss, step_counter)
 
     for name, weight in net.named_parameters():
-        tb.add_histogram(name, weight, next_epoch)
+        try:
+            tb.add_histogram(name, weight, next_epoch)
+        except:
+            logger.warning(f"{name} could not be logged to tensorboard")
         try:
             tb.add_histogram(f"{name}.grad", weight.grad, next_epoch)
         except:
-            logger.debug(f"{name}.grad could not be logged to tensorboard")
+            logger.warning(f"{name}.grad could not be logged to tensorboard")
         # .add_scalar(f'{name}.grad', weight.grad, epoch + 1)
     return tb
 

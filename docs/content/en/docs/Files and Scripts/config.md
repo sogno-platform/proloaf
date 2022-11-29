@@ -133,6 +133,7 @@ To configure the size of each mentioned set, specify:
 
 - **train_split**:
 Given an input dataframe df, all timestamps before the specified split are used for training: 
+It is also possible to specify the split by time in the iso 8601 (`YYYY-MM-DD HH:MM:SS`) format.
 ``df[:train_split*df.shape[0]]``.
 
 - **validation_split**:
@@ -191,6 +192,10 @@ For validation during training, we use all data between train and validation lim
         "<COLUMN-IDENTIFIER-2>"
     ],
     "decoder_features": [
+        "<COLUMN-IDENTIFIER-3>",
+        "<COLUMN-IDENTIFIER-4>"
+    ],
+    "aux_features": [
         "<COLUMN-IDENTIFIER-3>",
         "<COLUMN-IDENTIFIER-4>"
     ],

@@ -97,7 +97,7 @@ def main(
             device=device,
             preparation_steps=[
                 dh.set_to_hours,
-                # todo check if periodicity is correct
+                # TODO check if periodicity is correct
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
@@ -111,7 +111,7 @@ def main(
             device=device,
             preparation_steps=[
                 dh.set_to_hours,
-                # todo check if periodicity is correct
+                # TODO check if periodicity is correct
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
@@ -143,6 +143,7 @@ def main(
             train_dataset,
             val_dataset,
         )
+        train_dataset = None
         try:
             ref_model_1 = modelhandler.load_model(
                 os.path.join(
@@ -165,7 +166,7 @@ def main(
             modelhandler.select_model(
                 val_dataset,
                 [ref_model_1, modelhandler.model_wrap],
-                metrics.NllGauss(),
+                modelhandler._model_wrap.loss_metric,
             )
         modelhandler.save_current_model(
             os.path.join(
