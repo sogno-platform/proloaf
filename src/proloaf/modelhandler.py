@@ -79,7 +79,6 @@ class EarlyStopping:
         self.temp_dir = ""
 
     def __call__(self, val_loss: float, model):
-
         score = -val_loss
 
         if self.best_score is None:
@@ -277,7 +276,6 @@ class ModelWrapper:
         history_horizon: int = None,
         **_,
     ):
-
         """Change any attribute of the modelwrapper.
         Unknown keyword arguments are silently discarded.
         It is not possible to set attributes to None.
@@ -595,9 +593,14 @@ class ModelWrapper:
             )
 
         self.to(inputs_enc.device)
-        val, _ = self.model(
-            inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value
-        )
+        try:
+            val, _ = self.model(
+                inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value
+            )
+        except RuntimeError as err:
+            raise RuntimeError(
+                "The prediction could not be executed likely because to much memory is needed. Try to reduce batch size of the input."
+            ) from err
         return val
 
 
