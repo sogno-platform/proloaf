@@ -162,12 +162,18 @@ def main(
             logger.warning(
                 "An older version of this model was found but could not be loaded, this is likely due to diverignig ProLoaF versions."
             )
-        if ref_model_1 is not None:
-            modelhandler.select_model(
-                val_dataset,
-                [ref_model_1, modelhandler.model_wrap],
-                modelhandler._model_wrap.loss_metric,
+        try:
+            if ref_model_1 is not None:
+                modelhandler.select_model(
+                    val_dataset,
+                    [ref_model_1, modelhandler.model_wrap],
+                    modelhandler._model_wrap.loss_metric,
+                )
+        except:
+            logger.warning(
+                "An older version of this model was found but could not be compared to the new one, this might be due to diverging model structures."
             )
+            # TODO should the old model be overwritten anyways?
         modelhandler.save_current_model(
             os.path.join(
                 work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl"

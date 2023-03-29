@@ -461,12 +461,15 @@ class ModelWrapper:
                 relu_leak=model_parameters.get("relu_leak"),
                 core_layers=model_parameters.get("core_layers"),
             )
-            self.set_loss("autoencoderloss", {})
+            self.set_loss("autoencoderloss", {"loss_metric": self.loss_metric})
 
         elif self.model_class == "dualmodel":
             metr = self.loss_metric
             if not isinstance(metr, metrics.AutoEncoderLoss):
-                self.set_loss("dualmodelloss", {"forecast_loss": metr})
+                self.set_loss(
+                    "dualmodelloss",
+                    {"forecast_loss": metr, "reconstruction_loss": metr},
+                )
             self.model = models.DualModel(
                 enc_size=len(self.encoder_features) + len(self.aux_features),
                 dec_size=len(self.decoder_features)
@@ -1468,7 +1471,7 @@ class TrainingRun:
                 inputs_dec_aux,
                 last_value,
                 targets,
-            ) in self.train_dl:
+            ) in self.validation_dl:
                 prediction, _ = self.model(
                     inputs_enc=inputs_enc,
                     inputs_enc_aux=inputs_enc_aux,
