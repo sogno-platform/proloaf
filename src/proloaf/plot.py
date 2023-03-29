@@ -102,7 +102,7 @@ def plot_timestep(
     ax.set_xlabel("Hour", fontsize=18)
     ax.set_ylabel("Scaled Residual Load (-1,1)", fontsize=20)
     ax.legend(fontsize=20)
-    ax.grid(b=True, linestyle="-")
+    ax.grid(visible=True, linestyle="-")
     if limit and draw_limit:
         plt.axhline(linewidth=2, color="r", y=limit)
     ax.grid()
@@ -160,7 +160,7 @@ def plot_metrics(
         ax_rmse.set_xlabel("Hour", fontsize=18)
         ax_rmse.set_ylabel("RMSE", fontsize=20)
         ax_rmse.legend(fontsize=20)
-        ax_rmse.grid(b=True, linestyle="-")
+        ax_rmse.grid(visible=True, linestyle="-")
 
         for element in sharpness_horizon:
             ax_sharpness.plot(sharpness_horizon[element], label=element)
@@ -168,7 +168,7 @@ def plot_metrics(
         ax_sharpness.set_xlabel("Hour", fontsize=18)
         ax_sharpness.set_ylabel("sharpness", fontsize=20)
         ax_sharpness.legend(fontsize=20)
-        ax_sharpness.grid(b=True, linestyle="-")
+        ax_sharpness.grid(visible=True, linestyle="-")
 
         for element in coverage_horizon:
             ax_PICP.plot(coverage_horizon[element], label=element)
@@ -176,7 +176,7 @@ def plot_metrics(
         ax_PICP.set_xlabel("Hour", fontsize=18)
         ax_PICP.set_ylabel("coverage in %", fontsize=20)
         ax_PICP.legend(fontsize=20)
-        ax_PICP.grid(b=True, linestyle="-")
+        ax_PICP.grid(visible=True, linestyle="-")
 
         for element in mis_horizon:
             ax_MIS.plot(mis_horizon[element], label=element)
@@ -184,7 +184,7 @@ def plot_metrics(
         ax_MIS.set_xlabel("Hour", fontsize=18)
         ax_MIS.set_ylabel("MIS", fontsize=20)
         ax_MIS.legend(fontsize=20)
-        ax_MIS.grid(b=True, linestyle="-")
+        ax_MIS.grid(visible=True, linestyle="-")
 
         st.set_y(1.08)
         fig.subplots_adjust(top=0.95)

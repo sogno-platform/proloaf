@@ -53,7 +53,7 @@ if __name__ == "__main__":
         install_requires=[
             "numpy",
             "pandas",
-            "matplotlib",
+            "matplotlib>=3.5",
             "torch>1.9.0",
             "scikit-learn",
             "datetime",
