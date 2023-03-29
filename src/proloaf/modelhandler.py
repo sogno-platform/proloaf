@@ -453,6 +453,7 @@ class ModelWrapper:
                 enc_size=len(self.encoder_features) + len(self.aux_features),
                 dec_size=0,  # len(self.aux_features),  # TODO should the autoencoder have access to aux features
                 # Aux_features will be reconstructed to which we might not want but is necessary to compare to dual model
+                out_size=len(self.output_labels),
                 dropout_fc=model_parameters.get("dropout_fc"),
                 dropout_core=model_parameters.get("dropout_core"),
                 rel_linear_hidden_size=model_parameters.get("rel_linear_hidden_size"),

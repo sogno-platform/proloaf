@@ -51,6 +51,7 @@ import proloaf.tensorloader as tl
 import proloaf.metrics as metrics
 import proloaf.plot as plot
 import proloaf.modelhandler as mh
+import proloaf.models as models
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger("evaluate")
@@ -144,13 +145,13 @@ if __name__ == "__main__":
             test_data,
             [net],
             test_metrics=test_metrics_sample,
-            avg_over="time",
+            avg_over=("time","feature"),
         )
         results_per_timestep_per_forecast = mh.ModelHandler.benchmark(
             test_data,
             [net],
             test_metrics=test_metrics_timesteps,
-            avg_over="sample",
+            avg_over=("sample","feature"),
         )
         results_per_timestep_per_forecast.head()
         rmse_values = pd.DataFrame(
@@ -202,7 +203,10 @@ if __name__ == "__main__":
                 inputs_dec_aux,
                 last_value,
                 targets,
-            ) = test_data[i]
+            ) = test_data[i]            # No Error over time for autoencoder
+            if isinstance(net.model, models.AutoEncoder):
+                logger.warning("Autoencoders do not create a prediction for the future, no plot will be generated comparing the prediciton to the target.")
+                break
             prediction = net.predict(
                 inputs_enc=inputs_enc.unsqueeze(dim=0),
                 inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),

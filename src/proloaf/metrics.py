@@ -423,10 +423,10 @@ class AutoEncoderLoss(Metric):
 
     def __init__(self, loss_metric=None):
         loss_metric = Mse() if loss_metric is None else loss_metric
-        if len(loss_metric.input_labels) != 1:
-            raise ValueError(
-                "The Autoencoder loss can only be evaluated with single feature losses like MSE."
-            )
+        # if len(loss_metric.input_labels) != 1:
+        #     raise ValueError(
+        #         "The Autoencoder loss can only be evaluated with single feature losses like MSE."
+        #     )
         super().__init__(metric=loss_metric)
         self.input_labels = loss_metric.input_labels
 
@@ -503,10 +503,11 @@ class AutoEncoderLoss(Metric):
             Value of the metric, which depending on the value of 'avg_over'
            A 3d-tensor with length 1 in dimensions that where averaged over ([sample,time,feature]).
         """
+        flip_target = torch.flip(
+            torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)
+        )
         return self.options["metric"].from_quantiles(
-            target=torch.flip(
-                torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)
-            ),
+            target=flip_target,
             quantile_prediction=quantile_prediction,
             avg_over=avg_over,
             **kwargs,
@@ -522,6 +523,9 @@ class AutoEncoderLoss(Metric):
         avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
+        flip_target = torch.flip(
+            torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)
+        )
         return metric(
             torch.flip(
                 torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)
@@ -791,7 +795,6 @@ class NllGauss(Metric):
             The gaussian negative log likelihood loss, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-
         assert predictions.size()[-1] == 2
         expected_value = predictions[..., 0]
         log_variance = predictions[..., 1]
@@ -1274,7 +1277,7 @@ class Residuals(Metric):
         ValueError
             When the dimensions of the predictions and target are not compatible
         """
-        predictions = predictions[...,0]
+        predictions = predictions[..., 0]
         if predictions.shape != target.shape:
             raise ValueError(
                 "dimensions of predictions and target need to be compatible"
@@ -1399,7 +1402,7 @@ class Mse(Metric):
         ValueError
             When the dimensions of the predictions and target are not compatible
         """
-        predictions = predictions[...,0]
+        predictions = predictions[..., 0]
         if predictions.shape != target.shape:
             raise ValueError(
                 f"dimensions of predictions {predictions.shape} and target {target.shape} need to be compatible"
@@ -1525,7 +1528,7 @@ class Rmse(Metric):
             When the dimensions of the predictions and target are not compatible
 
         """
-        predictions = predictions[...,0]
+        predictions = predictions[..., 0]
         if predictions.shape != target.shape:
             raise ValueError(
                 f"dimensions of predictions {predictions.shape} and target {target.shape} need to be compatible"
