@@ -56,7 +56,7 @@ from proloaf.event_logging import create_event_logger
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
 
-logger = create_event_logger('baselines')
+logger = create_event_logger("baselines")
 
 
 def main(infile, target_id):
@@ -96,8 +96,12 @@ def main(infile, target_id):
             target_id=PAR["target_id"],
         )
         dl_train = dataset_train.make_data_loader(batch_size=1, shuffle=False)
-        x_train_1d = np.array([input.squeeze().numpy() for input, _, _ in dl_train])
-        y_train_1d = np.array([target.squeeze().numpy() for _, _, target in dl_train])
+        x_train_1d = np.array(
+            [input.squeeze().numpy() for input, _, _, _, _, _ in dl_train]
+        )
+        y_train_1d = np.array(
+            [target.squeeze().numpy() for _, _, _, _, _, target in dl_train]
+        )
 
         dataset_val = TimeSeriesData(
             df_val,
@@ -108,8 +112,8 @@ def main(infile, target_id):
             target_id=PAR["target_id"],
         )
         dl_val = dataset_val.make_data_loader(batch_size=1, shuffle=False)
-        x_val_1d = np.array([input.squeeze().numpy() for input, _, _ in dl_val])
-        y_val_1d = np.array([target.squeeze().numpy() for _, _, target in dl_val])
+        x_val_1d = np.array([input.squeeze().numpy() for input, _, _, _, _, _ in dl_val])
+        y_val_1d = np.array([target.squeeze().numpy() for _, _, _, _, _, target in dl_val])
 
         mean_forecast = []
         upper_pi = []
@@ -374,11 +378,15 @@ def main(infile, target_id):
                 ets_y_pred_upper,
                 ets_y_pred_lower,
             ) = baselines.exp_smoothing(
-                train, test, PAR["forecast_horizon"], limit_steps=PAR['history_horizon'] + NUM_PRED, online=True
+                train,
+                test,
+                PAR["forecast_horizon"],
+                limit_steps=PAR["history_horizon"] + NUM_PRED,
+                online=True,
             )
-            mean_forecast.append(ets_expected_values[PAR['history_horizon']:])
-            upper_pi.append(ets_y_pred_upper[PAR['history_horizon']:])
-            lower_pi.append(ets_y_pred_lower[PAR['history_horizon']:])
+            mean_forecast.append(ets_expected_values[PAR["history_horizon"] :])
+            upper_pi.append(ets_y_pred_upper[PAR["history_horizon"] :])
+            lower_pi.append(ets_y_pred_lower[PAR["history_horizon"] :])
             baseline_method.append("ets")
 
         # GARCH
@@ -574,5 +582,5 @@ if __name__ == "__main__":
     ALPHA = 1.96
     EXOG = True
     APPLY_EXISTING_MODEL = False
-    RESOLUTION = 'H'
+    RESOLUTION = "H"
     main(infile=os.path.join(MAIN_PATH, PAR["data_path"]), target_id=PAR["target_id"])
