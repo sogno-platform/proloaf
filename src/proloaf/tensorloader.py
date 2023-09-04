@@ -444,27 +444,28 @@ class TimeSeriesData(torch.utils.data.Dataset):
 
         self.encoder_tensor = (
             torch.from_numpy(
-                df.filter(items=self.encoder_features, axis="columns").to_numpy()
+                df.filter(items=self.encoder_features, axis="columns").to_numpy().astype(float)
             )
             .float()
             .to(self.device)
         )
+        # print(df.filter(items=self.decoder_features, axis="columns").to_numpy().astype(float))
         self.decoder_tensor = (
             torch.from_numpy(
-                df.filter(items=self.decoder_features, axis="columns").to_numpy()
+                df.filter(items=self.decoder_features, axis="columns").to_numpy().astype(float)
             )
             .float()
             .to(self.device)
         )
         self.aux_tensor = (
             torch.from_numpy(
-                df.filter(items=self.aux_features, axis="columns").to_numpy()
+                df.filter(items=self.aux_features, axis="columns").to_numpy().astype(float)
             )
             .float()
             .to(self.device)
         )
         self.target_tensor = (
-            torch.from_numpy(df.filter(items=self.target_id, axis="columns").to_numpy())
+            torch.from_numpy(df.filter(items=self.target_id, axis="columns").to_numpy().astype(float))
             .float()
             .to(self.device)
         )
