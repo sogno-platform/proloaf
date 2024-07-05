@@ -59,8 +59,8 @@ prep-docs:
     name: pdoc
     paths:
       - docs/static/reference/proloaf
-  tags:
-    - docker
+  # tags:
+  #   - docker
   needs:
     - docker-plf
 
@@ -94,8 +94,8 @@ lint_all:
       - ./oracles/*
       - ./flake8_lint.xml
       # - ./flake8_lint.xml
-  tags:
-    - docker
+  # tags:
+  #   - docker
   rules:
     - if: $CI_PIPELINE_SOURCE == 'push'
 
@@ -121,8 +121,8 @@ test_train:
   image: ${DOCKER_IMAGE_PLF}
   needs:
     - docker-plf
-  tags:
-    - docker
+  # tags:
+  #   - docker
 
 # ### Test Evaluation Jobs
 test_eval:
@@ -138,8 +138,8 @@ test_eval:
     exclude:
       - ./oracles/*.pkl
   image: ${DOCKER_IMAGE_PLF}
-  tags:
-    - docker
+  # tags:
+  #   - docker
   # only:
   #   variables:
   #     - $CI_PIPELINE_SOURCE == 'push'
@@ -185,8 +185,8 @@ push_to_oracles:
       - ./repo/$CI_STATION/**/**/*
       - ./link_to_results.html
   image: ${DOCKER_IMAGE_PLF}
-  tags:
-    - docker
+  # tags:
+  #   - docker
   needs:
     - test_eval
   rules:
@@ -234,7 +234,7 @@ pages:
     name: hugo
     paths:
       - public
-  tags:
-      - docker
+  # tags:
+  #     - docker
   rules:
     - if: $CI_COMMIT_BRANCH == 'master'
