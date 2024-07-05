@@ -436,7 +436,7 @@ class ModelWrapper:
             self.model = models.EncoderDecoder(
                 enc_size=len(self.encoder_features) + len(self.aux_features),
                 dec_size=len(self.decoder_features) + len(self.aux_features),
-                out_size=len(self.output_labels) * len(self.target_id),
+                out_size=len(self.output_labels),
                 n_target_features=len(self.target_id),
                 dropout_fc=model_parameters.get("dropout_fc"),
                 dropout_core=model_parameters.get("dropout_core"),
