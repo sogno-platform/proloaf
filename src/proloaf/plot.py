@@ -143,7 +143,7 @@ def plot_metrics(
     No return value
     """
 
-    with plt.style.context("seaborn"):
+    with plt.style.context("seaborn-v0_8"):
         fig = plt.figure(figsize=(16, 12))
         st = fig.suptitle(title, fontsize=25)
         plt.rc("xtick", labelsize=15)
