@@ -58,9 +58,7 @@ logger = create_event_logger("evaluate")
 
 if __name__ == "__main__":
     ARGS = parse_basic()
-    PAR = read_config(
-        model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH
-    )
+    PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
 
     # DEFINES
     torch.manual_seed(1)
@@ -145,37 +143,29 @@ if __name__ == "__main__":
             test_data,
             [net],
             test_metrics=test_metrics_sample,
-            avg_over=("time","feature"),
+            avg_over=("time", "feature"),
         )
         results_per_timestep_per_forecast = mh.ModelHandler.benchmark(
             test_data,
             [net],
             test_metrics=test_metrics_timesteps,
-            avg_over=("sample","feature"),
+            avg_over=("sample", "feature"),
         )
         results_per_timestep_per_forecast.head()
         rmse_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs(
-                "Rmse", axis=1, level=1, drop_level=True
-            ),
+            data=results_per_timestep_per_forecast.xs("Rmse", axis=1, level=1, drop_level=True),
             columns=[net.name],
         )
         sharpness_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs(
-                "Sharpness", axis=1, level=1, drop_level=True
-            ),
+            data=results_per_timestep_per_forecast.xs("Sharpness", axis=1, level=1, drop_level=True),
             columns=[net.name],
         )
         picp_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs(
-                "Picp", axis=1, level=1, drop_level=True
-            ),
+            data=results_per_timestep_per_forecast.xs("Picp", axis=1, level=1, drop_level=True),
             columns=[net.name],
         )
         mis_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs(
-                "Mis", axis=1, level=1, drop_level=True
-            ),
+            data=results_per_timestep_per_forecast.xs("Mis", axis=1, level=1, drop_level=True),
             columns=[net.name],
         )
         # plot metrics
@@ -203,9 +193,13 @@ if __name__ == "__main__":
                 inputs_dec_aux,
                 last_value,
                 targets,
-            ) = test_data[i]            # No Error over time for autoencoder
+            ) = test_data[
+                i
+            ]  # No Error over time for autoencoder
             if isinstance(net.model, models.AutoEncoder):
-                logger.warning("Autoencoders do not create a prediction for the future, no plot will be generated comparing the prediciton to the target.")
+                logger.warning(
+                    "Autoencoders do not create a prediction for the future, no plot will be generated comparing the prediciton to the target."
+                )
                 break
             prediction = net.predict(
                 inputs_enc=inputs_enc.unsqueeze(dim=0),
@@ -223,30 +217,27 @@ if __name__ == "__main__":
             if isinstance(quantile_prediction, tuple):
                 quantile_prediction = quantile_prediction[0]
             expected_values = quantile_prediction.get_quantile(0.5)
-            y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(
-                dim=2
-            )
-            y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(
-                dim=2
-            )
+            y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=2)
+            y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(dim=2)
             actuals = actual_time[i : i + FORECAST_HORIZON]
-            plot.plot_timestep(
-                targets.detach().squeeze().numpy(),
-                expected_values.detach().numpy()[0],
-                y_pred_upper.detach().numpy()[0],
-                y_pred_lower.detach().numpy()[0],
-                i,
-                OUTDIR,
-                PAR["cap_limit"],
-                actuals,
-            )
+            for j in range(targets.shape[1]):
+                try:
+                    os.mkdir(f"{OUTDIR}/{test_data.target_id[j]}")
+                except FileExistsError:
+                    pass
+                plot.plot_timestep(
+                    targets.detach().squeeze().numpy()[:, j],
+                    expected_values.detach().numpy()[0, :, j],
+                    y_pred_upper.detach().numpy()[0, :, j],
+                    y_pred_lower.detach().numpy()[0, :, j],
+                    i,
+                    f"{OUTDIR}/{test_data.target_id[j]}/",
+                    PAR["cap_limit"],
+                    actuals,
+                )
 
-        results_total_per_forecast.to_csv(
-            os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
-        )
-        logger.info(
-            "Results total per forecast:\n{!s}".format(results_total_per_forecast)
-        )
+        results_total_per_forecast.to_csv(os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True)
+        logger.info("Results total per forecast:\n{!s}".format(results_total_per_forecast))
         (
             inputs_enc,
             inputs_enc_aux,
@@ -269,7 +260,7 @@ if __name__ == "__main__":
             inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
         )
         if isinstance(quantile_prediction, tuple):
-                quantile_prediction = quantile_prediction[0]
+            quantile_prediction = quantile_prediction[0]
         expected_values = quantile_prediction.get_quantile(0.5)
         y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=-1)
         y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(dim=-1)
