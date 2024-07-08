@@ -226,7 +226,7 @@ if __name__ == "__main__":
                 except FileExistsError:
                     pass
                 plot.plot_timestep(
-                    targets.detach().squeeze().numpy()[:, j],
+                    targets.detach().numpy()[:, j],
                     expected_values.detach().numpy()[0, :, j],
                     y_pred_upper.detach().numpy()[0, :, j],
                     y_pred_lower.detach().numpy()[0, :, j],
