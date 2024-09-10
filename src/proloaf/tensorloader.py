@@ -21,15 +21,16 @@
 Provides structures for storing and loading data (e.g. training, validation or test data)
 """
 from __future__ import annotations
-from typing import Union, Tuple, Callable, Iterable
+from typing import Optional, Union, Tuple, Callable, Iterable
 import pandas as pd
 import torch
+from torch.utils.data import Dataset, dataloader
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 
 
-class TimeSeriesData(torch.utils.data.Dataset):
+class TimeSeriesData(Dataset):
     """Contains timeseries data in pandas dataframe in addition to a Torch.Tensor based representation used in deep learning.
 
     Parameters
@@ -82,13 +83,13 @@ class TimeSeriesData(torch.utils.data.Dataset):
     def __init__(
         self,
         df: pd.DataFrame,
-        history_horizon: int = None,
-        forecast_horizon: int = None,
-        encoder_features: Iterable[str] = None,
-        decoder_features: Iterable[str] = None,
-        aux_features: Iterable[str] = None,
-        target_id: Union[str, Iterable[str]] = None,
-        preparation_steps: Iterable[Callable[[pd.DataFrame], pd.DataFrame]] = None,
+        history_horizon: Optional[int] = None,
+        forecast_horizon: Optional[int] = None,
+        encoder_features: Optional[Iterable[str]] = None,
+        decoder_features: Optional[Iterable[str]] = None,
+        aux_features: Optional[Iterable[str]] = None,
+        target_id: Union[str, Iterable[str], None] = None,
+        preparation_steps: Optional[Iterable[Callable[[pd.DataFrame], pd.DataFrame]]] = None,
         device: Union[int, str] = "cpu",
         **_,
     ):
@@ -115,9 +116,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
     @encoder_features.setter
     def encoder_features(self, val):
         try:
-            if self._encoder_features is None or set(val) != set(
-                self._encoder_features
-            ):
+            if self._encoder_features is None or set(val) != set(self._encoder_features):
                 self._encoder_features = val
                 self.tensor_prepared = False
         except AttributeError:
@@ -133,9 +132,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
     @decoder_features.setter
     def decoder_features(self, val):
         try:
-            if self._decoder_features is None or set(val) != set(
-                self._decoder_features
-            ):
+            if self._decoder_features is None or set(val) != set(self._decoder_features):
                 self._decoder_features = val
                 self.tensor_prepared = False
         except AttributeError:
@@ -169,9 +166,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
     def target_id(self, val):
         target_features = (val,) if isinstance(val, str) else val
         try:
-            if self._target_features is None or set(target_features) != set(
-                self._target_features
-            ):
+            if self._target_features is None or set(target_features) != set(self._target_features):
                 self._target_features = target_features
                 self.tensor_prepared = False
         except AttributeError:
@@ -244,9 +239,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
         elif steps is None:
             return df
         else:
-            raise TypeError(
-                "preparation_steps should be a callable or an interable of callables."
-            )
+            raise TypeError("preparation_steps should be a callable or an interable of callables.")
         return df
 
     def apply_prep_to_frame(self):
@@ -265,7 +258,9 @@ class TimeSeriesData(torch.utils.data.Dataset):
         self.frame_prepared = True
         return self
 
-    def get_as_frame(self, idx) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    def get_as_frame(
+        self, idx
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.DataFrame]:
         """Gives a sample as it would be given to the model but in pandas.DataFrames instead of torch.Tensors.
 
         Parameters
@@ -281,13 +276,11 @@ class TimeSeriesData(torch.utils.data.Dataset):
         """
         if not isinstance(idx, int):
             idx = self.data.index.get_loc(idx)
+        assert isinstance(idx, int)
+        assert self.history_horizon is not None
+        assert self.forecast_horizon is not None
         hist = self.data.iloc[idx : idx + self.history_horizon]
-        fut = self.data.iloc[
-            idx
-            + self.history_horizon : idx
-            + self.history_horizon
-            + self.forecast_horizon
-        ]
+        fut = self.data.iloc[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon]
         return (
             hist.filter(items=self.encoder_features, axis="columns"),
             hist.filter(items=self.aux_features, axis="columns"),
@@ -314,27 +307,10 @@ class TimeSeriesData(torch.utils.data.Dataset):
         return (
             self.encoder_tensor[idx : idx + self.history_horizon],
             self.aux_tensor[idx : idx + self.history_horizon],
-            self.decoder_tensor[
-                idx
-                + self.history_horizon : idx
-                + self.history_horizon
-                + self.forecast_horizon
-            ],
-            self.aux_tensor[
-                idx
-                + self.history_horizon : idx
-                + self.history_horizon
-                + self.forecast_horizon
-            ],
-            self.target_tensor[
-                idx + self.history_horizon - 1 : idx + self.history_horizon
-            ],
-            self.target_tensor[
-                idx
-                + self.history_horizon : idx
-                + self.history_horizon
-                + self.forecast_horizon
-            ],
+            self.decoder_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
+            self.aux_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
+            self.target_tensor[idx + self.history_horizon - 1 : idx + self.history_horizon],
+            self.target_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
         )
 
     def to(self, device: Union[str, int]):
@@ -443,24 +419,18 @@ class TimeSeriesData(torch.utils.data.Dataset):
             df = self.data
 
         self.encoder_tensor = (
-            torch.from_numpy(
-                df.filter(items=self.encoder_features, axis="columns").to_numpy().astype(float)
-            )
+            torch.from_numpy(df.filter(items=self.encoder_features, axis="columns").to_numpy().astype(float))
             .float()
             .to(self.device)
         )
         # print(df.filter(items=self.decoder_features, axis="columns").to_numpy().astype(float))
         self.decoder_tensor = (
-            torch.from_numpy(
-                df.filter(items=self.decoder_features, axis="columns").to_numpy().astype(float)
-            )
+            torch.from_numpy(df.filter(items=self.decoder_features, axis="columns").to_numpy().astype(float))
             .float()
             .to(self.device)
         )
         self.aux_tensor = (
-            torch.from_numpy(
-                df.filter(items=self.aux_features, axis="columns").to_numpy().astype(float)
-            )
+            torch.from_numpy(df.filter(items=self.aux_features, axis="columns").to_numpy().astype(float))
             .float()
             .to(self.device)
         )
@@ -473,7 +443,7 @@ class TimeSeriesData(torch.utils.data.Dataset):
         return self
 
 
-class TensorDataLoader(torch.utils.data.dataloader.DataLoader):
+class TensorDataLoader(dataloader.DataLoader):
     """torch.DataLoader with an additional `to(device)´ method"""
 
     def to(self, device):

@@ -471,7 +471,7 @@ class DualModel(nn.Module):
         self,
         enc_size: int,
         dec_size: int = 0,
-        out_size: Tuple[int] = (1, 1),
+        out_size: Tuple[int, int] = (1, 1),
         n_target_features: int = 1,
         rel_linear_hidden_size: float = 1.0,
         rel_core_hidden_size: float = 1.0,
