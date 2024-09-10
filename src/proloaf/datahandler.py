@@ -40,6 +40,7 @@ from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 
+
 def load_raw_data_xlsx(files, path):
     """
     Load data from an xlsx file
@@ -103,9 +104,7 @@ def load_raw_data_xlsx(files, path):
                 ).dt.tz_localize(None)
 
         if xlsx_file["data_abs"]:
-            raw_data.loc[
-                :, xlsx_file["start_column"] : xlsx_file["end_column"]
-            ] = raw_data.loc[
+            raw_data.loc[:, xlsx_file["start_column"] : xlsx_file["end_column"]] = raw_data.loc[
                 :, xlsx_file["start_column"] : xlsx_file["end_column"]
             ].abs()
         # rename column IDs, specifically Time, this will be used later as the df index
@@ -215,6 +214,8 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
         The modified DataFrame
 
     """
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError("data frame is not a timeseries, cylical time features can not be generated.")
     ## source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
     df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
     df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
@@ -241,15 +242,9 @@ def add_onehot_features(df):
 
     """
     # add one-hot encoding for Hour, Month & Weekdays
-    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(
-        df.index
-    )  # one-hot encoding of hours
-    month = pd.get_dummies(df.index.month, prefix="month").set_index(
-        df.index
-    )  # one-hot encoding of month
-    weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(
-        df.index
-    )  # one-hot encoding of weekdays
+    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(df.index)  # one-hot encoding of hours
+    month = pd.get_dummies(df.index.month, prefix="month").set_index(df.index)  # one-hot encoding of month
+    weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
     # df = pd.concat([df, hours, month, weekday], axis=1)
     df[hours.columns] = hours
     df[month.columns] = month
@@ -273,7 +268,7 @@ def check_continuity(df: pd.DataFrame) -> pd.DataFrame:
         If index of DataFrame is not a continous datetime index.
 
     """
-    if not df.index.equals(
+    if not hasattr(df.index, "freq") or not df.index.equals(
         pd.date_range(min(df.index), max(df.index), freq=df.index.freq)
     ):
         raise ValueError("DateTime index is not continuous")
@@ -307,7 +302,7 @@ def check_nans(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="H") -> pd.DataFrame:
+def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="h") -> pd.DataFrame:
     """
     Sets the index of the DataFrame to 'Time' and the frequency to hours.
 
@@ -408,16 +403,12 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
         # dur = end - start
         p = periodicity  # periodicity
         seas = np.zeros(len(df))
-        if (
-            start == end and end + 1 <= last_index and start - 1 >= 0
-        ):
+        if start == end and end + 1 <= last_index and start - 1 >= 0:
             # if single point and previous and next value exists, take average of the nearby ones
             t = start
             df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
 
-        elif start == end and (
-            end + 1 > last_index or start - 1 <= 0
-        ):
+        elif start == end and (end + 1 > last_index or start - 1 <= 0):
             # if single point, but the single point is at the beginning or end of the series, take the nearby one
             t = start
             if start - 1 <= 0:  # point is first value of the series
@@ -430,13 +421,13 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
 
                 if start == 0:  # special case: range begins with first value
                     # fill all beginning NaN values with the next existing value
-                    df.iloc[start:end+1, col] = df.iloc[end+1, col]
+                    df.iloc[start : end + 1, col] = df.iloc[end + 1, col]
                 elif end == last_index:  # special case: range ends on last value
                     # fill all last NaN values with the last existing value
-                    df.iloc[start:end + 1, col] = df.iloc[start-1, col]
+                    df.iloc[start : end + 1, col] = df.iloc[start - 1, col]
                 else:
                     new_column = df.iloc[:, col].interpolate(method="pchip")
-                    df.iloc[start:end + 1, col] = new_column[start:end + 1]
+                    df.iloc[start : end + 1, col] = new_column[start : end + 1]
             else:
                 for t in range(start, end + 1):
                     p1 = p
@@ -447,9 +438,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
                         p2 += p
 
                     seas[t] = (df.iloc[t - p1, col] + df.iloc[t + p2, col]) / 2
-                trend1 = np.poly1d(
-                    np.polyfit([start, end], [seas[start], seas[end]], 1)
-                )
+                trend1 = np.poly1d(np.polyfit([start, end], [seas[start], seas[end]], 1))
                 trend2 = np.poly1d(
                     np.polyfit(
                         [start - 1, end + 1],
@@ -525,9 +514,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.feature_groups = feature_groups
         self._init_scalers()
         if scalers is not None:
-            logger.warning(
-                "This is an experimental feature and might lead to unexpected behaviour without error"
-            )
+            logger.warning("This is an experimental feature and might lead to unexpected behaviour without error")
             # TODO make sure input scalers are same type and parameters as definend in feature groups
             self.scalers.update(scalers)
             self._mark_if_fitted()
@@ -549,9 +536,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.scalers = {}
         for group in self.feature_groups:
             if "features" not in group or not group["features"]:
-                logger.info(
-                    f"Feature group {group.get('name', 'UNNAMED')} has no features and will be skipped."
-                )
+                logger.info(f"Feature group {group.get('name', 'UNNAMED')} has no features and will be skipped.")
                 continue
             if group["scaler"] is None or group["scaler"][0] is None:
                 if group.get("name") != "aux":
@@ -561,10 +546,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
                 continue
 
             self.scalers.update(
-                {
-                    feature: self._extract_scaler_from_config(group["scaler"])
-                    for feature in group["features"]
-                }
+                {feature: self._extract_scaler_from_config(group["scaler"]) for feature in group["features"]}
             )
         return self
 
