@@ -65,11 +65,7 @@ def predict(df: pd.DataFrame):
 
 
 def main():
-    now = datetime.datetime.now()
-    now = now - datetime.timedelta(minutes=now.minute % 15, seconds=now.second, microseconds=now.microsecond)
-    start = now - datetime.timedelta(hours=24)
     timeseries = pd.read_csv(data_path, sep=",", index_col="Time", parse_dates=True)  # HINT: adjust sep and index_col
-    # timeseries = extend_df(timeseries, add_steps=96)
     prediction = predict(timeseries)
     print(prediction)
     prediction.to_csv("example_prediciton.csv")
