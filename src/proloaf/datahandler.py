@@ -226,6 +226,13 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_missing_features(df: pd.DataFrame, all_columns: List[str]):
+    for col in all_columns:
+        if col not in df.columns:
+            df[col] = 0
+    return df
+
+
 def add_onehot_features(df):
     """
     Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
