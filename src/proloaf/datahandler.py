@@ -253,10 +253,51 @@ def add_onehot_features(df):
     month = pd.get_dummies(df.index.month, prefix="month").set_index(df.index)  # one-hot encoding of month
     weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
     # df = pd.concat([df, hours, month, weekday], axis=1)
+    # if these columns already exist but are not in the time interval of df they should be filled with 0
+    # month not in timeframe -> timestamp can not be in that month
+    other_hours = [
+        col
+        for col in df.columns
+        if col.startswith("hour_")
+        and col not in hours.columns
+        and not col.endswith("_sin")
+        and not col.endswith("_cos")
+    ]
+    if other_hours:
+        df[other_hours] = 0
     df[hours.columns] = hours
+
+    other_month = [
+        col
+        for col in df.columns
+        if col.startswith("month_")
+        and col not in month.columns
+        and not col.endswith("_sin")
+        and not col.endswith("_cos")
+    ]
+    if other_month:
+        df[other_month] = 0
     df[month.columns] = month
+
+    other_weekday = [
+        col
+        for col in df.columns
+        if col.startswith("weekday_")
+        and col not in weekday.columns
+        and not col.endswith("_sin")
+        and not col.endswith("_cos")
+    ]
+    if other_weekday:
+        df[other_weekday] = 0
     df[weekday.columns] = weekday
     # logger.info(df.head())
+    return df
+
+
+def add_missing_features(df: pd.DataFrame, all_columns: List[str], fill_value=0):
+    for col in all_columns:
+        if col not in df.columns:
+            df[col] = fill_value
     return df
 
 
