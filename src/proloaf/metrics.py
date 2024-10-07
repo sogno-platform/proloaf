@@ -1014,7 +1014,7 @@ class SmoothedPinnballLoss(Metric):
         NotImplementedError
             When 'avg_over' is set to anything but "all", "time" or "sample".
         """
-
+        target = target.unsqueeze(-1)
         loss = SmoothedPinnballLoss._huber_metric(
             predictions=predictions, target=target, eps=eps
         )
