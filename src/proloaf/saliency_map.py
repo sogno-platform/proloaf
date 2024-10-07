@@ -1,3 +1,4 @@
+from functools import partial
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -107,8 +108,8 @@ class SaliencyMapHandler:
         self._dataset = tl.TimeSeriesData(
             df,
             preparation_steps=[
-                dh.set_to_hours,
-                dh.fill_if_missing,
+                partial(dh.set_to_hours, freq=model_config.get("frequency", "1H")),
+                partial(dh.fill_if_missing, periodicity=model_config.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
                 scaler.fit_transform,
