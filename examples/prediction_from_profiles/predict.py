@@ -7,7 +7,6 @@ from proloaf import modelhandler as mh
 from proloaf.confighandler import read_config
 from proloaf.tensorloader import TimeSeriesData
 from proloaf import datahandler as dh
-from enum import StrEnum
 
 # Path to the pro
 config_path = Path(__file__).parent / "config.json"
@@ -17,14 +16,6 @@ config = read_config(config_path=config_path)
 # data = pd.read_csv(data_path, sep=";")
 
 model = mh.ModelHandler.load_model(model_path)
-
-
-def extend_df(df: pd.DataFrame, add_steps: int):
-    freq = df.index.freq if df.index.freq else df.index.inferred_freq
-    add_index = pd.date_range(df.index[-1], periods=add_steps + 1, freq=freq, inclusive="right", name=df.index.name)
-    add_df = pd.DataFrame(columns=df.columns, index=add_index)
-    df = pd.concat((df, add_df))
-    return df
 
 
 def predict(df: pd.DataFrame):
@@ -37,7 +28,7 @@ def predict(df: pd.DataFrame):
                 dh.fill_if_missing, periodicity=config.get("periodicity", 24)
             ),  # HINT: should be set in the config of the model
             partial(
-                extend_df, add_steps=24
+                dh.extend_df, add_steps=24
             ),  # HINT: This extends the dataframe by the given amount of steps to be forecasted over
             dh.add_cyclical_features,
             dh.add_onehot_features,
