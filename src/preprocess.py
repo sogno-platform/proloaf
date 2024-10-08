@@ -88,8 +88,9 @@ if __name__ == "__main__":
     dh.check_nans(df)
     df.head()
 
-    df = dh.add_cyclical_features(df)
-    df = dh.add_onehot_features(df)
+    if PAR.get("add_aux_features", True):
+        df = dh.add_cyclical_features(df)
+        df = dh.add_onehot_features(df)
 
     # store new df as csv
     df.head()
