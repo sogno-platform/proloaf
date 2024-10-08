@@ -38,6 +38,7 @@ def plot_timestep(
     limit,
     actual_time=None,
     draw_limit=False,
+    title="Scaled Residual Load (0,1)",
 ):
     """
     Create a matplotlib.pyplot.subplot to compare true and predicted values.
@@ -100,24 +101,20 @@ def plot_timestep(
     )
 
     ax.set_xlabel("Hour", fontsize=18)
-    ax.set_ylabel("Scaled Residual Load (-1,1)", fontsize=20)
+    ax.set_ylabel(title, fontsize=20)
     ax.legend(fontsize=20)
     ax.grid(visible=True, linestyle="-")
     if limit and draw_limit:
         plt.axhline(linewidth=2, color="r", y=limit)
     ax.grid()
-    ax.set_xlabel(
-        "Time of Day", fontsize=20
-    )  # assuming hourly resolution in most of the evaluations
+    ax.set_xlabel("Time of Day", fontsize=20)  # assuming hourly resolution in most of the evaluations
     plt.autoscale(enable=True, axis="x", tight=True)
     plt.savefig(OUTPATH + "eval_hour{}".format(timestep))
     plt.show()
     plt.close(fig)
 
 
-def plot_metrics(
-    rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title=""
-):
+def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title=""):
     """
     Create a matplotlib.pyplot.figure with plots for the given metrics
     Save the resulting figure at (OUTPATH + 'metrics_plot')
@@ -225,10 +222,8 @@ def plot_boxplot(
         color=dict(boxes="k", whiskers="k", medians="k", caps="k"),
     )
     ax1.set_xlabel(
-        "Mean error per sample with predefined sampling steps: "
-        + str(sample_frequency)
-        + " on prediction horizon",
-    )  
+        "Mean error per sample with predefined sampling steps: " + str(sample_frequency) + " on prediction horizon",
+    )
     ax1.set_ylabel("Error measure")
     if save_to:
         if not os.path.exists(save_to):
@@ -236,10 +231,11 @@ def plot_boxplot(
         plt.savefig(os.path.join(save_to, f"{fig_title}.png"))
     plt.show()
 
+
 # TODO Only used in baselines
 def plot_hist(
     data: pd.DataFrame,
-    save_to: str=None,
+    save_to: str = None,
     fig_title: str = "Error Probability Distribution",
     bins: int = 10,
 ):
@@ -264,9 +260,7 @@ def plot_hist(
         fig = plt.figure(figsize=(16, 12))  # plt.figure()
         # print("Residuals DataFrame Head:",results.head())
         for element in data.columns:
-            ax1 = data[element].plot(
-                kind="hist", bins=bins, alpha=0.5, label=element
-            )
+            ax1 = data[element].plot(kind="hist", bins=bins, alpha=0.5, label=element)
             ax1.set_title("Histogram of Residuals", fontsize=22)
             ax1.set_xlabel("Residuals", fontsize=18)
             ax1.set_ylabel("Frequency", fontsize=20)
