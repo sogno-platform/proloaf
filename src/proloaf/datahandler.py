@@ -398,6 +398,31 @@ def ranges(nums):
     return list(zip(edges, edges))
 
 
+def extend_df(df: pd.DataFrame, add_steps: int) -> pd.DataFrame:
+    """This function extends a dataframe by the specified number of steps. 
+    In practice this is needed if there is no data available for the decoder/future part of the model,
+    as this part specifies the forcasted timeframe. If the dataframe only contains past values of length `history_horizon` for a single prediction,
+    it needs to be extended by `forecast_horizon` values.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to be extended, requires a datetime index.
+    add_steps : int
+        Number of timesteps to be added.
+
+    Returns
+    -------
+    pd.DataFrame
+        The extended dataframe.
+    """
+    freq = df.index.freq if df.index.freq else df.index.inferred_freq
+    add_index = pd.date_range(df.index[-1], periods=add_steps + 1, freq=freq, inclusive="right", name=df.index.name)
+    add_df = pd.DataFrame(columns=df.columns, index=add_index)
+    df = pd.concat((df, add_df))
+    return df
+
+
 def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     """
     Interpolate the features with missing values in a time series data frame
