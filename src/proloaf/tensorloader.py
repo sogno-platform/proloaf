@@ -286,7 +286,7 @@ class TimeSeriesData(Dataset):
             hist.filter(items=self.aux_features, axis="columns"),
             fut.filter(items=self.decoder_features, axis="columns"),
             fut.filter(items=self.aux_features, axis="columns"),
-            hist.filter(items=self.target_id, axis="columns")[-1],
+            hist.filter(items=self.target_id, axis="columns").iloc[-1],
             fut.filter(items=self.target_id, axis="columns"),
         )
 
