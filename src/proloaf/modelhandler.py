@@ -31,7 +31,7 @@ import sys
 import tempfile
 import optuna
 import torch
-from typing import Any, Callable, Iterable, Union, List, Dict, Literal
+from typing import Any, Callable, Tuple, Union, List, Dict, Literal
 from copy import deepcopy
 
 import proloaf
@@ -837,7 +837,7 @@ class ModelHandler:
         data: proloaf.tensorloader.TimeSeriesData,
         models: List[ModelWrapper],
         test_metrics: List[metrics.Metric],
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: Union[Union[Literal["time"], Literal["sample"], Literal["all"], Literal["feature"]], Tuple] = "all",
     ) -> pd.DataFrame:
         """Benchmark a list of models. Calculates all the metrics for all models.
 
@@ -849,8 +849,8 @@ class ModelHandler:
             List of models from which the best is selected
         test_metrics: List[proloaf.metrics.Metric]
             All the metrics that should be calculated
-        avg_over: Union["time","sample","all"], default = "all"
-            Axis over which the metrics should be averaged
+        avg_over: Union["time","sample","feature","all"], default = "all"
+            Axis over which the metrics should be averaged, can also be a tuple of multiple of these values.
             - "time": Metric will be calculated for each sample separately
             - "sample": Metric will be calculated for each timestep separately
             - "all": Metric will averaged over the whole dataset
