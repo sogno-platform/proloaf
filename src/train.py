@@ -197,7 +197,7 @@ if __name__ == "__main__":
     )
     if torch.cuda.is_available():
         DEVICE = "cuda"
-        if PAR["cuda_id"] is not None:
+        if PAR.get("cuda_id") is not None:
             torch.cuda.set_device(PAR["cuda_id"])
     else:
         DEVICE = "cpu"
