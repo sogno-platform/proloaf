@@ -32,17 +32,32 @@ or if you have already cloned the project and you are missing e.g. the open data
 ```bash
 git submodule update --init --recursive
 ```
-
-To install all required packages first run:
-
+(Optional) Create a virtual environment and activate it:
 ```bash
-pip install -r requirements.txt
+python -m venv venv
+source venv/bin/activate
 ```
+
+To install all required packages first change into the directory then install the package:
+```bash
+cd proloaf
+pip install .
+```
+There are two variants with extra dependencies. To install jupyter for being able to use the tutorial notebooks use 
+```bash
+pip install .[tutorial]
+```
+or use
+```bash
+cd proloaf
+pip install -e .[dev]
+```
+to install in editable mode and include optional development dependencies.
 
 On low RAM machines the option
 
 ```bash
-pip install -r requirements.txt --no-cache-dir
+pip install . --no-cache-dir
 ```
 
 might be necessary.
@@ -52,7 +67,7 @@ ProLoaF supports Python 3.8 and higher. For further information see [Getting Sta
 ## Gettings started, Key Capabilities, Example Workflows & References
 
 To keep all infos on what you can do with ProLoaF and how to get there, our
-[user documentation](https://sogno-platform.github.io/proloaf/docs/overview/), is the place where you'll find all answers.
+[user documentation](https://sogno.energy/proloaf/docs/overview/), is the place where you'll find all answers.
 
 ## Related Publications
 
