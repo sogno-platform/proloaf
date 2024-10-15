@@ -40,7 +40,10 @@ from statsmodels.tsa.exponential_smoothing.ets import ETSModel
 from statsmodels.tsa.stattools import adfuller
 from arch import arch_model
 from joblib import Parallel, delayed
-from pmdarima.arima import auto_arima
+try:
+    from pmdarima.arima import auto_arima
+except ValueError as exc:
+    raise ImportError("The pmdarima packackage is currently not compatible with numpy~=2.0. \nFor more information see the related issue: https://github.com/alkaline-ml/pmdarima/issues/577")
 from proloaf.event_logging import create_event_logger
 
 # ======================================
