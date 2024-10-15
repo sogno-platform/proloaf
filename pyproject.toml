@@ -39,6 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+tutorial = ["jupyter"]
 dev = ["isort", "black"]
 
 [project.urls]
