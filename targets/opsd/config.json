@@ -9,10 +9,10 @@
         "DE_load_actual_entsoe_transparency",
         "AT_load_actual_entsoe_transparency"
     ],
-    "target_list": null,
     "start_date": null,
     "history_horizon": 147,
     "forecast_horizon": 24,
+    "frequency": "1h",
     "cap_limit": 1,
     "train_split": 0.6,
     "validation_split": 0.8,
@@ -54,6 +54,9 @@
         "DE_radiation_diffuse_horizontal"
     ],
     "decoder_features": [
+        "DE_temperature"
+    ],
+    "aux_features": [
         "hour_sin",
         "weekday_sin",
         "mnth_sin"

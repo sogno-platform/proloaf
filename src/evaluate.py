@@ -84,9 +84,9 @@ if __name__ == "__main__":
     # Read load data
     df = pd.read_csv(INFILE, sep=";", index_col=0, parse_dates=True)
 
-    if "target_list" in PAR:
-        if PAR["target_list"] is not None:
-            df[target_id] = df[PAR["target_list"]].sum(axis=1)
+    # if "target_list" in PAR:
+    #     if PAR["target_list"] is not None:
+    #         df[target_id] = df[PAR["target_list"]].sum(axis=1)
 
     # reload trained NN
     with torch.no_grad():
