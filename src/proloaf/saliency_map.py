@@ -452,7 +452,7 @@ class SaliencyMapHandler:
         loss_predictions = (
             self.criterion_loss(perturbated_prediction) / self._saliency_config["ref_batch_size"]
         )  # prediction loss
-        loss_weights = lambda_ * self.mask_weights_loss(saliency_map)  # abs value of mask weights
+        loss_weights = self.mask_weights_loss(saliency_map)  # abs value of mask weights
         # loss2 =  self.mask_weights_loss(saliency_map)  # abs value of mask weights
         if self._init_loss_pred is None:
             self._init_loss_pred = loss_predictions.detach()
