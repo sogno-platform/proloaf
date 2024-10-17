@@ -7,17 +7,14 @@ description: >
   Basic information on the training script.
 ---
 ### Overview
-This script trains an RNN model on previously prepared data, which is loaded into a pandas Dataframe from a csv file. 
-Hyperparameter exploration using optuna is also possible if desired. The trained model is saved at the location 
-specified under ` "output_path": ` in the corresponding config.json and can be loaded via torch.load() or evaluated by 
-using the evaluate.py script. This script scales the data, loads a custom data structure and then generates and 
-trains a neural net.
+This script trains a forecasting model on a dataset, which is loaded into a pandas Dataframe from a csv file. 
+Hyperparameter exploration using [optuna](https://optuna.org/) is also possible if desired. The trained model is saved at the location 
+specified under `"output_path"` in the corresponding [config.json](config.md#main-config) and can be loaded via `torch.load()` or evaluated by 
+using the [evaluate.py](<! -- TODO -->) script. This script performs desired preprocessing, like adding one-hot encoded time features and scaling, loads a custom data structure and then generates and trains a neural net.
 
 ### Hyperparameter Exploration
-Any training parameter is considered a hyper parameter as long as it is specified in either *config.json* or 
-*tuning.json*. The latter is the standard file where the (so far) best found configuration is saved and should usually 
-not be manually adapted unless new tests are for some reason not comparable to older ones (e.g. after changing the loss 
-function).
+Any training parameter is considered a hyper parameter as long as it is specified in either [config.json](config.md#main-config). The latter is the standard file where the (so far) best found configuration is saved and should usually 
+not be manually adapted unless new tests are for some reason not comparable to older ones (e.g. after changing the loss function).
 
 ### .json Config Files
 #### *config.json*
