@@ -18,11 +18,11 @@ ProLoaF comes with the following scripts as entry points
 
 - [baselines.py]({{< resource url="docs/files-and-scripts/baselines/" >}}): Train and compare performance with typical statsmodels.
 
-![Dependency diagrams of basic entry points to ProLoaF]({{< resource url="img/modules_all_reduced_forweb.svg" >}} "Dependency diagrams of basic entry points to ProLoaF")*Dependency Diagrams*
+![Dependency diagrams of basic entry points to ProLoaF]({{< resource url="docs/static/img/modules_all_reduced_forweb.svg" >}} "Dependency diagrams of basic entry points to ProLoaF")*Dependency Diagrams*
 
 ## Example Workflow
 
-* Add the data a model should be trained on to the data/ folder
+* Add the data a model should be trained on to the `/data/` folder
 
 * Preprocess the data using [prep.py]({{< resource url="docs/files-and-scripts/fc_prep/" >}}) or custom scripts if needed.
 

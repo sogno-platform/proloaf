@@ -20,27 +20,44 @@ or if you have already cloned the project and you are missing e.g. the open data
 ```bash
 git submodule update --init --recursive
 ```
-
-Now you will need to install all packages listed in the *requirements.txt* file.
-To install all required packages using pip, run:
+(Optional) Create a virtual environment and activate it:
 ```bash
-pip install -r requirements.txt
+python -m venv venv
+source venv/bin/activate
 ```
+
+To install all required packages first change into the directory then install the package:
+```bash
+cd proloaf
+pip install .
+```
+There are two variants with extra dependencies. To install jupyter for being able to use the tutorial notebooks use 
+```bash
+pip install .[tutorial]
+```
+or use
+```bash
+cd proloaf
+pip install -e .[dev]
+```
+to install in editable mode and include optional development dependencies.
 
 On low RAM machines the option
 ```bash
-pip install -r requirements.txt --no-cache-dir
+pip install . --no-cache-dir
 ```
-might be necessary. Depending on your machine you might need to use pip3 instead of pip.
+might be necessary.
+
+ProLoaF supports Python 3.8 and higher.
 
 ## Running the code
-This project contains 3 scripts that can be used in conjunction with one another or separately. Configuration for these scripts is given in a config.json file in the targets/ folder.
+This project contains 3 scripts that can be used in conjunction with one another or separately. Configuration for these scripts is given in a [config.json]({{< resource url="docs/files-and-scripts/config/" >}}) file in the `/targets/` folder.
 
 * All scripts are located in the source folder.
-* To start one of the scripts use 'Python3 script.py argument', where the argument is either the name of a station (-s) (e.g. 'opsd') or the path (-c) of the corresponding config file located in the model_ folders.
-* To prepare load and weather data from selected stations run ./src/preprocess.py
-* To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./src/train.py
-* To analyze the performance of the forecast: ./src/evaluate.py
+* To start one of the scripts use `python script.py argument`, where the argument is either the name of a station (-s) (e.g. 'opsd') or the path (-c) of the corresponding config file if located elsewhere.
+* To prepare load and weather data from selected stations run `./src/preprocess.py`
+* To train a neural network model specifically parametrized for the selected station and prepared data run `./src/train.py`
+* To analyze the performance of the forecast: `./src/evaluate.py`
 
 ## Config
 * The scripts use a config.json file located in the targets/ folder. This file is used to give further information and settings needed to train a model.
