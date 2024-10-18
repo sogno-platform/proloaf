@@ -17,13 +17,13 @@ Numbers and booleans should be  unquoted.
 
 For better readability, we assume in the examples below, 
 that your working directory is set to the main project path of the cloned 
-[repository](https://github.com/sogno-platform/proloaf). There is also template config file availble in the [targets folder](# TODO link).
+[repository](https://github.com/sogno-platform/proloaf). There is also template config file availble in the [targets folder](https://github.com/sogno-platform/proloaf/tree/master/targets/opsd).
 
-We will split this config into multiple thematical parts and discuss all available options. 
+We will split this config superficially into multiple thematical parts and discuss all available options. 
 <!-- TODO Config quick start? -->
 
 
-#### Path Settings
+##### Path Settings
 
 Through the config file the user specifies the data source location, and the directories for logging, 
 exporting performance analyses and most importantly, the trained RNN model binary.
@@ -45,6 +45,8 @@ The output-, exploration- and log- paths may stay unchanged, but the data path a
 * log_path: Output to the logs from hyperparameter tuning.
 
 
+##### Data Settings
+These settings describe the data and how it should be used.
 
 **Data Specs**
 ```json
@@ -95,7 +97,7 @@ These groups consist of
     * scaler: Name of the scaler, available are ["minmax"](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html), ["standard"](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html) and ["robust"](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.RobustScaler.html). The numbers following are the arguments given to its constructor. For more information refer to the provided links.
     * features: List of feature names that are to be scaled.
 
-#### Model Settings
+##### Model Settings
 These settings describe the model itself, including inputs, outputs and model structure.
 
 **Model Specs** 
@@ -146,7 +148,7 @@ These settings describe the model itself, including inputs, outputs and model st
 * model_class: Type of model to be used, available are `"recurrent"`, `"simple_transformer"`, `"autoencoder"`, `"dualmodel"`. This also selects which parameters are used from `model_parameters` (see below) For more information see <!-- TODO link -->
 * model_parameters: Parameters that describe the specific model. The keys correspond directly to the `model_class` setting. Multiple keys are possible to easily switch between different setups but only the one select using `model_class` is ever active and required. For a description of the available model classes see <!-- TODO -->
 
-#### Training Settings
+##### Training Settings
 These settings, configure how the training is conducted.
 
 ```json
@@ -169,7 +171,7 @@ These settings, configure how the training is conducted.
 * early_stopping_margin: Minimum improvement in validation error to considered an improvement in terms of early stopping. This is an absolute change.
 
 
-### Tuning Config
+#### Tuning Config
 The tuning config manages the exploration hyper-parameter. To use exploration, activate it in the [main config](#model-settings) and set the [exploration path](#path-settings).
 In this config specify the tumber of test runs that should be conducted using the attribute
 ```json
@@ -180,17 +182,17 @@ The remainder of the config is under the key `"settings"`.
 Its value is an object that represents the structure of the [main config](#main-config) only the values work differently and none of the parameters is required, the main config will be used for absent parameters.
 ```json
     "batch_size": {
-            "function": "suggest_int",
-            "kwargs": {
-                "name": "batch_size",
-                "low": 12,
-                "high": 120
-            }
-        },
+        "function": "suggest_int",
+        "kwargs": {
+            "name": "batch_size",
+            "low": 12,
+            "high": 120
+        }
+    },
 ```
 The value of the parameter specifies a function and map ("kwargs") that specifies the inputs to that function. Eligible functions are the methods of [optuna trials](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html). Obviously only settings can be used whose output corresponds to valid values in main config.
 
-### Saliency Config
+#### Saliency Config
 The saliency config dictates how the generation of saliency maps <!-- TODO ref --> is conducted.
 ```json
 {
@@ -208,7 +210,7 @@ The saliency config dictates how the generation of saliency maps <!-- TODO ref -
 ```
 * rel_interpretation_path: Path relative to the project folder where the results are supposed to be stored.
 * date: date and time for which the saliency map is constructed.
-* ref_batch_size: How many noisy samples are used to analyze the impact of said noise on that result. Higher numbers slow down the algorithm, lower ones make the result dependent on stochastic fluctuation.
+* ref_batch_size: How many noisy samples are used to analyze the impact of said noise on that result. Higher numbers slow down the algorithm, lower ones make the result dependent on stochastic fluctuation. Minimum recommended size is 10.
 * max_epoch: Number of optimization steps to find maximum noise with minium result deterioration.
 * n_trials: How many noise optimizations should be conducted and compared.
 * lr_low: Lower bound for the learning rate during noise optimization.
@@ -218,7 +220,7 @@ The saliency config dictates how the generation of saliency maps <!-- TODO ref -
 * cuda_id: ID of a CUDA capabale GPU incase multiple are available and a specific one should be used. If this is null or ommited a GPU will be selected automatically.
 
 
-### Specifying a config file
+#### Specifying a config file
 
 The default location of the main configuration file is `./targets/` or better `./targets/<STATION>`. 
 The best practice is to generate sub-directories for each forecasting exercise, i.e. a new *station*. 
@@ -236,38 +238,14 @@ edit and store the config file. We make use of this when calling e.g. our exampl
 $ python src/train.py -s opsd
 ```
 
-The flag ``-s`` allows us to specify the station name (=target directory) through the string that follows, 
-i.e. *opsd*. The 'train' script will expect and parse the config.json given in the target directory.
-<!---
-```sh
-from proloaf.cli import read_config, parse_with_loss
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
-
-ARGS, LOSS_OPTIONS = parse_with_loss()
-    PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
-```
---->
-You can also manually specify the path to the config file by adding ``-c <CONFIG_PATH>`` to the above mentioned
+The flag ``-s`` allows us to specify the station name (=target directory) through the string that follows, i.e. *opsd*. The 'train' script will expect and parse the config.json given in the target directory. You can also manually specify the path to the config file by adding ``-c <CONFIG_PATH>`` to the above mentioned
 statement. The equivalent statement would be:
 ```sh
 $ python src/train.py -c ./targets/opsd/config.json
 ```
 
 
-<!-- TODO this should not be in the config description but in the train.py description > **_Note:_** If not otherwise specified, during training, per default the neural network maximizes the 
-[Maximum Likelihood Estimation of Gaussian Parameters](http://jrmeyer.github.io/machinelearning/2017/08/18/mle.html), 
-for a 95% prediction interval. 
-This so-called loss criterion can be changed to any metric that quantifies the (probabilistic) performance 
-of the forecast. A common non-parametric option is the quantile loss.
-You can apply quantile loss criterion as follows:
-
-```sh
-    $ python src\train.py -s opsd --quantiles 0.025 0.975
-```
-> Here we have specified the 95% prediction interval, by setting ``q1=0.025`` and ``q2=0.975``.
-
-See more detailed descriptions and further loss options in the full [list of parameters](#parameter-list). -->
+<!-- TODO this should not be in the config description but in the train.py description > **_Note:_**  -->
 
 
 

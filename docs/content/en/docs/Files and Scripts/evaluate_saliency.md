@@ -35,11 +35,9 @@ The output consists of the most salient features visualized in the form of a sal
 
 Select and download the data on which you want to train a neural network on and put it in the data folder.
 Make a new folder in the targets folder and put a `config.json` and `tuning.json` file within.
-There you can set all the relevant paths and parameters.
-Now train the neural network on the data by using the fc_train function.
-The resulting net will be saved in the oracles folder
+There you can set all the relevant paths and parameters. Now [train](./train.md) the neural network on the data by using the `train.py`.
 
-Now in saliency.json in the same folder the following settings need to be made:
+Now in [saliency config](./config.md#saliency-config) in the same folder the following settings need to be made:
 
 - set the `ref_batch_size` to the number of references to use for each feature (recommended: At least 10)
 - set `max_epochs` to the number of epochs of the saliency map optimization process (recommended: At least a few thousand)
@@ -58,35 +56,27 @@ Now in saliency.json in the same folder the following settings need to be made:
 
 #### Step 2: Run the Function
 
-Now run the `evaluate_saliency.py` script with the -s <target_folder> flag
-The function will now 
-read in all the parameters it needs from the `saliency.json` file.
+Now run the `evaluate_saliency.py` script with the -s <target_folder> flag. The function will now read in all the parameters it needs from the `saliency.json` file.
 The trained net will be loaded and the saliency map is calculated for the given date.
 
 The script also saves an instance of a saliency map handler class into 
 
 #### Step 3: Looking at the Results
 
-After the `evaluate_saliency.py` script has finished a plot of the saliency map can be found in the oracles/interpretation/\<model name\> folder:
-
-- ./oracles/interpretation/<model_name>/<date_time>_heatmap.png
+After the `evaluate_saliency.py` script has finished a plot of the saliency map can be found in the `<evaluation_path>/interpretation/<model name>` folder.
 
 #### Step 4: Other useful functions:
 
 The script also saves an instance of a saliency map handler class into 
-- ./oracles/interpretation/<model_name>/<date_time>_save
+> `<evaluation_path>/interpretation/<model_name>/<date>_save`
 
 This save file can be loaded with the load() function:
 
-- saliency_map_handler = proloaf.saliency_map.SaliencyMapHandler.load(<target_name>)
+> `saliency_map_handler = proloaf.saliency_map.SaliencyMapHandler.load(<target_name>)`
 
 Now, with the class instance any of the following functions can be used
-- saliency_map_handler.plot_predictions() to plot the target, model prediction and mean perturbed prediction
-- saliency_map_handler.saliency_map to access the saliency tensors
-- saliency_map_handler.model_prediction to access the model prediction tensors
-- saliency_map_handler.encoder_input to access the encoder input 
-- saliency_map_handler.decoder_input to access the decoder input 
-- saliency_map_handler.encoder_references to access the encoder references
-- saliency_map_handler.decoder_references to access the decoder references
-- saliency_map_handler.datetime to access the date and time
-- saliency_map_handler.time_step to access the corresponding index of the date in the dataset 
+- ``saliency_map_handler.plot_predictions`` to plot the target, model prediction and mean perturbed prediction
+- ``saliency_map_handler.saliency_map`` to access the saliency tensors
+- ``saliency_map_handler.model_prediction`` to access the model prediction tensors
+
+For more information on existing methods have a look at the [Reference]({{< resource url="reference/proloaf/proloaf/src/evaluate.html" >}})
