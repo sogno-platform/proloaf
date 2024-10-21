@@ -10,7 +10,16 @@ description: >
 This script trains a forecasting model on a dataset, which is loaded into a pandas Dataframe from a csv file. 
 Hyperparameter exploration using [optuna](https://optuna.org/) is also possible if desired. The trained model is saved at the location specified under `"output_path"` in the corresponding [config.json](config.md#main-config) and can be loaded via `torch.load()` or evaluated by using the [evaluate.py](./evaluate.md) script. This script performs desired preprocessing, like adding one-hot encoded time features and scaling, loads a custom data structure and then generates and trains a neural net.
 
-### Hyperparameter Exploration
+#### Inputs
+- A [config file](./config.md#main-config) 
+- Training and validation data. All in one `.csv` file. This can also include the test data (see `test_split` in [config description](./config.md#training-settings))
+
+#### Outputs
+- Trained model
+- Tensorboard logs
+- New config if hyper-parameter optimization has been performed
+
+### Hyper-Parameter Exploration
 Any training parameter is considered a hyper parameter as long as it is specified in either [config.json](config.md#main-config). The latter is the standard file where the (so far) best found configuration is saved and should usually not be manually adapted unless new tests are for some reason not comparable to older ones (e.g. after changing the loss function).
 
 ### Usage
