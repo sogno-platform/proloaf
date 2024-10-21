@@ -75,10 +75,10 @@ def main():
     timeseries = pd.read_csv(data_path, sep=",", index_col="Time", parse_dates=True)  # HINT: adjust sep and index_col
     predictions = predict(timeseries)
     for prediction, feat in zip(predictions, model.target_id):
-        prediction.to_csv(Path(__file__).parent / "example_prediciton.csv")
+        prediction.to_csv(Path(__file__).parent / f"{feat}.csv")
         # To plot we create values for each quantile. This is a method available in the loss used for training the model.
         prediction.plot(title=feat)
-        plt.savefig(Path(__file__).parent / f"prediction_{feat}.png")
+        plt.savefig(Path(__file__).parent / f"{feat}.png")
 
 
 if __name__ == "__main__":
