@@ -271,7 +271,7 @@ class TimeSeriesData(Dataset):
         Returns
         -------
         Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
-            6 DataFrames (data for encoder, auxillary data for encoder, Data for decoder, auxillary data for decoder, last historic target, Targets)
+            6 DataFrames (data for encoder, auxillary data for encoder, Data for decoder, auxillary data for decoder, last historic target, targets)
 
         """
         if not isinstance(idx, int):
