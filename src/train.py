@@ -31,39 +31,33 @@ Notes
 
 """
 
-from functools import partial
 import os
-import sys
-from typing import Callable
-
+from typing import Literal, Union
 import warnings
 from copy import deepcopy
+from functools import partial
 
 import pandas as pd
-from sklearn.utils import validation
+
+# from sklearn.utils import validation
 import torch
 
-
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
-sys.path.append("../")
-
 # Do relative imports below this
-from proloaf import metrics
-import proloaf.loghandler as log
+# from proloaf import metrics
+# import proloaf.loghandler as log
 import proloaf.confighandler as ch
 import proloaf.datahandler as dh
 import proloaf.modelhandler as mh
 import proloaf.tensorloader as tl
+from proloaf.cli import parse_with_loss
 
 # TODO: tensorboard necessitates chardet, which is licensed under LGPL: https://pypi.org/project/chardet/
 from proloaf.confighandler import read_config
-from proloaf.cli import parse_with_loss
 from proloaf.event_logging import create_event_logger
 
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
-torch.manual_seed(1)
+# torch.manual_seed(1)
 
 warnings.filterwarnings("ignore")
 
@@ -78,9 +72,27 @@ def main(
     loss: str,
     loss_kwargs: dict = {},
     # log_path: str = None,
-    device: str = "cpu",
+    device: Union[Literal["cpu"], Literal["cuda"]] = "cpu",
 ):
+    """This function trains a model and comparse it to an existing model with the same name,
+     if it exists. It then discards the model performing worse.
+     It does everything but loading the config and parsing cli arguments.
 
+    Parameters
+    ----------
+    infile : str
+
+    config : dict
+        Refers to the training config. For more information view (TODO add link)
+    work_dir : str
+        Path to the directory considered as root.
+    loss : str
+        Identifier of the loss used. For available options see (TODO add link)
+    loss_kwargs : dict, optional
+        Key word arguments given to the loss metric (see (TODO add link)), by default {}
+    device : "cpu" | "cuda", optional
+        Which device to run the training on, by default "cpu". "cuda is recommended if available.
+    """
     logger.info("Current working directory is {:s}".format(work_dir))
 
     # Read load data
@@ -142,7 +154,7 @@ def main(
             train_dataset,
             val_dataset,
         )
-        train_dataset = None
+        train_dataset = None # unbind data to save some memory
         try:
             ref_model_1 = modelhandler.load_model(
                 os.path.join(
@@ -153,9 +165,7 @@ def main(
             )
         except FileNotFoundError:
             ref_model_1 = None
-            logger.info(
-                "No old version of the trained model was found for the new one to compare to"
-            )
+            logger.info("No old version of the trained model was found for the new one to compare to")
         except Exception:
             ref_model_1 = None
             logger.warning(
@@ -174,9 +184,7 @@ def main(
             )
             # TODO should the old model be overwritten anyways?
         modelhandler.save_current_model(
-            os.path.join(
-                work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl"
-            )
+            os.path.join(work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl")
         )
         config.update(modelhandler.get_config())
         ch.write_config(
@@ -192,9 +200,8 @@ def main(
 
 if __name__ == "__main__":
     ARGS, LOSS_OPTIONS = parse_with_loss()
-    PAR = read_config(
-        model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH
-    )
+    MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
     if torch.cuda.is_available():
         DEVICE = "cuda"
         if PAR.get("cuda_id") is not None:
