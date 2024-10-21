@@ -78,7 +78,7 @@ def main():
         prediction.to_csv(Path(__file__).parent / "example_prediciton.csv")
         # To plot we create values for each quantile. This is a method available in the loss used for training the model.
         prediction.plot(title=feat)
-        plt.savefig(Path(__file__).parent / f"{feat}.png")
+        plt.savefig(Path(__file__).parent / f"prediction_{feat}.png")
 
 
 if __name__ == "__main__":
