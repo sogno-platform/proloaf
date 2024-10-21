@@ -367,8 +367,10 @@ def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="h") -> pd.DataFrame:
     """
     if df.index.name != timecolumn:
         df.set_index(timecolumn, inplace=True)
-
-    df.index = pd.to_datetime(df.index)
+    try:
+        df.index = pd.to_datetime(df.index)
+    except ValueError:
+        df.index = pd.to_datetime(df.index, dayfirst=True)
     df = df.asfreq(freq=freq)
     return df
 
