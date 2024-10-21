@@ -1,7 +1,7 @@
 from functools import partial
 from pathlib import Path
-import datetime
 import pandas as pd
+from matplotlib import pyplot as plt
 
 from proloaf import modelhandler as mh
 from proloaf.confighandler import read_config
@@ -18,7 +18,7 @@ config = read_config(config_path=config_path)
 model = mh.ModelHandler.load_model(model_path)
 
 
-def predict(df: pd.DataFrame):
+def predict(df: pd.DataFrame) -> list[pd.DataFrame]:
     ts_data = TimeSeriesData(
         df,
         encoder_features=model.encoder_features,
@@ -44,26 +44,41 @@ def predict(df: pd.DataFrame):
     )
     ts_data.to_tensor()
     # data includes the targets aswell which will be all NaN and are discarded as they are no inputs to the model
-    data_tensors = [tens.unsqueeze(0) for tens in ts_data[0]][:-1] # We need to "unsqueeze" these tensors as the model expects batched data.
+    data_tensors = [tens.unsqueeze(0) for tens in ts_data[0]][
+        :-1
+    ]  # We need to "unsqueeze" these tensors as the model expects batched data.
 
-    prediciton = model.predict(*data_tensors)
-    print(prediciton.shape)
-    pred_df = pd.DataFrame(
-        prediciton[0, :, :, 0].detach().numpy(), # HINT: There is only one sample (first 0 index) and we only need the first subfeature (expected value)
-        index=ts_data.data.index[-model.forecast_horizon:], # HINT: We only need the future portion of the index
-        columns=model.target_id,  
-    )
-    if model.scalers is not None:
-        for col in pred_df.columns:
-            pred_df[col] = model.scalers.manual_inverse_transform(pred_df[[col]], scale_as=col)
-    return pred_df
+    prediction = model.predict(*data_tensors)
+    # Let's assume we are interested in the 90% interval of both predicted features.
+    # 1. Turn the parametrized prediction into quantile predicitons
+    quantiles = [0.95, 0.5, 0.05]
+    q_pred = model.loss_metric.get_quantile_prediction(predictions=prediction, quantiles=quantiles).values
+
+    # 2. For convenience put each feature in a dataframe
+    result = []
+    for n_feat, feat in enumerate(model.target_id):
+        pred_df = pd.DataFrame(
+            q_pred[0, :, n_feat, :]
+            .detach()
+            .numpy(),  # HINT: There is only one sample (first 0 index) and we only need the first subfeature (expected value)
+            index=ts_data.data.index[-model.forecast_horizon :],  # HINT: We only need the future portion of the index
+            columns=[f"q{quant}" for quant in quantiles],
+        )
+        if model.scalers is not None:
+            # for col in pred_df.columns:
+            pred_df = model.scalers.manual_inverse_transform(pred_df, scale_as=feat)
+        result.append(pred_df)
+    return result
 
 
 def main():
     timeseries = pd.read_csv(data_path, sep=",", index_col="Time", parse_dates=True)  # HINT: adjust sep and index_col
-    prediction = predict(timeseries)
-    print(prediction)
-    prediction.to_csv(Path(__file__).parent/"example_prediciton.csv")
+    predictions = predict(timeseries)
+    for prediction, feat in zip(predictions, model.target_id):
+        prediction.to_csv(Path(__file__).parent / "example_prediciton.csv")
+        # To plot we create values for each quantile. This is a method available in the loss used for training the model.
+        prediction.plot(title=feat)
+        plt.savefig(Path(__file__).parent / f"{feat}.png")
 
 
 if __name__ == "__main__":
