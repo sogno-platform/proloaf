@@ -19,35 +19,39 @@ model = mh.ModelHandler.load_model(model_path)
 
 
 def predict(df: pd.DataFrame):
-    config["history_horizon"] = len(df)
     ts_data = TimeSeriesData(
         df,
-        preparation_steps=[ # HINT: Order is important
+        encoder_features=model.encoder_features,
+        decoder_features=model.decoder_features,
+        aux_features=model.aux_features,
+        target_id=model.target_id,
+        history_horizon=len(df),  # HINT: All the data is input data for one predicition.
+        forecast_horizon=model.forecast_horizon,  # HINT: while not recommended the model can be used to predict any number of steps, performance might behave unpredicable.
+        preparation_steps=[  # HINT: Order is important
             partial(dh.set_to_hours, freq="1h"),  # HINT: adjust freq to forecast frequency
             partial(
                 dh.fill_if_missing, periodicity=config.get("periodicity", 24)
             ),  # HINT: should be set in the config of the model
             partial(
-                dh.extend_df, add_steps=24
+                dh.extend_df, add_steps=model.forecast_horizon
             ),  # HINT: This extends the dataframe by the given amount of steps to be forecasted over
             dh.add_cyclical_features,
             dh.add_onehot_features,
-            partial(dh.add_missing_features, all_columns=[*config["encoder_features"], *config["decoder_features"]]),
+            partial(dh.add_missing_features, all_columns=[*model.encoder_features, *model.decoder_features]),
             model.scalers.transform,
             dh.check_continuity,
         ],
-        **config,
     )
     ts_data.to_tensor()
     # data includes the targets aswell which will be all NaN and are discarded as they are no inputs to the model
-    data_tensors = [tens.unsqueeze(0) for tens in ts_data[0]][:-1]
+    data_tensors = [tens.unsqueeze(0) for tens in ts_data[0]][:-1] # We need to "unsqueeze" these tensors as the model expects batched data.
 
     prediciton = model.predict(*data_tensors)
-
+    print(prediciton.shape)
     pred_df = pd.DataFrame(
-        prediciton[0, :, :, 0].detach().numpy(),
-        index=ts_data.data.index[-24:],
-        columns=config["target_id"],  # HINT: The last 24 timesteps are the forecast horizon extenden earlier
+        prediciton[0, :, :, 0].detach().numpy(), # HINT: There is only one sample (first 0 index) and we only need the first subfeature (expected value)
+        index=ts_data.data.index[-model.forecast_horizon:], # HINT: We only need the future portion of the index
+        columns=model.target_id,  
     )
     if model.scalers is not None:
         for col in pred_df.columns:
@@ -59,7 +63,7 @@ def main():
     timeseries = pd.read_csv(data_path, sep=",", index_col="Time", parse_dates=True)  # HINT: adjust sep and index_col
     prediction = predict(timeseries)
     print(prediction)
-    prediction.to_csv("example_prediciton.csv")
+    prediction.to_csv(Path(__file__).parent/"example_prediciton.csv")
 
 
 if __name__ == "__main__":
