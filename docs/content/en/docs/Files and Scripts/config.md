@@ -8,7 +8,7 @@ description: >
 ---
 
 ### Configuration
-This page describes the 
+This page describes the different config files used in ProLoaF.
 
 #### Main Config
 ProLoaF's configuration file is written using JSON. As such, whitespace is allowed and ignored in your syntax.
@@ -20,7 +20,6 @@ that your working directory is set to the main project path of the cloned
 [repository](https://github.com/sogno-platform/proloaf). There is also template config file availble in the [targets folder](https://github.com/sogno-platform/proloaf/tree/master/targets/opsd).
 
 We will split this config superficially into multiple thematical parts and discuss all available options. 
-<!-- TODO Config quick start? -->
 
 
 ##### Path Settings
@@ -41,7 +40,7 @@ The output-, exploration- and log- paths may stay unchanged, but the data path a
 * data_path: Specifies the path to the input data as csv.
 * evaluation_path: The path where plots and data from the evaluation is stored when `evaluation.py` is run.
 * output_path: Path to the folder where the model should be stored.
-* exploration_path: Path to the tuning config. If no tuning is to be done (`exploration = false` see below.) this can be ommited (or `null`) <!-- TODO link to description -->
+* exploration_path: Path to the [tuning config](#tuning-config). If no tuning is to be done (`exploration = false` see below.) this can be ommited (or `null`).
 * log_path: Output to the logs from hyperparameter tuning.
 
 
@@ -145,7 +144,7 @@ These settings describe the model itself, including inputs, outputs and model st
 * encoder_features: Features that are known to the encoder. These are the features whose values from the past are available, i. e. the past values of the predicted feature.
 * decoder_features: Features that are known to the decoder. These are features whose value lies in the future, this could be from a weather forecast or a previously decided schedule.
 * aux_features: These features are known to both the decoder and the encoder, if you are using one-hot or geometrically encoded time features these can be included here. In the future these features might be added automatically when they are produced in the preprocessing.
-* model_class: Type of model to be used, available are `"recurrent"`, `"simple_transformer"`, `"autoencoder"`, `"dualmodel"`. This also selects which parameters are used from `model_parameters` (see below) For more information see <!-- TODO link -->
+* model_class: Type of model to be used, available are `"recurrent"`, `"simple_transformer"`, `"autoencoder"`, `"dualmodel"`. This also selects which parameters are used from `model_parameters` (see below) For more information the models see. <!-- TODO link -->
 * model_parameters: Parameters that describe the specific model. The keys correspond directly to the `model_class` setting. Multiple keys are possible to easily switch between different setups but only the one select using `model_class` is ever active and required. For a description of the available model classes see <!-- TODO -->
 
 ##### Training Settings
@@ -193,7 +192,7 @@ Its value is an object that represents the structure of the [main config](#main-
 The value of the parameter specifies a function and map ("kwargs") that specifies the inputs to that function. Eligible functions are the methods of [optuna trials](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html). Obviously only settings can be used whose output corresponds to valid values in main config.
 
 #### Saliency Config
-The saliency config dictates how the generation of saliency maps <!-- TODO ref --> is conducted.
+The saliency config dictates how the generation of [saliency maps]({{< resource url="docs/files-and-scripts/evaluate_saliency/" >}}) is conducted.
 ```json
 {
     "rel_interpretation_path": "oracles/interpretation",
@@ -215,7 +214,7 @@ The saliency config dictates how the generation of saliency maps <!-- TODO ref -
 * n_trials: How many noise optimizations should be conducted and compared.
 * lr_low: Lower bound for the learning rate during noise optimization.
 * lr_high: Upper bound for the learning rate during noise optimization.
-* relative_errors: Boolean that switchen between relative and absolute weighting of errors. If true (recommended) the terms for "low amount of noise applied" and "quality deterioration" are normalized according to their values from the initial naive guess for a noise mask. For more detail see <!-- TODO ref to saliency description -->
+* relative_errors: Boolean that switchen between relative and absolute weighting of errors. If true (recommended) the terms for "low amount of noise applied" and "quality deterioration" are normalized according to their values from the initial naive guess for a noise mask. For more detail see ({{< resource url="docs/files-and-scripts/evaluate_saliency/" >}})
 * lambda: Weighting of the two errors against eachother. If `realatve_erros: true` this is a relative weighting Value >1 increases the value on applying as much noise as possible, <1 increases the focus on not negatively impacting the prediction quality. If `realatve_erros: false` this is absolute and the value might vary greatly (e. g. `lambda: 1e-4 might be reasonable) and is highly dependent on the use-case. 
 * cuda_id: ID of a CUDA capabale GPU incase multiple are available and a specific one should be used. If this is null or ommited a GPU will be selected automatically.
 
@@ -243,10 +242,5 @@ statement. The equivalent statement would be:
 ```sh
 $ python src/train.py -c ./targets/opsd/config.json
 ```
-
-
-<!-- TODO this should not be in the config description but in the train.py description > **_Note:_**  -->
-
-
 
 

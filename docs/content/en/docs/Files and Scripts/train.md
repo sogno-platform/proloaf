@@ -120,7 +120,6 @@ logger.info("Current working directory is {:s}".format(work_dir))
             device=device,
             preparation_steps=[
                 partial(dh.set_to_hours, freq=PAR.get("frequency", "1H")),
-                # TODO check if periodicity is correct
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
