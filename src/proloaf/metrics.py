@@ -42,11 +42,11 @@ class QuantilePrediction:
         List of the quantiles in the same order as the predictions.
     """
 
-    def __init__(self, values: torch.tensor, quantiles: Iterable[float]):
+    def __init__(self, values: torch.Tensor, quantiles: Iterable[float]):
         self.values = values
         self.quantiles = list(quantiles)
 
-    def get_gauss_params(self) -> torch.tensor:
+    def get_gauss_params(self) -> torch.Tensor:
         """
         Estimate expectation value and std. deviation from quantile prediction.
         This is approximation, for the mean the pdf is treated as a histogram.
@@ -66,9 +66,7 @@ class QuantilePrediction:
         """
         mean = self.get_mean()  # self.get_quantile(0.5)
         # compare_to_get_mean = torch.max(torch.abs(self.get_mean() - mean))
-        intervals = self.select_quantiles(
-            [quant for quant in self.quantiles if quant != 0.5]
-        ).values
+        intervals = self.select_quantiles([quant for quant in self.quantiles if quant != 0.5]).values
 
         z_values = torch.tensor(
             [NormalDist().inv_cdf(quant) for quant in self.quantiles if quant != 0.5],
@@ -84,9 +82,7 @@ class QuantilePrediction:
         return torch.cat((mean, sigma), dim=-1)
 
     @staticmethod
-    def from_gauss_params(
-        values: torch.tensor, quantiles: Iterable[float]
-    ) -> QuantilePrediction:
+    def from_gauss_params(values: torch.tensor, quantiles: Iterable[float]) -> QuantilePrediction:
         """
         Estimate expectation value and std. deviation from quantile prediction.
 
@@ -102,12 +98,8 @@ class QuantilePrediction:
             Quantiles to be included in the QuantilePrediction.
         """
         quantiles = list(quantiles)
-        z_values = torch.tensor(
-            [NormalDist().inv_cdf(quant) for quant in quantiles], device=values.device
-        )
-        return QuantilePrediction(
-            values[..., 0:1] + z_values * values[..., 1:2], quantiles
-        )
+        z_values = torch.tensor([NormalDist().inv_cdf(quant) for quant in quantiles], device=values.device)
+        return QuantilePrediction(values[..., 0:1] + z_values * values[..., 1:2], quantiles)
 
     def get_mean(self) -> torch.tensor:
         """
@@ -118,17 +110,13 @@ class QuantilePrediction:
         quantiles = np.array(self.quantiles)
         sorted_idx = np.argsort(quantiles)
         quantiles = quantiles[sorted_idx]
-        intervals = torch.tensor(
-            quantiles[1:] - quantiles[:-1], device=self.values.device
-        )
+        intervals = torch.tensor(quantiles[1:] - quantiles[:-1], device=self.values.device)
         values = self.values[..., sorted_idx]
         center_values = (values[..., 1:] + values[..., :-1]) / 2
 
         # weighted sum over the intervals
 
-        return torch.sum(
-            (intervals * center_values), dim=-1, keepdim=True
-        ) / (  # intervals[None, None, :]
+        return torch.sum((intervals * center_values), dim=-1, keepdim=True) / (  # intervals[None, None, :]
             quantiles[-1] - quantiles[0]
         )
 
@@ -151,9 +139,7 @@ class QuantilePrediction:
         """
         return self.values[..., self.quantiles.index(quantile)]
 
-    def select_quantiles(
-        self, quantiles: Iterable[float], inplace=False
-    ) -> QuantilePrediction:
+    def select_quantiles(self, quantiles: Iterable[float], inplace=False) -> QuantilePrediction:
         """
         Get a narrow the prediction down to the selected quantiles.
 
@@ -242,7 +228,7 @@ class Metric(ABC):
         self,
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **kwargs,
     ) -> torch.tensor:
         """
@@ -255,7 +241,7 @@ class Metric(ABC):
         predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -303,15 +289,13 @@ class Metric(ABC):
         QuantilePrediciton
             Prediciton for the specified quantiles.
         """
-        raise NotImplementedError(
-            f"get_prediction is not available for {self.__class__}"
-        )
+        raise NotImplementedError(f"get_prediction is not available for {self.__class__}")
 
     def from_quantiles(
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]],
         **kwargs,
     ) -> torch.tensor:
         """
@@ -325,7 +309,7 @@ class Metric(ABC):
             A prediction for several quantiles.
             Some of the metrics have additional requirements, like a predicted median or atleast one symetric interval in the quantiles.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -333,16 +317,14 @@ class Metric(ABC):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        raise NotImplementedError(
-            f"from_quantiles is not available for {self.__class__}"
-        )
+        raise NotImplementedError(f"from_quantiles is not available for {self.__class__}")
 
     @staticmethod
     @abstractmethod
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **kwargs,
     ) -> torch.tensor:
         """
@@ -355,7 +337,7 @@ class Metric(ABC):
         predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         **kwargs
             Additional metric specific parameters, these can be set when initializing an object and are then used when calling the object.
 
@@ -385,7 +367,7 @@ def tensor_mean_helper(tens: torch.Tensor, every_dim_but: int):
 
 def avg_over_dims(
     tens: torch.tensor,
-    over_dims: List[Literal["sample"], Literal["time"], Literal["feature"]] = "all",
+    over_dims: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
 ):
     """
     Calculates the mean over every specified dimension by name.
@@ -448,7 +430,7 @@ class AutoEncoderLoss(Metric):
         predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         inputs_enc: torch.tensor
             Input data used in the encoder, this is used to construct the target for the autoencoder decoder.
         inputs_enc_aux: torch.tensor
@@ -465,9 +447,7 @@ class AutoEncoderLoss(Metric):
         return self.options["metric"].get_quantile_prediction(
             predictions=predictions,
             quantiles=quantiles,
-            target=torch.flip(
-                torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)
-            ),
+            target=torch.flip(torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)),
             **kwargs,
         )
 
@@ -477,7 +457,7 @@ class AutoEncoderLoss(Metric):
         quantile_prediction: QuantilePrediction,
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]],
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]],
         **kwargs,
     ) -> torch.tensor:
         """Calculates the value of the metric based on the values for each quantile over the timeframe.
@@ -491,7 +471,7 @@ class AutoEncoderLoss(Metric):
             A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         inputs_enc: torch.tensor
             Input data used in the encoder, this is used to construct the target for the autoencoder decoder.
         inputs_enc_aux: torch.tensor
@@ -503,9 +483,7 @@ class AutoEncoderLoss(Metric):
             Value of the metric, which depending on the value of 'avg_over'
            A 3d-tensor with length 1 in dimensions that where averaged over ([sample,time,feature]).
         """
-        flip_target = torch.flip(
-            torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)
-        )
+        flip_target = torch.flip(torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,))
         return self.options["metric"].from_quantiles(
             target=flip_target,
             quantile_prediction=quantile_prediction,
@@ -520,16 +498,12 @@ class AutoEncoderLoss(Metric):
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
         metric: Metric,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
-        flip_target = torch.flip(
-            torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)
-        )
+        flip_target = torch.flip(torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,))
         return metric(
-            torch.flip(
-                torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)
-            ),
+            torch.flip(torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)),
             predictions,
             avg_over,
         )
@@ -553,9 +527,7 @@ class DualModelLoss(Metric):
         """
         forecast_loss = Mse() if forecast_loss is None else forecast_loss
         reconstruction_loss = Mse()
-        super().__init__(
-            metrics=[forecast_loss, AutoEncoderLoss(reconstruction_loss)], weight=weight
-        )
+        super().__init__(metrics=[forecast_loss, AutoEncoderLoss(reconstruction_loss)], weight=weight)
         self.input_labels = (
             forecast_loss.input_labels,
             reconstruction_loss.input_labels,
@@ -575,7 +547,7 @@ class DualModelLoss(Metric):
         predictions: torch.tensor
             Predicted values on the same dataset as target. Dimension have to be (sample number, timestep, label number).
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         inputs_enc: torch.tensor
             Input data used in the encoder, this is used to construct the target for the autoencoder decoder.
         inputs_enc_aux: torch.tensor
@@ -591,9 +563,7 @@ class DualModelLoss(Metric):
         """
         q_preds = tuple(
             (
-                metric.get_quantile_prediction(
-                    predictions=predictions[i], quantiles=quantiles, **kwargs
-                )
+                metric.get_quantile_prediction(predictions=predictions[i], quantiles=quantiles, **kwargs)
                 for i, metric in enumerate(self.options["metrics"])
             )
         )
@@ -606,7 +576,7 @@ class DualModelLoss(Metric):
         quantile_prediction: Tuple[QuantilePrediction],
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -620,7 +590,7 @@ class DualModelLoss(Metric):
             A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         inputs_enc: torch.tensor
             Input data used in the encoder, this is used to construct the target for the autoencoder decoder.
         inputs_enc_aux: torch.tensor
@@ -655,7 +625,7 @@ class DualModelLoss(Metric):
         predictions: torch.Tensor,
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         metrics: List[Metric] = [],
         weight: float = 0.5,
         **_,
@@ -727,15 +697,13 @@ class NllGauss(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
 
         sigma = (0.5 * predictions[..., 1]).exp()
-        return QuantilePrediction.from_gauss_params(
-            torch.stack((predictions[..., 0], sigma), dim=-1), quantiles
-        )
+        return QuantilePrediction.from_gauss_params(torch.stack((predictions[..., 0], sigma), dim=-1), quantiles)
 
     def from_quantiles(
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -749,7 +717,7 @@ class NllGauss(Metric):
             A prediction for several quantiles. Has to contain atleast the median prediction and one additional one to estimate the std. deviation.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval.
             If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
@@ -772,7 +740,7 @@ class NllGauss(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -787,7 +755,7 @@ class NllGauss(Metric):
             of the target variable
             - predictions[...,1] = log_variance, approx. equal to log(2*pi*sigma^2)
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -837,15 +805,13 @@ class PinnballLoss(Metric):
         if quantiles is None:
             return QuantilePrediction(predictions, self.options["quantiles"])
         else:
-            return QuantilePrediction(
-                predictions, self.options["quantiles"]
-            ).select_quantiles(quantiles, inplace=True)
+            return QuantilePrediction(predictions, self.options["quantiles"]).select_quantiles(quantiles, inplace=True)
 
     def from_quantiles(
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -879,7 +845,7 @@ class PinnballLoss(Metric):
         target: torch.tensor,
         predictions: torch.tensor,
         quantiles: List[float],
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -894,7 +860,7 @@ class PinnballLoss(Metric):
         quantiles : List[float]
             Quantiles that we are estimating for
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         Returns
         -------
         float
@@ -945,15 +911,15 @@ class SmoothedPinnballLoss(Metric):
         if quantiles is None:
             return QuantilePrediction(predictions, self.options["quantiles"])
         else:
-            return QuantilePrediction(
-                predictions, self.options.get("quantiles")
-            ).select_quantiles(quantiles, inplace=True)
+            return QuantilePrediction(predictions, self.options.get("quantiles")).select_quantiles(
+                quantiles, inplace=True
+            )
 
     def from_quantiles(
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **kwargs,
     ):
         """
@@ -1003,7 +969,7 @@ class SmoothedPinnballLoss(Metric):
         quantiles : List[float]
             Quantiles that we are estimating for
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         Returns
         -------
         float
@@ -1015,9 +981,7 @@ class SmoothedPinnballLoss(Metric):
             When 'avg_over' is set to anything but "all", "time" or "sample".
         """
         target = target.unsqueeze(-1)
-        loss = SmoothedPinnballLoss._huber_metric(
-            predictions=predictions, target=target, eps=eps
-        )
+        loss = SmoothedPinnballLoss._huber_metric(predictions=predictions, target=target, eps=eps)
 
         mask_greater = predictions >= target
         mask_lesser = predictions < target
@@ -1057,9 +1021,7 @@ class CRPSGauss(Metric):
         super().__init__(alpha=alpha)
         self.input_labels = ["expected_value", "log_variance"]
 
-    def get_quantile_prediction(
-        self, predictions: torch.tensor, alpha=None, **_
-    ) -> QuantilePrediction:
+    def get_quantile_prediction(self, predictions: torch.tensor, alpha=None, **_) -> QuantilePrediction:
         """
         Calculates the values for each quantile for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
@@ -1089,7 +1051,7 @@ class CRPSGauss(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
     ):
         """
         Calculates the value of the metric based on the values for each quantile over the timeframe.
@@ -1116,7 +1078,7 @@ class CRPSGauss(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1158,9 +1120,7 @@ class CRPSGauss(Metric):
         mu = predictions[..., 0]
         log_variance = predictions[..., 1]
         if avg_over != "all":
-            raise NotImplementedError(
-                "crps_gaussian does not support loss over the horizon or per sample."
-            )
+            raise NotImplementedError("crps_gaussian does not support loss over the horizon or per sample.")
         sig = torch.exp(log_variance * 0.5)
         norm_dist = torch.distributions.normal.Normal(0, 1)
         # standadized x
@@ -1211,15 +1171,13 @@ class Residuals(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[..., 0], rmse.item())
-        return QuantilePrediction.from_gauss_params(
-            torch.stack((predictions[..., 0], sigma), dim=-1), quantiles
-        )
+        return QuantilePrediction.from_gauss_params(torch.stack((predictions[..., 0], sigma), dim=-1), quantiles)
 
     def from_quantiles(
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -1233,7 +1191,7 @@ class Residuals(Metric):
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1241,18 +1199,15 @@ class Residuals(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(
-            target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over
-        )
+        return self(target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over)
 
     @staticmethod
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
-
         """
         Calculates the mean of the prediction error
 
@@ -1264,7 +1219,7 @@ class Residuals(Metric):
             - predictions[...,0] = expected_value, a torch.tensor containing predicted expected values
             of the target variable
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1279,9 +1234,7 @@ class Residuals(Metric):
         """
         predictions = predictions[..., 0]
         if predictions.shape != target.shape:
-            raise ValueError(
-                "dimensions of predictions and target need to be compatible"
-            )
+            raise ValueError("dimensions of predictions and target need to be compatible")
 
         loss = target - predictions
         return avg_over_dims(loss, over_dims=avg_over)
@@ -1334,15 +1287,13 @@ class Mse(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
         sigma = Rmse.func(target, predictions, avg_over=("time", "sample"))
         sigma = sigma.unsqueeze(dim=-1).expand_as(predictions)
-        return QuantilePrediction.from_gauss_params(
-            torch.cat((predictions, sigma), dim=-1), quantiles
-        )
+        return QuantilePrediction.from_gauss_params(torch.cat((predictions, sigma), dim=-1), quantiles)
 
     def from_quantiles(
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -1356,7 +1307,7 @@ class Mse(Metric):
             A prediction for several quantiles. Has to contain at least the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the corresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the corresponding axis.
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval.
             If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
@@ -1367,15 +1318,13 @@ class Mse(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(
-            target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over
-        )
+        return self(target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over)
 
     @staticmethod
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1389,7 +1338,7 @@ class Mse(Metric):
             - predictions[...,0] = expected_value, a torch.tensor containing predicted expected values
             of the target variable. Dimensions are (sample number, timestep, 1).
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1459,15 +1408,13 @@ class Rmse(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[..., 0], rmse.item())
-        return QuantilePrediction.from_gauss_params(
-            torch.stack((predictions[..., 0], sigma), dim=-1), quantiles
-        )
+        return QuantilePrediction.from_gauss_params(torch.stack((predictions[..., 0], sigma), dim=-1), quantiles)
 
     def from_quantiles(
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -1481,7 +1428,7 @@ class Rmse(Metric):
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval.
             If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
@@ -1492,9 +1439,7 @@ class Rmse(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(
-            target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over
-        )
+        return self(target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over)
 
     @staticmethod
     def func(
@@ -1514,7 +1459,7 @@ class Rmse(Metric):
             - predictions[...,0] = expected_value, a torch.tensor containing predicted expected values
             of the target variable. Dimensions are (sample number, timestep, 1).
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1589,15 +1534,13 @@ class Mase(Metric):
             quantiles = (1 - alpha_half, alpha_half, 0.5)
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[..., 0], rmse.item())
-        return QuantilePrediction.from_gauss_params(
-            torch.stack((predictions[..., 0], sigma), dim=-1), quantiles
-        )
+        return QuantilePrediction.from_gauss_params(torch.stack((predictions[..., 0], sigma), dim=-1), quantiles)
 
     def from_quantiles(
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         freq=None,
         **_,
     ) -> torch.tensor:
@@ -1612,7 +1555,7 @@ class Mase(Metric):
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1634,7 +1577,7 @@ class Mase(Metric):
         target: torch.tensor,
         predictions: torch.tensor,
         freq=1,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         insample_target=None,
         **_,
     ):
@@ -1671,15 +1614,11 @@ class Mase(Metric):
             When 'avg_over' is set to anything but "all", as MASE does not support loss over the horizon or sample.
         """
         if avg_over != "all":
-            raise NotImplementedError(
-                "mase does not support loss over the horizon or per sample."
-            )
+            raise NotImplementedError("mase does not support loss over the horizon or per sample.")
 
         y_hat_test = predictions[..., 0]
         if insample_target is None:
-            y_hat_naive = torch.roll(
-                target, freq, 1
-            )  # shift all values by frequency, so that at time t,
+            y_hat_naive = torch.roll(target, freq, 1)  # shift all values by frequency, so that at time t,
         # y_hat_naive returns the value of insample [t-freq], as the first values are 0-freq = negative,
         # all values at the beginning are filled with values of the end of the tensor. So to not falsify the evaluation,
         # exclude all terms before freq
@@ -1688,12 +1627,7 @@ class Mase(Metric):
         masep = torch.mean(torch.abs(target[:, freq:] - y_hat_naive[:, freq:]))
         # denominator is the mean absolute error of the "seasonal naive forecast method"
 
-        return (
-            avg_over_dims(
-                torch.abs(target[:, freq:] - y_hat_test[:, freq:]), over_dims=avg_over
-            )
-            / masep
-        )
+        return avg_over_dims(torch.abs(target[:, freq:] - y_hat_test[:, freq:]), over_dims=avg_over) / masep
 
 
 class Sharpness(Metric):
@@ -1743,15 +1677,13 @@ class Sharpness(Metric):
             quantiles = self.options.get("quantiles")
         rmse = Rmse.func(target, predictions, avg_over="all")
         sigma = torch.full_like(predictions[..., 0], rmse.item())
-        return QuantilePrediction.from_gauss_params(
-            torch.stack((predictions[..., 0], sigma), dim=-1), quantiles
-        )
+        return QuantilePrediction.from_gauss_params(torch.stack((predictions[..., 0], sigma), dim=-1), quantiles)
 
     def from_quantiles(
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -1764,7 +1696,7 @@ class Sharpness(Metric):
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast 2 quantile predictions, if more are provided highest and lowest quantile are used.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1786,7 +1718,7 @@ class Sharpness(Metric):
     def func(
         # target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1798,7 +1730,7 @@ class Sharpness(Metric):
             - predictions[...,0] = y_pred_upper, predicted upper limit of the target variable
             - predictions[...,1] = y_pred_lower, predicted lower limit of the target variable
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1847,7 +1779,7 @@ class Picp(Metric):
         quantile_prediction: QuantilePrediction
             A prediction for several quantiles. Has to contain atleast 2 quantile predictions, if more are provided highest and lowest quantile are used.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1883,7 +1815,7 @@ class Picp(Metric):
             - predictions[...,0] = y_pred_upper, predicted upper limit of the target variable (torch.tensor)
             - predictions[...,1] = y_pred_lower, predicted lower limit of the target variable (torch.tensor)
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1937,7 +1869,7 @@ class Mis(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1952,7 +1884,7 @@ class Mis(Metric):
             A prediction for several quantiles. Has to contain atleast 2 quantile predictions of symetric quantiles (e.g (0.95,0.05)).
             If more are provided greatest symetric interval is used.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -1966,9 +1898,7 @@ class Mis(Metric):
                 alpha = min(quant, 1 - quant) * 2
                 # break
         if not alpha:
-            raise ValueError(
-                "Mean Interval Score is only available for symetric intervals"
-            )
+            raise ValueError("Mean Interval Score is only available for symetric intervals")
 
         return self(
             target,
@@ -1982,7 +1912,7 @@ class Mis(Metric):
         target: torch.tensor,
         predictions: torch.tensor,
         alpha: float = None,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -2001,7 +1931,7 @@ class Mis(Metric):
         alpha : float
             The significance level for the prediction interval
         avg_over: str, default = "all"
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -2051,7 +1981,7 @@ class Rae(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -2065,7 +1995,7 @@ class Rae(Metric):
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
         alpha : float, default = None
             Predicted probability of violating the bound of the prediction interval.
             If no alpha is specified the class instance alpha specified is used. To avoid confusion use of this parameter is discouraged.
@@ -2076,15 +2006,13 @@ class Rae(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(
-            target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over
-        )
+        return self(target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over)
 
     @staticmethod
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: Literal["all"] = "all",
         **_,
     ):
         """
@@ -2118,9 +2046,7 @@ class Rae(Metric):
         res_naive = torch.abs(target - y_hat_naive)
         # denominator is the mean absolute error of the periodicity dependent "naive forecast method"
         # on the test set -->outsample
-        return avg_over_dims(res_test, over_dims=avg_over) / avg_over_dims(
-            res_naive, over_dims=avg_over
-        )
+        return avg_over_dims(res_test, over_dims=avg_over) / avg_over_dims(res_naive, over_dims=avg_over)
 
 
 class Mae(Metric):
@@ -2136,7 +2062,7 @@ class Mae(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -2150,7 +2076,7 @@ class Mae(Metric):
             A prediction for several quantiles. Has to contain atleast the median prediction.
             The mean is estimated to be the median as it would be for a gaussian distribution.
         avg_over: str
-            One of "time", "sample", "all", averages the the results over the coresponding axis.
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
 
         Returns
         -------
@@ -2158,15 +2084,13 @@ class Mae(Metric):
             Value of the metric, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        return self(
-            target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over
-        )
+        return self(target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over)
 
     @staticmethod
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -2189,9 +2113,7 @@ class Mae(Metric):
 
         """
 
-        return avg_over_dims(
-            torch.abs(target - predictions[..., 0]), over_dims=avg_over
-        )
+        return avg_over_dims(torch.abs(target - predictions[..., 0]), over_dims=avg_over)
 
 
 _EXCLUDED = ["Metric", "QuantilePrediction"]
