@@ -108,7 +108,7 @@ def main(
             train_df,
             device=device,
             preparation_steps=[
-                partial(dh.set_to_hours, freq=PAR.get("frequency", "1h")),
+                partial(dh.set_to_hours, freq=config.get("frequency", "1h"), timecolumn=config.get("timecolumn","Time")),
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
@@ -121,7 +121,7 @@ def main(
             val_df,
             device=device,
             preparation_steps=[
-                partial(dh.set_to_hours, freq=PAR.get("frequency", "1H")),
+                partial(dh.set_to_hours, freq=config.get("frequency", "1h"), timecolumn=config.get("timecolumn","Time")),
                 # TODO check if periodicity is correct
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
