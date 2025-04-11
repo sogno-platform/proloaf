@@ -179,6 +179,9 @@ class TimeSeriesData(Dataset):
             raise AttributeError(
                 "Number of samples depends on both history- and forecast_horizon which have not been set."
             )
+        # If the prep steps change the length it is necessary to reflect this from the prepared data
+        if self.tensor_prepared:
+            return max(0, self.encoder_tensor.shape[0] - self.history_horizon - self.forecast_horizon) + 1
         return max(0, len(self.data) - self.history_horizon - self.forecast_horizon) + 1
 
     def __iter__(self):
