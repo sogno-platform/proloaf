@@ -108,6 +108,7 @@ if __name__ == "__main__":
             ],
             **PAR,
         )
+        test_data.to_tensor()
         test_metrics_timesteps = [
             metrics.NllGauss(),
             metrics.Rmse(),
