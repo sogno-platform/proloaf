@@ -11,7 +11,7 @@ ProLoaF is package that allows training and evaluation of deep-neural-networks f
 
 ProLoaF comes with the following scripts as entry points
 
-- [preprocess.py]({{< resource url="docs/files-and-scripts/prepprocess/" >}}): Preprocess your input data for use with ProLoaF.
+- [preprocess.py]({{< resource url="docs/files-and-scripts/prepprocess/" >}}): Preprocess your input data for use with ProLoaF. This is somewhat specific and it might be easier to write a custom script that specifcally fits your original data fromat.
 
 - [train.py]({{< resource url="docs/files-and-scripts//train/" >}}): Train an RNN model for load forecasting based on provided data.
 
