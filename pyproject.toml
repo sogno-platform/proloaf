@@ -23,17 +23,17 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "arch~=7.0",
+    "arch~=7.0.0",
     "datetime~=5.5",
-    "matplotlib~=3.9",
-    "numpy~=2.0",
-    "optuna~=3.6",
-    "pandas~=2.2",
+    "matplotlib~=3.9.1",
+    "numpy~=2.0.0",
+    "optuna~=3.6.1",
+    "pandas~=2.2.2",
     # "pmdarima~=2.0",
     "pyparsing~=2.4.7",
     "scikit-learn~=1.5",
     "statsmodels~=0.14.2",
-    "tensorboard~=2.17",
+    "tensorboard~=2.18.0",
     # "tb-nightly",
     "torch~=2.3.1",
 ]
