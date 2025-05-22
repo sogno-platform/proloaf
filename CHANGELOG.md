@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [0.3.0] - 2024-10-23
 ### Fixed
 - Corner case in data interpolation
+- Fix faulty indexing of dataloader when measuremnt frequency increases in the dataset
 
 ### Changed
 - Unified internal data structure
@@ -15,8 +16,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Documentation updates
   
 ### Added
+- Additional preparation steps for extending the dataframe when no decoder input is in the original data and adding 0 columns for non-present onehot features
 - Ability to do multi feature forecasts
 - Saliency map evaluation (explainability method)
+
+### Known Issues
+The comparison with baseline methods like Arima is currently not working due to versioning conflicts. It will be readded if `pmdarima` is compatible with `pandas>=2.0` or a different solution is found.
 
 ## [0.2.2] - 2024-07-05
 ### Fixed
