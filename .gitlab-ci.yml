@@ -51,7 +51,7 @@ prep-docs:
   script:
     - pip3 install --no-cache-dir pdoc
     # - pip3 install -e .
-    - pdoc --skip-errors -o ./docs/static/reference/proloaf -t . -d numpy proloaf
+    - pdoc -o ./docs/static/reference/proloaf -t . -d numpy proloaf
     - ls -l ./docs/static/reference/proloaf
   artifacts:
     expire_in: 1 day
