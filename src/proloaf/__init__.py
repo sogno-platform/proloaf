@@ -34,7 +34,3 @@ of historical data.
 # from .models import *
 # from .plot import *
 # from .tensorloader import *
-
-__pdoc__ = {
-    "baselinehandler": False,
-}
