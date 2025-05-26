@@ -20,14 +20,14 @@
 """
 Evaluate a previously trained model.
 
-Run the trained net on test data and evaluate the result. 
+Run the trained net on test data and evaluate the result.
 Provide several graphs as outputs that show the performance of the trained model.
 
 Notes
 -----
-- The output consists of the actual load prediction graph split up into multiple svg images and 
+- The output consists of the actual load prediction graph split up into multiple svg images and
 a metrics plot containing information about the model's performance.
-- The output path for the graphs can be changed under the "evaluation_path": option 
+- The output path for the graphs can be changed under the "evaluation_path": option
 in the corresponding config file.
 
 """
@@ -99,7 +99,7 @@ if __name__ == "__main__":
             test_df,
             device=DEVICE,
             preparation_steps=[
-                partial(dh.set_to_hours, freq=PAR.get("frequency", "1h"), timecolumn=PAR.get("timecolumn","Time")),
+                partial(dh.set_to_hours, freq=PAR.get("frequency", "1h"), timecolumn=PAR.get("timecolumn", "Time")),
                 partial(dh.fill_if_missing, periodicity=PAR.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,

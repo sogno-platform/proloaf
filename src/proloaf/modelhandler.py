@@ -106,9 +106,7 @@ class EarlyStopping:
             The model being trained
         """
         if self.verbose:
-            logger.info(
-                f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ..."
-            )
+            logger.info(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...")
         temp_dir = "./"  # tempfile.mktemp()
         torch.save(model.state_dict(), temp_dir + "checkpoint.pt")
         self.val_loss_min = val_loss
@@ -317,9 +315,7 @@ class ModelWrapper:
             if self.model_parameters == {}:
                 self.model_parameters = model_parameters
             else:
-                self.model_parameters[self.model_class].update(
-                    model_parameters[self.model_class]
-                )
+                self.model_parameters[self.model_class].update(model_parameters[self.model_class])
         if batch_size is not None:
             self.batch_size = batch_size
         if history_horizon is not None:
@@ -349,9 +345,7 @@ class ModelWrapper:
             Keyword arguments for intializing the metric
         """
         if not isinstance(loss, str):
-            raise AttributeError(
-                "Set the loss using the string identifier of the metric."
-            )
+            raise AttributeError("Set the loss using the string identifier of the metric.")
         if loss is None:
             self._loss = None
             self._loss_options = None
@@ -406,21 +400,15 @@ class ModelWrapper:
 
         if self.model_class == "simple_transformer":
             if len(self.target_id) > 1:
-                raise NotImplementedError(
-                    "simpletransformer does not support multiple target_ids yet."
-                )
+                raise NotImplementedError("simpletransformer does not support multiple target_ids yet.")
             n_heads = model_parameters.get("max_n_heads", 1)
-            f_size = max(len(self.encoder_features), len(self.decoder_features)) + len(
-                self.aux_features
-            )
+            f_size = max(len(self.encoder_features), len(self.decoder_features)) + len(self.aux_features)
 
             # Count down until f_size is a multiple of n_heads
             while (f_size // n_heads) * n_heads < f_size:
                 n_heads -= 1
             if n_heads != model_parameters.get("max_n_heads", 1):
-                logger.info(
-                    f"Number of heads was not a divisor of number of features. {n_heads = }"
-                )
+                logger.info(f"Number of heads was not a divisor of number of features. {n_heads = }")
             self.model = models.Transformer(
                 feature_size=f_size,
                 num_layers=model_parameters.get("num_layers"),
@@ -472,9 +460,7 @@ class ModelWrapper:
             self.model = models.DualModel(
                 enc_size=len(self.encoder_features) + len(self.aux_features),
                 dec_size=len(self.decoder_features)
-                + len(
-                    self.aux_features
-                ),  # TODO should the autoencoder have access to aux features
+                + len(self.aux_features),  # TODO should the autoencoder have access to aux features
                 out_size=(len(self.output_labels[0]), len(self.output_labels[1])),
                 n_target_features=len(self.target_id),
                 dropout_fc=model_parameters.get("dropout_fc"),
@@ -550,8 +536,7 @@ class ModelWrapper:
         )
         training_run.train()
         values = {
-            "hparam/hp_total_time": training_run.training_start_time
-            - training_run.training_end_time,
+            "hparam/hp_total_time": training_run.training_start_time - training_run.training_end_time,
             "hparam/score": training_run.validation_loss,
         }
         training_run.remove_data()
@@ -588,15 +573,11 @@ class ModelWrapper:
             Results of the prediction, 3D-Tensor of shape (batch_size, timesteps, predicted features)
         """
         if not self.initialzed:
-            raise RuntimeError(
-                "The model has not been initialized. Use .init_model() to do that"
-            )
+            raise RuntimeError("The model has not been initialized. Use .init_model() to do that")
 
         self.to(inputs_enc.device)
         try:
-            val, _ = self.model(
-                inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value
-            )
+            val, _ = self.model(inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value)
         except RuntimeError as err:
             raise RuntimeError(
                 "The prediction could not be executed likely because to much memory is needed. Try to reduce batch size of the input."
@@ -645,11 +626,7 @@ class ModelHandler:
         loss_kwargs: dict = {},
         device: str = "cpu",
     ):
-        self.work_dir = (
-            work_dir
-            if work_dir is not None
-            else os.path.dirname(os.path.abspath(sys.argv[0]))
-        )
+        self.work_dir = work_dir if work_dir is not None else os.path.dirname(os.path.abspath(sys.argv[0]))
         self.config = deepcopy(config)
         self.tuning_config = deepcopy(tuning_config)
 
@@ -900,9 +877,9 @@ class ModelHandler:
                 for metric in test_metrics:
                     if isinstance(model.loss_metric, metrics.AutoEncoderLoss):
                         metric = metrics.AutoEncoderLoss(metric)
-                    if isinstance(
-                        model.loss_metric, metrics.DualModelLoss
-                    ) and not isinstance(metric, metrics.DualModelLoss):
+                    if isinstance(model.loss_metric, metrics.DualModelLoss) and not isinstance(
+                        metric, metrics.DualModelLoss
+                    ):
                         quants = quantiles[0]
                     else:
                         quants = quantiles
@@ -924,9 +901,7 @@ class ModelHandler:
                 else:
                     performance = performance.T
 
-                df = pd.DataFrame(
-                    data=performance, columns=[met.id for met in test_metrics]
-                )
+                df = pd.DataFrame(data=performance, columns=[met.id for met in test_metrics])
                 name = model.name
                 i = 1
                 while name in bench:
@@ -974,9 +949,7 @@ class ModelHandler:
                 for model_class, params in model_parameters.items():
                     config["model_parameters"][model_class].update(params)
 
-            temp_model_wrap: ModelWrapper = (
-                self.model_wrap.copy().update(**hparams).init_model()
-            ).to(self._device)
+            temp_model_wrap: ModelWrapper = (self.model_wrap.copy().update(**hparams).init_model()).to(self._device)
         else:
             # XXX if no hparams the model is copied
             temp_model_wrap = self.model_wrap.copy().to(self._device)
@@ -985,9 +958,7 @@ class ModelHandler:
             exploration=self.config["exploration"],
             trial_id=trial_id,
         )
-        temp_model_wrap.run_training(
-            train_data, validation_data, trial_id, tb, config.get("batch_size")
-        )
+        temp_model_wrap.run_training(train_data, validation_data, trial_id, tb, config.get("batch_size"))
 
         values = {
             "hparam/hp_total_time": temp_model_wrap.last_training.training_end_time
@@ -1025,9 +996,7 @@ class ModelHandler:
         logger.debug(f"{exploration = }")
         if exploration:
             if not self.tuning_config:
-                raise AttributeError(
-                    "Hyper parameters are to be explored but no config for tuning was provided."
-                )
+                raise AttributeError("Hyper parameters are to be explored but no config for tuning was provided.")
             self.tune_hyperparameters(train_data, validation_data)
         else:
             self.model_wrap = self.run_training(
@@ -1088,9 +1057,7 @@ class ModelHandler:
         """
         inst = torch.load(path, map_location=torch.device(locate))
         if not isinstance(inst, ModelWrapper):
-            raise RuntimeError(
-                f"you tryied to load from '{path}' but the object was not a ModelWrapper"
-            )
+            raise RuntimeError(f"you tryied to load from '{path}' but the object was not a ModelWrapper")
         return inst
 
     @staticmethod
@@ -1115,9 +1082,7 @@ class ModelHandler:
             Path to the file where the model is saved
         """
         if self.model_wrap.model is None:
-            raise RuntimeError(
-                "The Model is not initialized and can thus not be saved."
-            )
+            raise RuntimeError("The Model is not initialized and can thus not be saved.")
         torch.save(self.model_wrap, path)
         return self
 
@@ -1200,14 +1165,10 @@ class ModelHandler:
 
             if "model_parameters" in tuning_settings:
                 hparams["model_parameters"] = {model_class: {}}
-                for key, hparam in (
-                    tuning_settings["model_parameters"].get(model_class, {}).items()
-                ):
+                for key, hparam in tuning_settings["model_parameters"].get(model_class, {}).items():
                     logger.info("Creating parameter: {!s}".format(key))
                     func_generator = getattr(trial, hparam["function"])
-                    hparams["model_parameters"][model_class][key] = func_generator(
-                        **(hparam["kwargs"])
-                    )
+                    hparams["model_parameters"][model_class][key] = func_generator(**(hparam["kwargs"]))
 
             model_wrap = self.run_training(
                 train_data,
@@ -1327,9 +1288,7 @@ class TrainingRun:
         self.step_counter = 0
         self.max_epochs = max_epochs
         self.n_epochs = None
-        self.early_stopping = EarlyStopping(
-            patience=early_stopping_patience, delta=early_stopping_margin
-        )
+        self.early_stopping = EarlyStopping(patience=early_stopping_patience, delta=early_stopping_margin)
         self.log_tb = log_tb
         self.training_start_time = None
         self.training_end_time = None
@@ -1389,32 +1348,20 @@ class TrainingRun:
 
         """
         if self.model is None:
-            raise AttributeError(
-                "The model has to be initialized before the optimizer is set."
-            )
+            raise AttributeError("The model has to be initialized before the optimizer is set.")
         #  params = filter(lambda p: p.requires_grad, self.model.parameters())
         if optimizer_name == "adam":
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         if optimizer_name == "sgd":
-            self.optimizer = torch.optim.SGD(
-                self.model.parameters(), lr=learning_rate, momentum=0.5
-            )
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.5)
         if optimizer_name == "adamw":
-            self.optimizer = torch.optim.AdamW(
-                self.model.parameters(), lr=learning_rate
-            )
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
         if optimizer_name == "adagrad":
-            self.optimizer = torch.optim.Adagrad(
-                self.model.parameters(), lr=learning_rate
-            )
+            self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=learning_rate)
         if optimizer_name == "adamax":
-            self.optimizer = torch.optim.Adamax(
-                self.model.parameters(), lr=learning_rate
-            )
+            self.optimizer = torch.optim.Adamax(self.model.parameters(), lr=learning_rate)
         if optimizer_name == "rmsprop":
-            self.optimizer = torch.optim.RMSprop(
-                self.model.parameters(), lr=learning_rate
-            )
+            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=learning_rate)
         if self.optimizer is None:
             raise AttributeError(f"Could find optimizer with name {optimizer_name}.")
         return self
@@ -1537,9 +1484,7 @@ class TrainingRun:
                 self.validate()
                 self.early_stopping(self.validation_loss, self.model)
             else:
-                logger.warning(
-                    "No validation data was provided, thus no validation was performed"
-                )
+                logger.warning("No validation data was provided, thus no validation was performed")
             logger.info(
                 "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
                     epoch + 1,
@@ -1567,9 +1512,7 @@ class TrainingRun:
                     f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
                 )
                 # load the last checkpoint with the best model
-                self.model.load_state_dict(
-                    torch.load(self.early_stopping.temp_dir + "checkpoint.pt")
-                )
+                self.model.load_state_dict(torch.load(self.early_stopping.temp_dir + "checkpoint.pt"))
                 self.validation_loss = self.early_stopping.val_loss_min
                 break
         self.model.eval()

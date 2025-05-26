@@ -257,9 +257,7 @@ class EncoderDecoder(nn.Module):
         self.out_size = out_size
         self.n_target_features = n_target_features
         super(EncoderDecoder, self).__init__()
-        self.encoder = Encoder(
-            enc_size, core_hidden_size, core_layers, dropout_core, core_net
-        )
+        self.encoder = Encoder(enc_size, core_hidden_size, core_layers, dropout_core, core_net)
         self.decoder = Decoder(
             dec_size,
             linear_hidden_size,
@@ -272,9 +270,7 @@ class EncoderDecoder(nn.Module):
             relu_leak,
         )
 
-    def forward(
-        self, inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value
-    ):
+    def forward(self, inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value):
         """
         Calculate predictions given Encoder and Decoder inputs
 
@@ -305,9 +301,7 @@ class EncoderDecoder(nn.Module):
         inputs_enc = torch.cat((inputs_enc, inputs_enc_aux), dim=2)
         states_encoder = self.encoder(inputs_enc)
         inputs_dec = torch.cat((inputs_dec, inputs_dec_aux), dim=2)
-        outputs_decoder, states_decoder = self.decoder(
-            inputs_dec, states_encoder, last_value
-        )
+        outputs_decoder, states_decoder = self.decoder(inputs_dec, states_encoder, last_value)
         return (
             outputs_decoder.reshape(
                 outputs_decoder.size(0),
@@ -365,9 +359,7 @@ class AutoEncoder(nn.Module):
         self.enc_size = enc_size
         self.out_size = out_size
         super(AutoEncoder, self).__init__()
-        self.encoder = Encoder(
-            enc_size, core_hidden_size, core_layers, dropout_core, core_net
-        )
+        self.encoder = Encoder(enc_size, core_hidden_size, core_layers, dropout_core, core_net)
         self.decoder = Decoder(
             input_size=dec_size,
             hidden_size=linear_hidden_size,
@@ -412,15 +404,11 @@ class AutoEncoder(nn.Module):
         inputs_enc = torch.cat((inputs_enc, inputs_enc_aux), dim=2)
         states_encoder = self.encoder(inputs_enc)
         # input to decoder is nothing but with length of encoder input
-        inputs_dec = torch.empty(
-            inputs_enc.size(0), inputs_enc.size(1), 0, device=inputs_enc.device
-        )
+        inputs_dec = torch.empty(inputs_enc.size(0), inputs_enc.size(1), 0, device=inputs_enc.device)
         # it should recieve encoder aux inputs since it tries to reconstruct the same timeframe
         # inputs_dec = torch.cat((inputs_dec, inputs_enc_aux), dim=2) # XXX not provideing aux_features to decoder
         outputs_decoder, states_decoder = self.decoder(
-            inputs=torch.flip(
-                inputs_dec[:, :-1], dims=(1,)
-            ),  # everything but last value
+            inputs=torch.flip(inputs_dec[:, :-1], dims=(1,)),  # everything but last value
             last_value=inputs_enc[:, -1:],  # only last value
             states=states_encoder,
         )
@@ -488,9 +476,7 @@ class DualModel(nn.Module):
         self.n_target_features = n_target_features
 
         super(DualModel, self).__init__()
-        self.encoder = Encoder(
-            enc_size, core_hidden_size, core_layers, dropout_core, core_net
-        )
+        self.encoder = Encoder(enc_size, core_hidden_size, core_layers, dropout_core, core_net)
         self.auto_decoder = Decoder(
             input_size=0,
             hidden_size=linear_hidden_size,
@@ -552,9 +538,7 @@ class DualModel(nn.Module):
         inputs_enc = torch.cat((inputs_enc, inputs_enc_aux), dim=2)
         states_enc = self.encoder(inputs_enc)
 
-        inputs_dec_auto = torch.empty(
-            inputs_enc.size(0), inputs_enc.size(1), 0, device=inputs_enc.device
-        )
+        inputs_dec_auto = torch.empty(inputs_enc.size(0), inputs_enc.size(1), 0, device=inputs_enc.device)
         # it should recieve encoder aux inputs since it tries to reconstruct the same timeframe
         # inputs_dec_auto = torch.cat((inputs_dec_auto, inputs_enc_aux), dim=2)
         inputs_dec_future = torch.cat((inputs_dec, inputs_dec_aux), dim=2)
@@ -609,9 +593,7 @@ class Transformer(nn.Module):
             batch_first=True,
             dim_feedforward=dim_feedforward,
         )
-        self.transformer_encoder = nn.TransformerEncoder(
-            encoder_layer, num_layers=num_layers
-        )
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.decoder = nn.Linear(feature_size, out_size)
 
         self.init_weights()
@@ -623,11 +605,7 @@ class Transformer(nn.Module):
 
     def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = (
-            mask.float()
-            .masked_fill(mask == 0, float("-inf"))
-            .masked_fill(mask == 1, float(0.0))
-        )
+        mask = mask.float().masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, float(0.0))
         return mask
 
     def prepare_input(self, inputs_enc, inputs_dec, device):

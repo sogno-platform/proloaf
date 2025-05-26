@@ -14,13 +14,13 @@ logger = el.create_event_logger("interpreter")
 
 
 def main():
-
     args = parse_basic()
     saliency_map_handler = sm.SaliencyMapHandler(args.station)
     saliency_map_handler.create_saliency_map()
     saliency_map_handler.plot()
     saliency_map_handler.save()
     saliency_map_handler.plot_predictions()
+
 
 if __name__ == "__main__":
     main()

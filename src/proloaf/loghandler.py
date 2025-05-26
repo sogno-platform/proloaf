@@ -63,9 +63,7 @@ def clean_up_tensorboard_dir(run_dir):
             x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))
         ]  # gets all files in the current subdir
         for f in files:
-            shutil.move(
-                os.path.join(subdir, f), run_dir
-            )  # moves the file out of the subdir
+            shutil.move(os.path.join(subdir, f), run_dir)  # moves the file out of the subdir
         # shutil.rmtree(subdir)  # removes the now empty subdir
         # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
 
@@ -168,7 +166,7 @@ def add_tb_element(
 def end_tensorboard(
     tb: SummaryWriter,
     params: Dict[str, Any],
-    metric_dict: Dict[str, Union[bool,str,int,float,None]],
+    metric_dict: Dict[str, Union[bool, str, int, float, None]],
 ):
     """
     Wrap up TensorBoard's SummaryWriter
@@ -180,7 +178,7 @@ def end_tensorboard(
     params: Dict[str, Any]
         Model and Trainingsettings, needs to conform to the config structur used in the whole ProLoaF project.
     metric_dict: Dict[str, Union[bool,str,int,float,None]],
-        Simple dict with additional metrics to be logged, e.g. Errors, trainingtime etc. 
+        Simple dict with additional metrics to be logged, e.g. Errors, trainingtime etc.
     """
     # TODO: we could add the fc_evaluate images and metrics to tb to inspect the best model here.
     # tb.add_figure(f'{hour}th_hour-forecast')
@@ -191,7 +189,7 @@ def end_tensorboard(
         hparams = params.pop(key, None)
 
         if hparams:
-            model_type = params.get("model_class",next(iter(hparams.keys())))
+            model_type = params.get("model_class", next(iter(hparams.keys())))
             params.update(hparams[model_type])
 
         tb.add_hparams(params, metric_dict)
@@ -229,12 +227,7 @@ def create_log(log_path=None, station_path=None) -> pd.DataFrame:
         If unable to load log feature set from config file or if no existing log file found
     """
     try:
-        feature_list = [
-            x["name"]
-            for x in read_config(config_path=os.path.join(station_path, "log.json"))[
-                "features"
-            ]
-        ]
+        feature_list = [x["name"] for x in read_config(config_path=os.path.join(station_path, "log.json"))["features"]]
     except:
         logger.error("--- Couldn't load log feature set from config file ---")
         return None

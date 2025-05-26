@@ -226,7 +226,6 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-
 def add_onehot_features(df):
     """
     Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
@@ -395,7 +394,7 @@ def ranges(nums):
 
 
 def extend_df(df: pd.DataFrame, add_steps: int) -> pd.DataFrame:
-    """This function extends a dataframe by the specified number of steps. 
+    """This function extends a dataframe by the specified number of steps.
     In practice this is needed if there is no data available for the decoder/future part of the model,
     as this part specifies the forcasted timeframe. If the dataframe only contains past values of length `history_horizon` for a single prediction,
     it needs to be extended by `forecast_horizon` values.

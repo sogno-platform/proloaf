@@ -43,7 +43,7 @@ from proloaf.confighandler import read_config
 from proloaf.cli import parse_basic
 from proloaf.event_logging import create_event_logger
 
-logger = create_event_logger('preprocess')
+logger = create_event_logger("preprocess")
 
 if __name__ == "__main__":
 
