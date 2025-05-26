@@ -20,49 +20,51 @@ or if you have already cloned the project and you are missing e.g. the open data
 ```bash
 git submodule update --init --recursive
 ```
-
-Now you will need to install all packages listed in the *requirements.txt* file.
-To install all required packages using pip, run:
+(Optional) Create a virtual environment and activate it:
 ```bash
-pip install -r requirements.txt
+python -m venv venv
+source venv/bin/activate
 ```
+
+To install all required packages first change into the directory then install the package:
+```bash
+cd proloaf
+pip install .
+```
+There are two variants with extra dependencies. To install jupyter for being able to use the tutorial notebooks use 
+```bash
+pip install .[tutorial]
+```
+or use
+```bash
+cd proloaf
+pip install -e .[dev]
+```
+to install in editable mode and include optional development dependencies.
 
 On low RAM machines the option
 ```bash
-pip install -r requirements.txt --no-cache-dir
+pip install . --no-cache-dir
 ```
-might be necessary. Depending on your machine you might need to use pip3 instead of pip.
+might be necessary.
+
+ProLoaF supports Python 3.8 and higher.
 
 ## Running the code
-This project contains 3 scripts that can be used in conjunction with one another or separately. Configuration for these scripts is given in a config.json file in the targets/ folder.
+This project contains 4 scripts that can be used in conjunction with one another or separately. Configuration for these scripts is given in a [config.json]({{< resource url="docs/files-and-scripts/config/" >}}) file in the subfolders of the `/targets/` folder, the config in `targets/opsd` should be a good starting point.
 
-* All scripts are located in the source folder.
-* To start one of the scripts use 'Python3 script.py argument', where the argument is either the name of a station (-s) (e.g. 'opsd') or the path (-c) of the corresponding config file located in the model_ folders.
-* To prepare load and weather data from selected stations run ./src/preprocess.py
-* To train a recurrent neural network model specifically parametrized for the selected station and prepared data run ./src/train.py
-* To analyze the performance of the forecast: ./src/evaluate.py
+## Example Workflow
 
-## Config
-* The scripts use a config.json file located in the targets/ folder. This file is used to give further information and settings needed to train a model.
-* In addition, a tuning.json file is used to define settings regarding hyperparameter tuning. This file is only required when using hyperparameter tuning.
+1. Add the data a model should be trained on to the `/data/` folder
+
+2. Preprocess the data using [prep.py]({{< resource url="docs/files-and-scripts/fc_prep/" >}}) or custom scripts if needed. Data including targets should be all in one `.csv` file separated with `;`.
+
+3. Create a new folder in the `targets/` folder corresponding to your forecast. Copy the config files from `targets/opsd` and adjust it to your needs. In the very least everything to do with your data needs to be adjusted (like column names etc). For more information have a look in the descripiton of the [config]({{< resource url="docs/files-and-scripts/config/" >}}).
+
+4. Train a model using `python3 ./src/train.py -s <name_of_folder_containing_configs>`. You can also give a path to the config relative to the project folder using `-c` instead of `-s`
+
+5. Evaluate the model using ``python3 ./src/evaluate.py.py -s <name_of_folder_containing_configs>` in the same fashion.
+
+6. To understand how to generate a single prediction have a look at the examples.
 
 
-* To adapt the behavior of the scripts for a certain station change options in the corresponding config file.
-* Parameters can be added to the config file by adding or removing them by hand (standard json format) or using the config_maker.py.
-
-Add a line
-```
-par['parameter_name'] = value
-```
-in the configmaker.py file and it will be added under that name.
-Then use
-```
-python3 configmaker.py --mod path_to_config
-```
-to apply the changes. The argument again is a station name or the already existing config file.
-
-Using
-```
-python3 configmaker.py --new path_to_config
-```
-Will clear the config file before applying changes so be careful with that.

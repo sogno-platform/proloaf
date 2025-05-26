@@ -1,4 +1,4 @@
-baseURL = "https://sogno.github.io/proloaf/"
+baseURL = "https://sogno.energy/proloaf/"
 title = "Load Forecasting"
 
 enableRobotsTXT = true

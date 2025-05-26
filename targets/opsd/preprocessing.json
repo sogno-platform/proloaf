@@ -2,6 +2,7 @@
     "data_path": "data/opsd.csv",
     "raw_path": "https://data.open-power-system-data.org/",
     "local": false,
+    "add_aux_features": true,
     "csv_files": [
         {
             "file_name": "time_series/2020-10-06/time_series_60min_singleindex.csv",

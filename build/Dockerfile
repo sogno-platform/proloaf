@@ -1,8 +1,7 @@
 FROM python:3
 WORKDIR /usr/src/app
-COPY ./requirements.txt ./
-COPY ./setup.py ./
+COPY ./pyproject.toml ./
 COPY ./README.md ./
 COPY ./src ./src
+RUN pip install --upgrade pip
 RUN pip3 install .
-RUN pip3 install --no-cache-dir -r requirements.txt

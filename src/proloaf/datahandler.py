@@ -26,18 +26,19 @@ Some functions are no longer used directly in the project, but may nonetheless b
 useful for testing or future applications.
 """
 
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict, List, Union
+
 import numpy as np
 import pandas as pd
 import sklearn
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from sklearn.utils.validation import check_is_fitted
-import proloaf.tensorloader as tl
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import MinMaxScaler
+
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
+
 
 def load_raw_data_xlsx(files, path):
     """
@@ -102,9 +103,7 @@ def load_raw_data_xlsx(files, path):
                 ).dt.tz_localize(None)
 
         if xlsx_file["data_abs"]:
-            raw_data.loc[
-                :, xlsx_file["start_column"] : xlsx_file["end_column"]
-            ] = raw_data.loc[
+            raw_data.loc[:, xlsx_file["start_column"] : xlsx_file["end_column"]] = raw_data.loc[
                 :, xlsx_file["start_column"] : xlsx_file["end_column"]
             ].abs()
         # rename column IDs, specifically Time, this will be used later as the df index
@@ -214,7 +213,9 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
         The modified DataFrame
 
     """
-    ## source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError("data frame is not a timeseries, cylical time features can not be generated.")
+    # source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
     df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
     df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
     df["weekday_sin"] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
@@ -240,20 +241,55 @@ def add_onehot_features(df):
 
     """
     # add one-hot encoding for Hour, Month & Weekdays
-    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(
-        df.index
-    )  # one-hot encoding of hours
-    month = pd.get_dummies(df.index.month, prefix="month").set_index(
-        df.index
-    )  # one-hot encoding of month
-    weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(
-        df.index
-    )  # one-hot encoding of weekdays
+    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(df.index)  # one-hot encoding of hours
+    month = pd.get_dummies(df.index.month, prefix="month").set_index(df.index)  # one-hot encoding of month
+    weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
     # df = pd.concat([df, hours, month, weekday], axis=1)
+    # if these columns already exist but are not in the time interval of df they should be filled with 0
+    # month not in timeframe -> timestamp can not be in that month
+    other_hours = [
+        col
+        for col in df.columns
+        if col.startswith("hour_")
+        and col not in hours.columns
+        and not col.endswith("_sin")
+        and not col.endswith("_cos")
+    ]
+    if other_hours:
+        df[other_hours] = 0
     df[hours.columns] = hours
+
+    other_month = [
+        col
+        for col in df.columns
+        if col.startswith("month_")
+        and col not in month.columns
+        and not col.endswith("_sin")
+        and not col.endswith("_cos")
+    ]
+    if other_month:
+        df[other_month] = 0
     df[month.columns] = month
+
+    other_weekday = [
+        col
+        for col in df.columns
+        if col.startswith("weekday_")
+        and col not in weekday.columns
+        and not col.endswith("_sin")
+        and not col.endswith("_cos")
+    ]
+    if other_weekday:
+        df[other_weekday] = 0
     df[weekday.columns] = weekday
     # logger.info(df.head())
+    return df
+
+
+def add_missing_features(df: pd.DataFrame, all_columns: List[str], fill_value=0):
+    for col in all_columns:
+        if col not in df.columns:
+            df[col] = fill_value
     return df
 
 
@@ -272,7 +308,7 @@ def check_continuity(df: pd.DataFrame) -> pd.DataFrame:
         If index of DataFrame is not a continous datetime index.
 
     """
-    if not df.index.equals(
+    if not hasattr(df.index, "freq") or not df.index.equals(
         pd.date_range(min(df.index), max(df.index), freq=df.index.freq)
     ):
         raise ValueError("DateTime index is not continuous")
@@ -306,7 +342,7 @@ def check_nans(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="H") -> pd.DataFrame:
+def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="h") -> pd.DataFrame:
     """
     Sets the index of the DataFrame to 'Time' and the frequency to hours.
 
@@ -323,8 +359,10 @@ def set_to_hours(df: pd.DataFrame, timecolumn="Time", freq="H") -> pd.DataFrame:
     """
     if df.index.name != timecolumn:
         df.set_index(timecolumn, inplace=True)
-
-    df.index = pd.to_datetime(df.index)
+    try:
+        df.index = pd.to_datetime(df.index)
+    except ValueError:
+        df.index = pd.to_datetime(df.index, dayfirst=True)
     df = df.asfreq(freq=freq)
     return df
 
@@ -354,6 +392,31 @@ def ranges(nums):
     return list(zip(edges, edges))
 
 
+def extend_df(df: pd.DataFrame, add_steps: int) -> pd.DataFrame:
+    """This function extends a dataframe by the specified number of steps.
+    In practice this is needed if there is no data available for the decoder/future part of the model,
+    as this part specifies the forcasted timeframe. If the dataframe only contains past values of length `history_horizon` for a single prediction,
+    it needs to be extended by `forecast_horizon` values.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to be extended, requires a datetime index.
+    add_steps : int
+        Number of timesteps to be added.
+
+    Returns
+    -------
+    pd.DataFrame
+        The extended dataframe.
+    """
+    freq = df.index.freq if df.index.freq else df.index.inferred_freq
+    add_index = pd.date_range(df.index[-1], periods=add_steps + 1, freq=freq, inclusive="right", name=df.index.name)
+    add_df = pd.DataFrame(columns=df.columns, index=add_index)
+    df = pd.concat((df, add_df))
+    return df
+
+
 def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     """
     Interpolate the features with missing values in a time series data frame
@@ -362,7 +425,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
 
     - finds the range of intervals of missing values
     - for each of the missing value in these intervals
-        + collect the the previous day's value and the next day's value (t-24 & t+24) at that time instant
+        + collect the previous day's value and the next day's value (t-24 & t+24) at that time instant
         + if any of them are missing, go for the next day(t-48 , t+48 and so on)
         + take their average
         + to account for the trend, shift the values by the slope of the interval extremes
@@ -380,66 +443,85 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     pandas.DataFrame
         DataFrame with interpolated values
     """
-    rows, columns = np.where(pd.isnull(df))
-    miss_rows_ranges = ranges(rows)
+    rows, columns = np.where(pd.isnull(df))  # all rows and columns with missing values
+    # the missing values in "rows" are organized by row number, from first to last row
+    # the values with the same index in "columns" are the corresponding columns, in which the value is missing
+    # goal: find the ranges of missing values within each column, organized by columns:
 
-    for i in range(len(miss_rows_ranges)):
+    miss_rows_ranges = []  # all ranges of missing rows (for all columns)
+    num_columns = df.shape[1]
+    miss_columns = []  # all columns with missing rows, but in order from first column to last column
+    for c in range(num_columns):  # for all possible columns
+        miss_rows = rows[columns == c]  # each missing row for that column
+        if len(miss_rows) != 0:  # if this column has missing values
+            # find ranges of rows for that column and append to end of list
+            new_ranges = ranges(miss_rows)  # all ranges of missing values for column c
+            miss_rows_ranges.extend(new_ranges)  # add new ranges to list of all ranges of all columns
+            for n in range(len(new_ranges)):
+                # append x times the number of the column, where x is the number of ranges for that column
+                miss_columns.append(c)  # corresponding columns to "miss_rows_ranges"
 
-        start, end = miss_rows_ranges[i]
+    last_index = df.shape[0] - 1
+    assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
+    # loop over all ranges
+    for col, (start, end) in zip(miss_columns, miss_rows_ranges):
+        assert isinstance(col, int)
+
         # dur = end - start
         p = periodicity  # periodicity
+        seas = np.zeros(len(df))
+        if start == end and end + 1 <= last_index and start - 1 >= 0:
+            # if single point and previous and next value exists, take average of the nearby ones
+            t = start
+            df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
 
-        for col in range(len(df.columns)):
-            seas = np.zeros(len(df))
-            if (
-                start == end and end + 1 <= df.shape[0] and start - 1 >= 0
-            ):  # if single point, take average of the nearby ones
-                t = start
-                try:
-                    df.iloc[t, col] = (df.iloc[t - 1, col] + df.iloc[t + 1, col]) / 2
-                except TypeError as err:
-                    if df.iloc[t - 1, col] == df.iloc[t + 1, col]:
-                        df.iloc[t, col] = df.iloc[t - 1, col]
-                    else:
-                        raise err
-            elif start == end and (
-                end + 1 > df.shape[0] or start - 1 <= 0
-            ):  # if single point, but the single point is at the beginning or end of the series, take the nearby one
-                t = start
-                if start - 1 <= 0:
-                    df.iloc[t, col] = df.iloc[t + 1, col]
-                if end + 1 > df.shape[0]:
-                    df.iloc[t, col] = df.iloc[t - 1, col]
-            else:
-                # now we are dealing with a range
-                if (start - p) <= 0 or (end + p) > (df.shape[0]):
-                    df = df.interpolate(method="pchip")  # check this if ok
+        elif start == end and (end + 1 > last_index or start - 1 <= 0):
+            # if single point, but the single point is at the beginning or end of the series, take the nearby one
+            t = start
+            if start - 1 <= 0:  # point is first value of the series
+                df.iloc[t, col] = df.iloc[t + 1, col]
+            if end + 1 > last_index:  # point is last value of the series
+                df.iloc[t, col] = df.iloc[t - 1, col]
+        else:
+            # now we are dealing with a range
+            if (start - p) <= 0 or (end + p) > (df.shape[0]):  # if the range is close to the beginning or end
+
+                if start == 0:  # special case: range begins with first value
+                    # fill all beginning NaN values with the next existing value
+                    df.iloc[start : end + 1, col] = df.iloc[end + 1, col]
+                elif end == last_index:  # special case: range ends on last value
+                    # fill all last NaN values with the last existing value
+                    df.iloc[start : end + 1, col] = df.iloc[start - 1, col]
                 else:
-                    for t in range(start, end + 1):
-                        p1 = p
-                        p2 = p
-                        while np.isnan(df.iloc[t - p1, col]):
-                            p1 += p
-                        while np.isnan(df.iloc[t + p2, col]):
-                            p2 += p
+                    new_column = df.iloc[:, col].interpolate(method="pchip")
+                    df.iloc[start : end + 1, col] = new_column[start : end + 1]
+            else:
+                for t in range(start, end + 1):
+                    p1 = p
+                    p2 = p
+                    while np.isnan(df.iloc[t - p1, col]):
+                        p1 += p
+                    while np.isnan(df.iloc[t + p2, col]):
+                        p2 += p
 
-                        seas[t] = (df.iloc[t - p1, col] + df.iloc[t + p2, col]) / 2
-                    trend1 = np.poly1d(
-                        np.polyfit([start, end], [seas[start], seas[end]], 1)
+                    seas[t] = (df.iloc[t - p1, col] + df.iloc[t + p2, col]) / 2
+                trend1 = np.poly1d(np.polyfit([start, end], [seas[start], seas[end]], 1))
+                trend2 = np.poly1d(
+                    np.polyfit(
+                        [start - 1, end + 1],
+                        [df.iloc[start - 1, col], df.iloc[end + 1, col]],
+                        1,
                     )
-                    trend2 = np.poly1d(
-                        np.polyfit(
-                            [start - 1, end + 1],
-                            [df.iloc[start - 1, col], df.iloc[end + 1, col]],
-                            1,
-                        )
-                    )
-                    for t in range(start, end + 1):
-                        df.iloc[t, col] = seas[t] - trend1(t) + trend2(t)
+                )
+                for t in range(start, end + 1):
+                    df.iloc[t, col] = seas[t] - trend1(t) + trend2(t)
+    test = np.where(pd.isnull(df))  # test if all values are filled
+    assert len(test[0]) == 0
+    assert len(test[1]) == 0
     return df
 
 
-def fill_if_missing(df: pd.DataFrame, periodicity: int = 1) -> pd.DataFrame:
+def fill_if_missing(df: pd.DataFrame, periodicity: int = 24) -> pd.DataFrame:
     """
     If the given pandas.DataFrame has any NaN values, they are replaced with interpolated values
 
@@ -448,7 +530,7 @@ def fill_if_missing(df: pd.DataFrame, periodicity: int = 1) -> pd.DataFrame:
     df : pandas.DataFrame
         A pandas.DataFrame for which NaN values need to be replaced by interpolated values
 
-    periodicity : int, default = 1
+    periodicity : int, default = 24
         An int value that allows the customized intepolation method, which makes use of the timeseries periodicity
 
     Returns
@@ -499,9 +581,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.feature_groups = feature_groups
         self._init_scalers()
         if scalers is not None:
-            logger.warning(
-                "This is an experimental feature and might lead to unexpected behaviour without error"
-            )
+            logger.warning("This is an experimental feature and might lead to unexpected behaviour without error")
             # TODO make sure input scalers are same type and parameters as definend in feature groups
             self.scalers.update(scalers)
             self._mark_if_fitted()
@@ -523,22 +603,17 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.scalers = {}
         for group in self.feature_groups:
             if "features" not in group or not group["features"]:
-                logger.info(
-                    f"Feature group {group.get('name', 'UNNAMED')} has no features and will be skipped."
-                )
+                logger.info(f"Feature group {group.get('name', 'UNNAMED')} has no features and will be skipped.")
                 continue
             if group["scaler"] is None or group["scaler"][0] is None:
                 if group.get("name") != "aux":
                     logger.info(
-                        f"{group.get('name','UNNAMED')} features were not scaled, if this was unintentional check the config file."
+                        f"{group.get('name', 'UNNAMED')} features were not scaled, if this was unintentional check the config file."
                     )
                 continue
 
             self.scalers.update(
-                {
-                    feature: self._extract_scaler_from_config(group["scaler"])
-                    for feature in group["features"]
-                }
+                {feature: self._extract_scaler_from_config(group["scaler"]) for feature in group["features"]}
             )
         return self
 
@@ -707,21 +782,21 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.is_fitted_ = True
 
 
-def split(df: pd.DataFrame, splits: List[float]):
+def split(df: pd.DataFrame, splits: List[Union[float, datetime]]):
     """Splits a dataframe at the specified points.
 
     Parameters
     ----------
     df: pandas.DataFrame
         Dataframe to be split
-    splits: List[float]
-        Relative points at which the DataFrame should be split (e.g. [0.8,0.9]). Should be in ascending order.
+    splits: List[float || datetime]
+        Relative points at which the DataFrame should be split (e.g. [0.8,0.9] or ["2019-06-01 01:00:00", "2020-01-31 16:00:00"]). Should be in ascending order.
 
     Returns
     -------
     List[pandas.DataFrame]
         List of DataFrames into which the input has been split.
     """
-    split_index = [int(len(df) * split) for split in splits]
+    split_index = [int(len(df) * split) if isinstance(split, float) else split for split in splits]
     intervals = zip([None, *split_index], [*split_index, None])
     return [df[a:b] for a, b in intervals]

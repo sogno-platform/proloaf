@@ -1,0 +1,83 @@
+{
+    "data_path": "./data/opsd.csv",
+    "output_path": "./oracles/",
+    "exploration_path": "./targets/opsd/tuning.json",
+    "evaluation_path": "./oracles/eval_opsd_recurrent/",
+    "log_path": "./logs/",
+    "model_name": "opsd_recurrent",
+    "target_id": [
+        "DE_load_actual_entsoe_transparency",
+        "AT_load_actual_entsoe_transparency"
+    ],
+    "target_list": null,
+    "start_date": null,
+    "history_horizon": 147,
+    "forecast_horizon": 24,
+    "cap_limit": 1,
+    "train_split": 0.6,
+    "validation_split": 0.8,
+    "periodicity": 24,
+    "optimizer_name": "adam",
+    "exploration": false,
+    "cuda_id": null,
+    "feature_groups": [
+        {
+            "name": "main",
+            "scaler": [
+                "minmax",
+                0.0,
+                1.0
+            ],
+            "features": [
+                "AT_load_actual_entsoe_transparency",
+                "DE_load_actual_entsoe_transparency",
+                "DE_temperature",
+                "DE_radiation_direct_horizontal",
+                "DE_radiation_diffuse_horizontal"
+            ]
+        },
+        {
+            "name": "aux",
+            "scaler": null,
+            "features": [
+                "hour_sin",
+                "weekday_sin",
+                "mnth_sin"
+            ]
+        }
+    ],
+    "encoder_features": [
+        "AT_load_actual_entsoe_transparency",
+        "DE_load_actual_entsoe_transparency",
+        "DE_temperature",
+        "DE_radiation_direct_horizontal",
+        "DE_radiation_diffuse_horizontal"
+    ],
+    "decoder_features": [
+        "hour_sin",
+        "weekday_sin",
+        "mnth_sin"
+    ],
+    "max_epochs": 50,
+    "batch_size": 28,
+    "learning_rate": 9.9027931032814e-05,
+    "early_stopping_patience": 7,
+    "early_stopping_margin": 0.0,
+    "model_class": "recurrent",
+    "model_parameters": {
+        "recurrent": {
+            "core_net": "torch.nn.LSTM",
+            "core_layers": 1,
+            "dropout_fc": 0.4,
+            "dropout_core": 0.3,
+            "rel_linear_hidden_size": 1.0,
+            "rel_core_hidden_size": 1.0,
+            "relu_leak": 0.1
+        },
+        "simple_transformer": {
+            "num_layers": 3,
+            "dropout": 0.4,
+            "n_heads": 6
+        }
+    }
+}

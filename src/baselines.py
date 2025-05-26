@@ -20,7 +20,7 @@
 
 # -*- coding: utf-8 -*-
 """
-Create baseline forecasts and evaluate them. 
+Create baseline forecasts and evaluate them.
 
 First, load and prepare training and validation data. Then optionally create any/all of the
 following baseline forecasts:
@@ -35,28 +35,25 @@ Finally evaluate all baseline forecasts using several different metrics and plot
 """
 
 import os
-import sys
 
 import numpy as np
 import pandas as pd
 import torch
 
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
-import proloaf.plot as plot
-import proloaf.datahandler as dh
 import proloaf.baselinehandler as baselines
-
+import proloaf.datahandler as dh
+import proloaf.plot as plot
 from proloaf import metrics
-from proloaf.tensorloader import TimeSeriesData
-from proloaf.confighandler import read_config
 from proloaf.cli import parse_with_loss
+from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
+from proloaf.tensorloader import TimeSeriesData
 
+MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
 
-logger = create_event_logger('baselines')
+logger = create_event_logger("baselines")
 
 
 def main(infile, target_id):
@@ -96,8 +93,8 @@ def main(infile, target_id):
             target_id=PAR["target_id"],
         )
         dl_train = dataset_train.make_data_loader(batch_size=1, shuffle=False)
-        x_train_1d = np.array([input.squeeze().numpy() for input, _, _ in dl_train])
-        y_train_1d = np.array([target.squeeze().numpy() for _, _, target in dl_train])
+        x_train_1d = np.array([input.squeeze().numpy() for input, _, _, _, _, _ in dl_train])
+        y_train_1d = np.array([target.squeeze().numpy() for _, _, _, _, _, target in dl_train])
 
         dataset_val = TimeSeriesData(
             df_val,
@@ -108,8 +105,8 @@ def main(infile, target_id):
             target_id=PAR["target_id"],
         )
         dl_val = dataset_val.make_data_loader(batch_size=1, shuffle=False)
-        x_val_1d = np.array([input.squeeze().numpy() for input, _, _ in dl_val])
-        y_val_1d = np.array([target.squeeze().numpy() for _, _, target in dl_val])
+        x_val_1d = np.array([input.squeeze().numpy() for input, _, _, _, _, _ in dl_val])
+        y_val_1d = np.array([target.squeeze().numpy() for _, _, _, _, _, target in dl_val])
 
         mean_forecast = []
         upper_pi = []
@@ -129,9 +126,7 @@ def main(infile, target_id):
                 naive_expected_values,
                 naive_y_pred_upper,
                 naive_y_pred_lower,
-            ) = baselines.persist_forecast(
-                x_train_1d, x_val_1d, y_train_1d, PAR["forecast_horizon"], alpha=ALPHA
-            )
+            ) = baselines.persist_forecast(x_train_1d, x_val_1d, y_train_1d, PAR["forecast_horizon"], alpha=ALPHA)
             mean_forecast.append(naive_expected_values)
             upper_pi.append(naive_y_pred_upper)
             lower_pi.append(naive_y_pred_lower)
@@ -197,9 +192,7 @@ def main(infile, target_id):
                     train_limit=LIMIT_HISTORY,
                 )
             else:
-                logger.info(
-                    "Loaded existing fitted ARIMA model from {!s}".format(OUTDIR)
-                )
+                logger.info("Loaded existing fitted ARIMA model from {!s}".format(OUTDIR))
             (
                 ARIMA_expected_values,
                 ARIMA_y_pred_upper,
@@ -218,9 +211,7 @@ def main(infile, target_id):
             upper_pi.append(ARIMA_y_pred_upper)
             lower_pi.append(ARIMA_y_pred_lower)
             baseline_method.append("ARIMA")
-            baselines.save_baseline(
-                OUTDIR, arima_model, name="ARIMA", save_predictions=False
-            )
+            baselines.save_baseline(OUTDIR, arima_model, name="ARIMA", save_predictions=False)
 
         if "sarima" in CALC_BASELINES:
             # #############################SARIMA####################################
@@ -245,9 +236,7 @@ def main(infile, target_id):
                     grid_search=PAR["exploration"],
                 )
             else:
-                logger.info(
-                    "Loaded existing fitted SARIMA model from {!s}".format(OUTDIR)
-                )
+                logger.info("Loaded existing fitted SARIMA model from {!s}".format(OUTDIR))
             (
                 SARIMA_expected_values,
                 SARIMA_y_pred_upper,
@@ -268,9 +257,7 @@ def main(infile, target_id):
 
             baseline_method.append("SARIMA")
             sarima_model.summary()
-            baselines.save_baseline(
-                OUTDIR, sarima_model, name="SARIMA", save_predictions=False
-            )
+            baselines.save_baseline(OUTDIR, sarima_model, name="SARIMA", save_predictions=False)
 
         if "arimax" in CALC_BASELINES:
             # ##############################ARIMAX####################################
@@ -289,9 +276,7 @@ def main(infile, target_id):
                     grid_search=False,
                 )
             else:
-                logger.info(
-                    "Loaded existing fitted ARIMAX model from {!s}".format(OUTDIR)
-                )
+                logger.info("Loaded existing fitted ARIMAX model from {!s}".format(OUTDIR))
             (
                 ARIMAX_expected_values,
                 ARIMAX_y_pred_upper,
@@ -312,9 +297,7 @@ def main(infile, target_id):
             upper_pi.append(ARIMAX_y_pred_upper)
             lower_pi.append(ARIMAX_y_pred_lower)
             baseline_method.append("ARIMAX")
-            baselines.save_baseline(
-                OUTDIR, arimax_model, name="ARIMAX", save_predictions=False
-            )
+            baselines.save_baseline(OUTDIR, arimax_model, name="ARIMAX", save_predictions=False)
         if "sarimax" in CALC_BASELINES:
             # ##############################SARIMAX###################################
             sarimax_model = None
@@ -333,9 +316,7 @@ def main(infile, target_id):
                     grid_search=False,
                 )
             else:
-                logger.info(
-                    "Loaded existing fitted SARIMAX model from {!s}".format(OUTDIR)
-                )
+                logger.info("Loaded existing fitted SARIMAX model from {!s}".format(OUTDIR))
             (
                 SARIMAX_expected_values,
                 SARIMAX_y_pred_upper,
@@ -356,29 +337,27 @@ def main(infile, target_id):
             upper_pi.append(SARIMAX_y_pred_upper)
             lower_pi.append(SARIMAX_y_pred_lower)
             baseline_method.append("SARIMAX")
-            baselines.save_baseline(
-                OUTDIR, sarimax_model, name="SARIMAX", save_predictions=False
-            )
+            baselines.save_baseline(OUTDIR, sarimax_model, name="SARIMAX", save_predictions=False)
 
         if "ets" in CALC_BASELINES:
             # Exponential smoothing
             # with contextlib.redirect_stdout(None):
-            train = pd.Series(
-                df_train[target].values.squeeze(), index=df_train[target].index
-            )
-            test = pd.Series(
-                df_val[target].values.squeeze(), index=df_val[target].index
-            )
+            train = pd.Series(df_train[target].values.squeeze(), index=df_train[target].index)
+            test = pd.Series(df_val[target].values.squeeze(), index=df_val[target].index)
             (
                 ets_expected_values,
                 ets_y_pred_upper,
                 ets_y_pred_lower,
             ) = baselines.exp_smoothing(
-                train, test, PAR["forecast_horizon"], limit_steps=PAR['history_horizon'] + NUM_PRED, online=True
+                train,
+                test,
+                PAR["forecast_horizon"],
+                limit_steps=PAR["history_horizon"] + NUM_PRED,
+                online=True,
             )
-            mean_forecast.append(ets_expected_values[PAR['history_horizon']:])
-            upper_pi.append(ets_y_pred_upper[PAR['history_horizon']:])
-            lower_pi.append(ets_y_pred_lower[PAR['history_horizon']:])
+            mean_forecast.append(ets_expected_values[PAR["history_horizon"] :])
+            upper_pi.append(ets_y_pred_upper[PAR["history_horizon"] :])
+            lower_pi.append(ets_y_pred_lower[PAR["history_horizon"] :])
             baseline_method.append("ets")
 
         # GARCH
@@ -468,16 +447,10 @@ def main(infile, target_id):
         results = pd.DataFrame(index=[metric.id for metric in analyzed_metrics_avg])
         results_per_sample = {}  # pd.DataFrame(index=[metric.id for metric in analyzed_metrics_sample])
         results_per_timestep = {}
-        true_values = torch.zeros(
-            [len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]]
-        )
+        true_values = torch.zeros([len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]])
         forecasts = torch.zeros([len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]])
-        upper_limits = torch.zeros(
-            [len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]]
-        )
-        lower_limits = torch.zeros(
-            [len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]]
-        )
+        upper_limits = torch.zeros([len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]])
+        lower_limits = torch.zeros([len(mean_forecast), NUM_PRED, PAR["forecast_horizon"]])
         for i, mean in enumerate(mean_forecast):
             if mean is None:
                 # skip if no mean prediciton
@@ -507,25 +480,15 @@ def main(infile, target_id):
         results_per_timestep_per_baseline = pd.concat(
             results_per_timestep.values(), keys=results_per_timestep.keys(), axis=1
         )
-        results_per_sample = pd.concat(
-            results_per_sample.values(), keys=results_per_timestep.keys(), axis=1
-        )
+        results_per_sample = pd.concat(results_per_sample.values(), keys=results_per_timestep.keys(), axis=1)
 
         # plot metrics
         # rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title
         plot.plot_metrics(
-            results_per_timestep_per_baseline.xs(
-                "Rmse", axis=1, level=1, drop_level=False
-            ),
-            results_per_timestep_per_baseline.xs(
-                "Sharpness", axis=1, level=1, drop_level=False
-            ),
-            results_per_timestep_per_baseline.xs(
-                "Picp", axis=1, level=1, drop_level=False
-            ),
-            results_per_timestep_per_baseline.xs(
-                "Mis", axis=1, level=1, drop_level=False
-            ),
+            results_per_timestep_per_baseline.xs("Rmse", axis=1, level=1, drop_level=False),
+            results_per_timestep_per_baseline.xs("Sharpness", axis=1, level=1, drop_level=False),
+            results_per_timestep_per_baseline.xs("Picp", axis=1, level=1, drop_level=False),
+            results_per_timestep_per_baseline.xs("Mis", axis=1, level=1, drop_level=False),
             OUTDIR + "baselines",
         )
         print(f"{results = }")
@@ -547,9 +510,7 @@ def main(infile, target_id):
 
 if __name__ == "__main__":
     ARGS, LOSS_OPTIONS = parse_with_loss()
-    PAR = read_config(
-        model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH
-    )
+    PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
     OUTDIR = os.path.join(MAIN_PATH, PAR["evaluation_path"])
     SCALE_DATA = True
     LIMIT_HISTORY = 300
@@ -574,5 +535,5 @@ if __name__ == "__main__":
     ALPHA = 1.96
     EXOG = True
     APPLY_EXISTING_MODEL = False
-    RESOLUTION = 'H'
+    RESOLUTION = "H"
     main(infile=os.path.join(MAIN_PATH, PAR["data_path"]), target_id=PAR["target_id"])

@@ -20,46 +20,41 @@
 """
 Evaluate a previously trained model.
 
-Run the trained net on test data and evaluate the result. 
+Run the trained net on test data and evaluate the result.
 Provide several graphs as outputs that show the performance of the trained model.
 
 Notes
 -----
-- The output consists of the actual load prediction graph split up into multiple svg images and 
+- The output consists of the actual load prediction graph split up into multiple svg images and
 a metrics plot containing information about the model's performance.
-- The output path for the graphs can be changed under the "evaluation_path": option 
+- The output path for the graphs can be changed under the "evaluation_path": option
 in the corresponding config file.
 
 """
 
 
-import pandas as pd
-import torch
-import warnings
-import sys
 import os
 from functools import partial
 
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
-warnings.filterwarnings("ignore")
+import pandas as pd
+import torch
 
-from proloaf.confighandler import read_config
-from proloaf.cli import parse_basic
 import proloaf.datahandler as dh
-import proloaf.tensorloader as tl
 import proloaf.metrics as metrics
-import proloaf.plot as plot
 import proloaf.modelhandler as mh
+import proloaf.models as models
+import proloaf.plot as plot
+import proloaf.tensorloader as tl
+from proloaf.cli import parse_basic
+from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
 
-logger = create_event_logger('evaluate')
+MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+logger = create_event_logger("evaluate")
 
 if __name__ == "__main__":
     ARGS = parse_basic()
-    PAR = read_config(
-        model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH
-    )
+    PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
 
     # DEFINES
     torch.manual_seed(1)
@@ -85,22 +80,22 @@ if __name__ == "__main__":
     # Read load data
     df = pd.read_csv(INFILE, sep=";", index_col=0, parse_dates=True)
 
-    if "target_list" in PAR:
-        if PAR["target_list"] is not None:
-            df[target_id] = df[PAR["target_list"]].sum(axis=1)
+    # if "target_list" in PAR:
+    #     if PAR["target_list"] is not None:
+    #         df[target_id] = df[PAR["target_list"]].sum(axis=1)
 
     # reload trained NN
     with torch.no_grad():
-        net = mh.ModelHandler.load_model(f"{INMODEL}.pkl", locate='cpu')
+        net = mh.ModelHandler.load_model(f"{INMODEL}.pkl", locate="cpu")
         net.to(DEVICE)
 
         train_df, test_df = dh.split(df, [SPLIT_RATIO])
-
+        assert net.scalers is not None
         test_data = tl.TimeSeriesData(
             test_df,
             device=DEVICE,
             preparation_steps=[
-                partial(dh.set_to_hours, freq="1H"),
+                partial(dh.set_to_hours, freq=PAR.get("frequency", "1h"), timecolumn=PAR.get("timecolumn", "Time")),
                 partial(dh.fill_if_missing, periodicity=PAR.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
@@ -109,6 +104,7 @@ if __name__ == "__main__":
             ],
             **PAR,
         )
+        test_data.to_tensor()
         test_metrics_timesteps = [
             metrics.NllGauss(),
             metrics.Rmse(),
@@ -144,37 +140,29 @@ if __name__ == "__main__":
             test_data,
             [net],
             test_metrics=test_metrics_sample,
-            avg_over="time",
+            avg_over=("time", "feature"),
         )
         results_per_timestep_per_forecast = mh.ModelHandler.benchmark(
             test_data,
             [net],
             test_metrics=test_metrics_timesteps,
-            avg_over="sample",
+            avg_over=("sample", "feature"),
         )
         results_per_timestep_per_forecast.head()
         rmse_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs(
-                "Rmse", axis=1, level=1, drop_level=True
-            ),
+            data=results_per_timestep_per_forecast.xs("Rmse", axis=1, level=1, drop_level=True),
             columns=[net.name],
         )
         sharpness_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs(
-                "Sharpness", axis=1, level=1, drop_level=True
-            ),
+            data=results_per_timestep_per_forecast.xs("Sharpness", axis=1, level=1, drop_level=True),
             columns=[net.name],
         )
         picp_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs(
-                "Picp", axis=1, level=1, drop_level=True
-            ),
+            data=results_per_timestep_per_forecast.xs("Picp", axis=1, level=1, drop_level=True),
             columns=[net.name],
         )
         mis_values = pd.DataFrame(
-            data=results_per_timestep_per_forecast.xs(
-                "Mis", axis=1, level=1, drop_level=True
-            ),
+            data=results_per_timestep_per_forecast.xs("Mis", axis=1, level=1, drop_level=True),
             columns=[net.name],
         )
         # plot metrics
@@ -195,45 +183,84 @@ if __name__ == "__main__":
         # )
         actual_time = pd.Series(pd.to_datetime(df.index), index=df.index, dtype=object)
         for i in testhours:
-            inputs_enc, inputs_dec, targets = test_data[i]
-            prediction = net.predict(inputs_enc.unsqueeze(0), inputs_dec.unsqueeze(0))
+            (
+                inputs_enc,
+                inputs_enc_aux,
+                inputs_dec,
+                inputs_dec_aux,
+                last_value,
+                targets,
+            ) = test_data[
+                i
+            ]  # No Error over time for autoencoder
+            if isinstance(net.model, models.AutoEncoder):
+                logger.warning(
+                    "Autoencoders do not create a prediction for the future, no plot will be generated comparing the prediciton to the target."
+                )
+                break
+            prediction = net.predict(
+                inputs_enc=inputs_enc.unsqueeze(dim=0),
+                inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
+                inputs_dec=inputs_dec.unsqueeze(dim=0),
+                inputs_dec_aux=inputs_dec_aux.unsqueeze(dim=0),
+                last_value=last_value.unsqueeze(dim=0),
+            )
             quantile_prediction = net.loss_metric.get_quantile_prediction(
-                predictions=prediction, target=targets.unsqueeze(0)
+                predictions=prediction,
+                target=targets.unsqueeze(0),
+                inputs_enc=inputs_enc.unsqueeze(dim=0),
+                inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
             )
+            if isinstance(quantile_prediction, tuple):
+                quantile_prediction = quantile_prediction[0]
             expected_values = quantile_prediction.get_quantile(0.5)
-            y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(
-                dim=2
-            )
-            y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(
-                dim=2
-            )
+            y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=2)
+            y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(dim=2)
             actuals = actual_time[i : i + FORECAST_HORIZON]
-            plot.plot_timestep(
-                targets.detach().squeeze().numpy(),
-                expected_values.detach().numpy()[0],
-                y_pred_upper.detach().numpy()[0],
-                y_pred_lower.detach().numpy()[0],
-                i,
-                OUTDIR,
-                PAR["cap_limit"],
-                actuals,
-            )
+            for j in range(targets.shape[1]):
+                try:
+                    os.mkdir(f"{OUTDIR}/{test_data.target_id[j]}")
+                except FileExistsError:
+                    pass
+                plot.plot_timestep(
+                    targets.detach().numpy()[:, j],
+                    expected_values.detach().numpy()[0, :, j],
+                    y_pred_upper.detach().numpy()[0, :, j],
+                    y_pred_lower.detach().numpy()[0, :, j],
+                    i,
+                    f"{OUTDIR}/{test_data.target_id[j]}/",
+                    PAR["cap_limit"],
+                    actuals,
+                )
 
-        results_total_per_forecast.to_csv(
-            os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True
-        )
-        logger.info('Results total per forecast:\n{!s}'.format(results_total_per_forecast))
-        inputs_enc, inputs_dec, targets = test_data[0]
+        results_total_per_forecast.to_csv(os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True)
+        logger.info("Results total per forecast:\n{!s}".format(results_total_per_forecast))
+        (
+            inputs_enc,
+            inputs_enc_aux,
+            inputs_dec,
+            inputs_dec_aux,
+            last_value,
+            targets,
+        ) = test_data[0]
         prediction = net.predict(
             inputs_enc=inputs_enc.unsqueeze(dim=0),
+            inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
             inputs_dec=inputs_dec.unsqueeze(dim=0),
+            inputs_dec_aux=inputs_dec_aux.unsqueeze(dim=0),
+            last_value=last_value.unsqueeze(dim=0),
         )
         quantile_prediction = net.loss_metric.get_quantile_prediction(
-            predictions=prediction, target=targets.unsqueeze(dim=0)
+            predictions=prediction,
+            target=targets.unsqueeze(dim=0),
+            inputs_enc=inputs_enc.unsqueeze(dim=0),
+            inputs_enc_aux=inputs_enc_aux.unsqueeze(dim=0),
         )
+        if isinstance(quantile_prediction, tuple):
+            quantile_prediction = quantile_prediction[0]
         expected_values = quantile_prediction.get_quantile(0.5)
-        y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=2)
-        y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(dim=2)
+        y_pred_upper = quantile_prediction.select_upper_bound().values.squeeze(dim=-1)
+        y_pred_lower = quantile_prediction.select_lower_bound().values.squeeze(dim=-1)
         # BOXPLOTS
         plot.plot_boxplot(
             metrics_per_sample=results_per_sample_per_forecast[net.name],

@@ -21,11 +21,11 @@
 Provides handy plot functions to visualize predictions and performance over selected timeseries
 """
 import os
-import matplotlib.pyplot as plt
+
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import proloaf.metrics as metrics
 
 
 def plot_timestep(
@@ -38,6 +38,7 @@ def plot_timestep(
     limit,
     actual_time=None,
     draw_limit=False,
+    title="Scaled Residual Load (0,1)",
 ):
     """
     Create a matplotlib.pyplot.subplot to compare true and predicted values.
@@ -100,24 +101,20 @@ def plot_timestep(
     )
 
     ax.set_xlabel("Hour", fontsize=18)
-    ax.set_ylabel("Scaled Residual Load (-1,1)", fontsize=20)
+    ax.set_ylabel(title, fontsize=20)
     ax.legend(fontsize=20)
-    ax.grid(b=True, linestyle="-")
+    ax.grid(visible=True, linestyle="-")
     if limit and draw_limit:
         plt.axhline(linewidth=2, color="r", y=limit)
     ax.grid()
-    ax.set_xlabel(
-        "Time of Day", fontsize=20
-    )  # assuming hourly resolution in most of the evaluations
+    ax.set_xlabel("Time of Day", fontsize=20)  # assuming hourly resolution in most of the evaluations
     plt.autoscale(enable=True, axis="x", tight=True)
     plt.savefig(OUTPATH + "eval_hour{}".format(timestep))
     plt.show()
     plt.close(fig)
 
 
-def plot_metrics(
-    rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title=""
-):
+def plot_metrics(rmse_horizon, sharpness_horizon, coverage_horizon, mis_horizon, OUTPATH, title=""):
     """
     Create a matplotlib.pyplot.figure with plots for the given metrics
     Save the resulting figure at (OUTPATH + 'metrics_plot')
@@ -143,7 +140,7 @@ def plot_metrics(
     No return value
     """
 
-    with plt.style.context("seaborn"):
+    with plt.style.context("seaborn-v0_8"):
         fig = plt.figure(figsize=(16, 12))
         st = fig.suptitle(title, fontsize=25)
         plt.rc("xtick", labelsize=15)
@@ -160,7 +157,7 @@ def plot_metrics(
         ax_rmse.set_xlabel("Hour", fontsize=18)
         ax_rmse.set_ylabel("RMSE", fontsize=20)
         ax_rmse.legend(fontsize=20)
-        ax_rmse.grid(b=True, linestyle="-")
+        ax_rmse.grid(visible=True, linestyle="-")
 
         for element in sharpness_horizon:
             ax_sharpness.plot(sharpness_horizon[element], label=element)
@@ -168,7 +165,7 @@ def plot_metrics(
         ax_sharpness.set_xlabel("Hour", fontsize=18)
         ax_sharpness.set_ylabel("sharpness", fontsize=20)
         ax_sharpness.legend(fontsize=20)
-        ax_sharpness.grid(b=True, linestyle="-")
+        ax_sharpness.grid(visible=True, linestyle="-")
 
         for element in coverage_horizon:
             ax_PICP.plot(coverage_horizon[element], label=element)
@@ -176,7 +173,7 @@ def plot_metrics(
         ax_PICP.set_xlabel("Hour", fontsize=18)
         ax_PICP.set_ylabel("coverage in %", fontsize=20)
         ax_PICP.legend(fontsize=20)
-        ax_PICP.grid(b=True, linestyle="-")
+        ax_PICP.grid(visible=True, linestyle="-")
 
         for element in mis_horizon:
             ax_MIS.plot(mis_horizon[element], label=element)
@@ -184,7 +181,7 @@ def plot_metrics(
         ax_MIS.set_xlabel("Hour", fontsize=18)
         ax_MIS.set_ylabel("MIS", fontsize=20)
         ax_MIS.legend(fontsize=20)
-        ax_MIS.grid(b=True, linestyle="-")
+        ax_MIS.grid(visible=True, linestyle="-")
 
         st.set_y(1.08)
         fig.subplots_adjust(top=0.95)
@@ -220,15 +217,13 @@ def plot_boxplot(
     -------
     No return value
     """
-
+    plt.clf()
     ax1 = metrics_per_sample.iloc[::sample_frequency].boxplot(
         color=dict(boxes="k", whiskers="k", medians="k", caps="k"),
     )
     ax1.set_xlabel(
-        "Mean error per sample with predefined sampling steps: "
-        + str(sample_frequency)
-        + " on prediction horizon",
-    )  
+        "Mean error per sample with predefined sampling steps: " + str(sample_frequency) + " on prediction horizon",
+    )
     ax1.set_ylabel("Error measure")
     if save_to:
         if not os.path.exists(save_to):
@@ -236,10 +231,11 @@ def plot_boxplot(
         plt.savefig(os.path.join(save_to, f"{fig_title}.png"))
     plt.show()
 
+
 # TODO Only used in baselines
 def plot_hist(
     data: pd.DataFrame,
-    save_to: str=None,
+    save_to: str = None,
     fig_title: str = "Error Probability Distribution",
     bins: int = 10,
 ):
@@ -264,10 +260,7 @@ def plot_hist(
         fig = plt.figure(figsize=(16, 12))  # plt.figure()
         # print("Residuals DataFrame Head:",results.head())
         for element in data.columns:
-            print(f"{element = }")
-            ax1 = data[element].plot(
-                kind="hist", bins=bins, alpha=0.5, label=element
-            )
+            ax1 = data[element].plot(kind="hist", bins=bins, alpha=0.5, label=element)
             ax1.set_title("Histogram of Residuals", fontsize=22)
             ax1.set_xlabel("Residuals", fontsize=18)
             ax1.set_ylabel("Frequency", fontsize=20)

@@ -1,15 +1,9 @@
 variables:
+  GIT_SUBMODULE_STRATEGY: recursive
   DOCKER_TAG: $CI_COMMIT_REF_SLUG
   DOCKER_IMAGE_DEV: plf
   DOCKER_IMAGE_PLF: $CI_REGISTRY_IMAGE/${DOCKER_IMAGE_DEV}:${DOCKER_TAG}
   DOCKER_IMAGE_DOCS: $CI_REGISTRY_IMAGE/${DOCKER_IMAGE_DEV}_docs:${DOCKER_TAG}
-
-
-# workflow:
-#     rules:
-#         - if: $CI_COMMIT_BRANCH == "develop" && $CI_COMMIT_MESSAGE
-#         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "api"
-#         - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "web"
 
 stages:
   - prepare
@@ -57,7 +51,7 @@ prep-docs:
   script:
     - pip3 install --no-cache-dir pdoc
     # - pip3 install -e .
-    - pdoc -o ./docs/static/reference/proloaf -t . -d numpy proloaf
+    - pdoc -o ./docs/static/reference/proloaf -t . -d numpy proloaf !proloaf.baselinehandler
     - ls -l ./docs/static/reference/proloaf
   artifacts:
     expire_in: 1 day
@@ -65,8 +59,8 @@ prep-docs:
     name: pdoc
     paths:
       - docs/static/reference/proloaf
-  tags:
-    - docker
+  # tags:
+  #   - docker
   needs:
     - docker-plf
 
@@ -88,10 +82,8 @@ lint_all:
   image: ${DOCKER_IMAGE_PLF}
   allow_failure: true
   script:
-    - pip install flake8
-    - flake8 --output-file flake8_lint.txt src
-    # - chmod +x ./shell/lint_script.sh
-    # - ./shell/lint_script.sh
+    - chmod +x ./shell/lint_script.sh
+    - ./shell/lint_script.sh
   artifacts:
     when: always
     name: proloaf
@@ -100,10 +92,10 @@ lint_all:
       junit: ./flake8_lint.xml
     paths:
       - ./oracles/*
-      - ./flake8_lint.txt
+      - ./flake8_lint.xml
       # - ./flake8_lint.xml
-  tags:
-    - docker
+  # tags:
+  #   - docker
   rules:
     - if: $CI_PIPELINE_SOURCE == 'push'
 
@@ -113,6 +105,8 @@ test_train:
   stage: training
   script:
     - bash -c "[ $CI_PIPELINE_SOURCE == 'web' ] || [ $CI_PIPELINE_SOURCE == 'api' ] || [ $CI_COMMIT_BRANCH == 'master' ] || python3 ./shell/adjust_config_for_technical_test.py ./targets/${CI_STATION}/config.json"
+    - ls -la .
+    - ls -la ./data
     - python3 src/train.py -s $CI_STATION
   artifacts:
     when: on_success
@@ -127,8 +121,8 @@ test_train:
   image: ${DOCKER_IMAGE_PLF}
   needs:
     - docker-plf
-  tags:
-    - docker
+  # tags:
+  #   - docker
 
 # ### Test Evaluation Jobs
 test_eval:
@@ -144,8 +138,8 @@ test_eval:
     exclude:
       - ./oracles/*.pkl
   image: ${DOCKER_IMAGE_PLF}
-  tags:
-    - docker
+  # tags:
+  #   - docker
   # only:
   #   variables:
   #     - $CI_PIPELINE_SOURCE == 'push'
@@ -191,8 +185,8 @@ push_to_oracles:
       - ./repo/$CI_STATION/**/**/*
       - ./link_to_results.html
   image: ${DOCKER_IMAGE_PLF}
-  tags:
-    - docker
+  # tags:
+  #   - docker
   needs:
     - test_eval
   rules:
@@ -240,7 +234,7 @@ pages:
     name: hugo
     paths:
       - public
-  tags:
-      - docker
+  # tags:
+  #     - docker
   rules:
     - if: $CI_COMMIT_BRANCH == 'master'

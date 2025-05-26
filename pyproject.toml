@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "proloaf"
+version = "0.3.0"
+authors = [
+    { name = "Institute for Automation of Complex Power Systems (ACS), E.ON Energy Research Center (E.ON ERC), RWTH Aachen University", email = "post_acs@eonerc.rwth-aachen.de" },
+    { name = "Gonca Gürses-Tran", email = "gguerses@eonerc.rwth-aachen.de" },
+    { name = "Florian Oppermann", email = "florian.oppermann@eonerc.rwth-aachen.de" },
+]
+description = "A Probabilistic Load Forecasting Project."
+readme = "README.md"
+license = { text = "Apache License 2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "arch~=7.0.0",
+    "datetime~=5.5",
+    "matplotlib~=3.9.1",
+    "numpy~=2.0.0",
+    "optuna~=3.6.1",
+    "pandas~=2.2.2",
+    # "pmdarima~=2.0",
+    "pyparsing~=2.4.7",
+    "scikit-learn~=1.5",
+    "statsmodels~=0.14.2",
+    "tensorboard~=2.18.0",
+    # "tb-nightly",
+    "torch~=2.5.1",
+]
+
+[project.optional-dependencies]
+tutorial = ["jupyter"]
+dev = ["isort", "black"]
+
+[project.urls]
+GitHub = "https://github.com/sogno-platform/proloaf"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 120

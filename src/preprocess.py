@@ -31,19 +31,18 @@ accomplish the same thing.
 
 """
 
-import pandas as pd
-import sys
 import os
+
+import pandas as pd
+
 import proloaf.datahandler as dh
-
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
-
-from proloaf.confighandler import read_config
 from proloaf.cli import parse_basic
+from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
 
-logger = create_event_logger('preprocess')
+MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+logger = create_event_logger("preprocess")
 
 if __name__ == "__main__":
 
@@ -88,8 +87,9 @@ if __name__ == "__main__":
     dh.check_nans(df)
     df.head()
 
-    df = dh.add_cyclical_features(df)
-    df = dh.add_onehot_features(df)
+    if PAR.get("add_aux_features", True):
+        df = dh.add_cyclical_features(df)
+        df = dh.add_onehot_features(df)
 
     # store new df as csv
     df.head()

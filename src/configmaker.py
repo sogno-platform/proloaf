@@ -28,45 +28,47 @@ stay the same
 """
 
 import json
-import sys
 import os
+import sys
+
 from proloaf.event_logging import create_event_logger
+
 main_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(main_path)
+
 
 par = {}
 
 logger = create_event_logger(__name__)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Read configs
 
     CONFIG_PATH = sys.argv[2]
-    STATION_PATH = sys.argv[2].split('config')[0]
-    STATION_NAME = STATION_PATH.split('targets/')[1]
+    STATION_PATH = sys.argv[2].split("config")[0]
+    STATION_NAME = STATION_PATH.split("targets/")[1]
 
-    if sys.argv[1] == '--mod':
-        with open(sys.argv[2], 'r') as input:
+    if sys.argv[1] == "--mod":
+        with open(sys.argv[2], "r") as input:
             par = json.load(input)
 
     # When modifying a config file, only select the parameters that are changed or create new ones. The others will
     # stay the same.
 
-    elif sys.argv[1] == '--new':
-        logger.info('{!s} has been reset before writing').format(CONFIG_PATH)
+    elif sys.argv[1] == "--new":
+        logger.info("{!s} has been reset before writing").format(CONFIG_PATH)
         par = {}
     else:
-        logger.info('No option selected. Use either --mod or --new (WARNING: --new erases the old config file)')
+        logger.info("No option selected. Use either --mod or --new (WARNING: --new erases the old config file)")
 
     # INSERT MODIFICATIONS FOR THE CONFIG HERE
     # ============================================
-    par["data_path"] = './data/<FILE-NAME>.csv'
-    par["output_path"] = './oracles/'
-    par["exploration_path"] = './' + STATION_PATH + 'tuning.json'
-    par["evaluation_path"] = './oracles/eval_<MODEL-NAME>/'
-    par["log_path"] = './logs/'
-    par["model_name"] = '<MODEL-NAME>'
-    par["target_id"] = '<COLUMN-IDENTIFIER>'
+    par["data_path"] = "./data/<FILE-NAME>.csv"
+    par["output_path"] = "./oracles/"
+    par["exploration_path"] = "./" + STATION_PATH + "tuning.json"
+    par["evaluation_path"] = "./oracles/eval_<MODEL-NAME>/"
+    par["log_path"] = "./logs/"
+    par["model_name"] = "<MODEL-NAME>"
+    par["target_id"] = "<COLUMN-IDENTIFIER>"
     par["target_list"] = None
     par["start_date"] = None
     par["history_horizon"] = 24
@@ -74,61 +76,28 @@ if __name__ == '__main__':
     par["train_split"] = 0.7
     par["validation_split"] = 0.85
     par["periodicity"] = 24
-    par["core_net"] = 'torch.nn.GRU'
-    par["optimizer_name"] = 'adam'
+    par["core_net"] = "torch.nn.GRU"
+    par["optimizer_name"] = "adam"
     par["exploration"] = True
     par["relu_leak"] = 0.1
     par["cuda_id"] = None
     par["feature_groups"] = [
-        {
-            "name": "main",
-            "scaler": [
-                "robust",
-                15,
-                85
-            ],
-            "features": [
-                '<COLUMN-IDENTIFIER-1>'
-            ]
-        },
-        {
-            "name": "add",
-            "scaler": [
-                "minmax",
-                -1.0,
-                1.0
-            ],
-            "features": [
-                '<COLUMN-IDENTIFIER-2>'
-            ]
-        },
-        {
-            "name": "aux",
-            "scaler": None,
-            "features": [
-                '<COLUMN-IDENTIFIER-3>',
-                '<COLUMN-IDENTIFIER-4>'
-            ]
-        }
+        {"name": "main", "scaler": ["robust", 15, 85], "features": ["<COLUMN-IDENTIFIER-1>"]},
+        {"name": "add", "scaler": ["minmax", -1.0, 1.0], "features": ["<COLUMN-IDENTIFIER-2>"]},
+        {"name": "aux", "scaler": None, "features": ["<COLUMN-IDENTIFIER-3>", "<COLUMN-IDENTIFIER-4>"]},
     ]
-    par["encoder_features"] = [
-        '<COLUMN-IDENTIFIER-1>',
-        '<COLUMN-IDENTIFIER-2>'
-    ]
-    par["decoder_features"] = [
-        '<COLUMN-IDENTIFIER-3>',
-        '<COLUMN-IDENTIFIER-4>'
-    ]
+    par["encoder_features"] = ["<COLUMN-IDENTIFIER-1>", "<COLUMN-IDENTIFIER-2>"]
+    par["decoder_features"] = ["<COLUMN-IDENTIFIER-3>", "<COLUMN-IDENTIFIER-4>"]
     par["max_epochs"] = 1
     par["batch_size"] = 2
     par["learning_rate"] = 1.0e-04
     par["core_layers"] = 1
-    par["rel_linear_hidden_size"] = 1.
-    par["rel_core_hidden_size"] = 1.
-    par["dropout_fc"] = .4
-    par["dropout_core"] = .3
+    par["rel_linear_hidden_size"] = 1.0
+    par["rel_core_hidden_size"] = 1.0
+    par["dropout_fc"] = 0.4
+    par["dropout_core"] = 0.3
     par["best_loss"] = None
     par["best_score"] = None
 
-    with open(CONFIG_PATH, 'w') as output:
+    with open(CONFIG_PATH, "w") as output:
         json.dump(par, output, indent=4)

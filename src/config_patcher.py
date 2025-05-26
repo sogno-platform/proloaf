@@ -1,6 +1,7 @@
-from pathlib import Path
 import os
 from copy import deepcopy
+from pathlib import Path
+
 from proloaf.cli import parse_basic
 from proloaf.confighandler import read_config, write_config
 from proloaf.event_logging import create_event_logger
@@ -25,9 +26,7 @@ def patch_main_0_1_to_0_2(main_path, config_path):
         "rel_core_hidden_size",
         "relu_leak",
     ]
-    recurrent_model_config = {
-        k: new_config.pop(k, None) for k in recurrent_model_keys if new_config.get(k)
-    }
+    recurrent_model_config = {k: new_config.pop(k, None) for k in recurrent_model_keys if new_config.get(k)}
     if "model_parameters" not in new_config:
         new_config["model_parameters"] = {"recurrent": recurrent_model_config}
     else:

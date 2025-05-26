@@ -32,7 +32,7 @@
     }
   },
   "root": {
-    "level": "INFO",
+    "level": "DEBUG",
       "filters": null,
       "handlers": [
         "console"
@@ -79,6 +79,19 @@
     "proloaf.tensorloader": {
       "level": "DEBUG",
       "filters": null
+    },
+    "proloaf.explanation_methods": {
+      "level": "DEBUG",
+      "filters": null
+    },
+    "proloaf.saliency_map": {
+      "level": "DEBUG",
+      "filters": null
+    },
+    "optuna": {
+      "level": "DEBUG",
+      "filters": null
     }
+
   }
 }

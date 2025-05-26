@@ -21,22 +21,22 @@
 Provides various functions to run command line interface.
 """
 
-import sys
 import argparse
+import sys
+
 
 class flag_and_store(argparse._StoreAction):
     """Action for the argparse to set a flag and store a variable
     amount of arguments.
-    
+
     For more info see argparse documentation.
 
     """
-    def __init__(self, option_strings:str, dest:str, dest_const:str, const:str, nargs=0, **kwargs):
+
+    def __init__(self, option_strings: str, dest: str, dest_const: str, const: str, nargs=0, **kwargs):
         self.dest_const = dest_const
         self.flag = const
-        super(flag_and_store, self).__init__(
-            option_strings, dest, const=None, nargs=nargs, **kwargs
-        )
+        super(flag_and_store, self).__init__(option_strings, dest, const=None, nargs=nargs, **kwargs)
         self.nargs = nargs
 
     def __call__(self, parser, namespace, values, option_strings=None):
@@ -73,9 +73,7 @@ def parse_basic(args=sys.argv[1:]):
         help="station to be trained for (e.g. opsd)",
         default="opsd",
     )
-    ident.add_argument(
-        "-c", "--config", help="path to the config file relative to the project root"
-    )
+    ident.add_argument("-c", "--config", help="path to the config file relative to the project root")
     return parser.parse_args(args)
 
 
@@ -156,9 +154,7 @@ def parse_with_loss(args=sys.argv[1:]):
         help="station to be trained for (e.g. opsd)",
         default="opsd",
     )
-    ident.add_argument(
-        "-c", "--config", help="path to the config file relative to the project root"
-    )
+    ident.add_argument("-c", "--config", help="path to the config file relative to the project root")
 
     losses = parser.add_mutually_exclusive_group()
     # losses.add_argument("--hyper", help="turn hyperparam-tuning on/off next time (int: 1=on, else=off)", type=int, default=0)
@@ -226,11 +222,17 @@ def parse_with_loss(args=sys.argv[1:]):
         action="store_const",
     )
     # losses.add_argument("--mase", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.mase,2], help = "train with root mean absolute scaled error", action=flag_and_store)
-    # losses.add_argument("--picp", dest_const='loss', dest='num_pred', nargs=0, type=int, const=[metrics.picp_loss,2], help = "train with 1 - prediction interval coverage",action=flag_and_store)
+    # losses.add_argument(
+    #     "--picp",
+    #     dest="loss",
+    #     const="PicpLoss",
+    #     help="train with sharpness",
+    #     action="store_const",
+    # )
     losses.add_argument(
         "--sharpness",
         dest="loss",
-        const="Shaprness",
+        const="Sharpness",
         help="train with sharpness",
         action="store_const",
     )

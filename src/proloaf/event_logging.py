@@ -1,14 +1,18 @@
-import os
+import functools
 import logging
 import logging.config
+import os
+import time
+
 from proloaf.confighandler import read_config
 
 MAIN_PATH = os.path.dirname(os.path.abspath(__file__))
 
+
 def create_event_logger(
-        name: str,
-        config_path: os.path = os.path.join(MAIN_PATH, 'event_logging_conf.json'),
-        default_logging_level=logging.INFO
+    name: str,
+    config_path: os.path = os.path.join(MAIN_PATH, "event_logging_conf.json"),
+    default_logging_level=logging.INFO,
 ) -> logging.Logger:
     """
     Creates an event logger for a specific python file.
@@ -35,16 +39,14 @@ def create_event_logger(
     Object of the Logger class
     """
     try:
-        event_log_conf = read_config(
-            config_path=config_path
-        )
-        #if 'file' in event_log_conf['handlers']:
+        event_log_conf = read_config(config_path=config_path)
+        # if 'file' in event_log_conf['handlers']:
         logging.config.dictConfig(event_log_conf)
 
     except FileNotFoundError:
         logging.basicConfig(level=default_logging_level)
         logger = logging.getLogger()
-        logger.warning('Configuration file could not be found at the given path. Default logger was created.')
+        logger.warning("Configuration file could not be found at the given path. Default logger was created.")
     else:
         if name not in event_log_conf["loggers"]:
             logging.basicConfig(level=default_logging_level)
@@ -56,3 +58,25 @@ def create_event_logger(
             logger = logging.getLogger(name)
 
     return logger
+
+
+def timer(logger: logging.Logger):
+    """
+    Decorator which passes the runtime of the decorated function to a logger.
+    The logger then prints the name and runtime of the function, if the logger is specified to print statements
+    of rank "INFO".
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper_timer(*args, **kwargs):
+            start_time = time.perf_counter()
+            value = func(*args, **kwargs)
+            end_time = time.perf_counter()
+            run_time = end_time - start_time
+            logger.info(f"Finished {func.__name__!r} in {run_time:.4f} secs")
+            return value
+
+        return wrapper_timer
+
+    return decorator

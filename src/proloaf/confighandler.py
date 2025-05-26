@@ -22,10 +22,11 @@ Provides various functions for reading, writing and working with config files.
 
 Enables design and modification of the RNN via config files only.
 """
-import os
 import json
+import os
 
-def read_config(model_name = None, config_path = None, main_path=''):
+
+def read_config(model_name=None, config_path=None, main_path=""):
     """
     Read the config file for the given model
 
@@ -48,11 +49,12 @@ def read_config(model_name = None, config_path = None, main_path=''):
 
     """
     if config_path is None:
-        config_path = os.path.join('targets',  model_name, 'config.json')
-    with open(os.path.join(main_path,config_path),'r') as input:
+        config_path = os.path.join("targets", model_name, "config.json")
+    with open(os.path.join(main_path, config_path), "r") as input:
         return json.load(input)
 
-def write_config(config, model_name = None, config_path = None, main_path=''):
+
+def write_config(config, model_name=None, config_path=None, main_path=""):
     """
     Write the given data to the specified config file.
 
@@ -77,6 +79,6 @@ def write_config(config, model_name = None, config_path = None, main_path=''):
         json.dump() has no return value.
     """
     if config_path is None:
-        config_path = os.path.join(main_path, 'targets',  model_name, 'config.json')
-    with open(os.path.join(main_path,config_path),'w') as output:
+        config_path = os.path.join(main_path, "targets", model_name, "config.json")
+    with open(os.path.join(main_path, config_path), "w") as output:
         return json.dump(config, output, indent=4)

@@ -20,15 +20,16 @@
 """
 Provides functions for logging training results and reading and writing those logs to/from csv or tensorboard files.
 """
-from typing import Any, Dict, Union
-import pandas as pd
-import shutil
-import torch
 import os
+import shutil
 from datetime import datetime
-from torch.utils.tensorboard import SummaryWriter
+from typing import Any, Dict, Optional, Union
 
-from proloaf.confighandler import *
+import pandas as pd
+import torch
+from torch.utils.tensorboard.writer import SummaryWriter
+
+from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
@@ -63,9 +64,7 @@ def clean_up_tensorboard_dir(run_dir):
             x for x in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, x))
         ]  # gets all files in the current subdir
         for f in files:
-            shutil.move(
-                os.path.join(subdir, f), run_dir
-            )  # moves the file out of the subdir
+            shutil.move(os.path.join(subdir, f), run_dir)  # moves the file out of the subdir
         # shutil.rmtree(subdir)  # removes the now empty subdir
         # !! only files located directly in the subdir are moved, sub-subdirs are not iterated and deleted with all their content !!
 
@@ -119,6 +118,7 @@ def add_tb_element(
 ):
     """
     Add scalars using TensorBoard's SummaryWriter. Corresponds to logging the status of one epoch.
+    Logs warning if unable to use TensorBoard.
 
     Parameters
     ----------
@@ -152,11 +152,14 @@ def add_tb_element(
     tb.add_scalar("val_loss_steps", validation_loss, step_counter)
 
     for name, weight in net.named_parameters():
-        tb.add_histogram(name, weight, next_epoch)
+        try:
+            tb.add_histogram(name, weight, next_epoch)
+        except:
+            logger.warning(f"{name} could not be logged to tensorboard")
         try:
             tb.add_histogram(f"{name}.grad", weight.grad, next_epoch)
         except:
-            logger.debug(f"{name}.grad could not be logged to tensorboard")
+            logger.warning(f"{name}.grad could not be logged to tensorboard")
         # .add_scalar(f'{name}.grad', weight.grad, epoch + 1)
     return tb
 
@@ -164,7 +167,7 @@ def add_tb_element(
 def end_tensorboard(
     tb: SummaryWriter,
     params: Dict[str, Any],
-    metric_dict: Dict[str, Union[bool,str,int,float,None]],
+    metric_dict: Dict[str, Union[bool, str, int, float, None]],
 ):
     """
     Wrap up TensorBoard's SummaryWriter
@@ -176,7 +179,7 @@ def end_tensorboard(
     params: Dict[str, Any]
         Model and Trainingsettings, needs to conform to the config structur used in the whole ProLoaF project.
     metric_dict: Dict[str, Union[bool,str,int,float,None]],
-        Simple dict with additional metrics to be logged, e.g. Errors, trainingtime etc. 
+        Simple dict with additional metrics to be logged, e.g. Errors, trainingtime etc.
     """
     # TODO: we could add the fc_evaluate images and metrics to tb to inspect the best model here.
     # tb.add_figure(f'{hour}th_hour-forecast')
@@ -187,7 +190,7 @@ def end_tensorboard(
         hparams = params.pop(key, None)
 
         if hparams:
-            model_type = params.get("model_class",next(iter(hparams.keys())))
+            model_type = params.get("model_class", next(iter(hparams.keys())))
             params.update(hparams[model_type])
 
         tb.add_hparams(params, metric_dict)
@@ -200,7 +203,7 @@ def end_tensorboard(
 
 
 # Loads a logfile if one exists, else creates a pd dataframe (create log)
-def create_log(log_path=None, station_path=None) -> pd.DataFrame:
+def create_log(log_path=None, station_path=None) -> Optional[pd.DataFrame]:
     """
     Provide a pandas.DataFrame to use for logging the training results.
 
@@ -225,12 +228,7 @@ def create_log(log_path=None, station_path=None) -> pd.DataFrame:
         If unable to load log feature set from config file or if no existing log file found
     """
     try:
-        feature_list = [
-            x["name"]
-            for x in read_config(config_path=os.path.join(station_path, "log.json"))[
-                "features"
-            ]
-        ]
+        feature_list = [x["name"] for x in read_config(config_path=os.path.join(station_path, "log.json"))["features"]]
     except:
         logger.error("--- Couldn't load log feature set from config file ---")
         return None

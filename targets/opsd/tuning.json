@@ -66,16 +66,16 @@
                     "function": "suggest_float",
                     "kwargs": {
                         "name": "rel_linear_hidden_size",
-                        "low": 0.0,
-                        "high": 1.0
+                        "low": 0.5,
+                        "high": 1.5
                     }
                 },
                 "rel_core_hidden_size": {
                     "function": "suggest_float",
                     "kwargs": {
                         "name": "rel_core_hidden_size",
-                        "low": 0.0,
-                        "high": 1.0
+                        "low": 0.5,
+                        "high": 1.5
                     }
                 },
                 "relu_leak": {
