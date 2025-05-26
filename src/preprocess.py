@@ -37,7 +37,7 @@ import os
 import proloaf.datahandler as dh
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
+
 
 from proloaf.confighandler import read_config
 from proloaf.cli import parse_basic

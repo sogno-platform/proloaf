@@ -22,9 +22,11 @@ Holds the functions and classes of the general model architecture
 """
 import importlib
 from typing import Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)

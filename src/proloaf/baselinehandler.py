@@ -22,24 +22,25 @@ Provides functions to load and save baselines, as well as functions to train (S)
 and generate various baseline forecasts.
 """
 
+import csv
+import math
+import multiprocessing
 import os
+import pickle
 from typing import Any, Dict, List
-from proloaf import metrics
-import torch
-import copy
+
 import numpy as np
 import pandas as pd
-import csv
 import statsmodels.tsa.statespace.sarimax as sarimax
-import pickle
-import multiprocessing
-import math
-
-from statsmodels.tsa.seasonal import STL
-from statsmodels.tsa.exponential_smoothing.ets import ETSModel
-from statsmodels.tsa.stattools import adfuller
+import torch
 from arch import arch_model
 from joblib import Parallel, delayed
+from statsmodels.tsa.exponential_smoothing.ets import ETSModel
+from statsmodels.tsa.seasonal import STL
+from statsmodels.tsa.stattools import adfuller
+
+from proloaf import metrics, plot
+from proloaf.event_logging import create_event_logger
 
 try:
     from pmdarima.arima import auto_arima
@@ -47,13 +48,11 @@ except ValueError as exc:
     raise ImportError(
         "The pmdarima packackage is currently not compatible with numpy~=2.0. \nFor more information see the related issue: https://github.com/alkaline-ml/pmdarima/issues/577"
     )
-from proloaf.event_logging import create_event_logger
-
 # ======================================
 # =======================================
 # save baseline model
 # =============================================================================
-from proloaf import plot
+
 
 logger = create_event_logger(__name__)
 

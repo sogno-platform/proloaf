@@ -22,8 +22,8 @@ Provides various functions for reading, writing and working with config files.
 
 Enables design and modification of the RNN via config files only.
 """
-import os
 import json
+import os
 
 
 def read_config(model_name=None, config_path=None, main_path=""):

@@ -33,27 +33,23 @@ in the corresponding config file.
 """
 
 
-import pandas as pd
-import torch
-import warnings
-import sys
 import os
 from functools import partial
 
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
-warnings.filterwarnings("ignore")
+import pandas as pd
+import torch
 
-from proloaf.confighandler import read_config
-from proloaf.cli import parse_basic
 import proloaf.datahandler as dh
-import proloaf.tensorloader as tl
 import proloaf.metrics as metrics
-import proloaf.plot as plot
 import proloaf.modelhandler as mh
 import proloaf.models as models
+import proloaf.plot as plot
+import proloaf.tensorloader as tl
+from proloaf.cli import parse_basic
+from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
 
+MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 logger = create_event_logger("evaluate")
 
 if __name__ == "__main__":

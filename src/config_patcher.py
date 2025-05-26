@@ -1,6 +1,7 @@
-from pathlib import Path
 import os
 from copy import deepcopy
+from pathlib import Path
+
 from proloaf.cli import parse_basic
 from proloaf.confighandler import read_config, write_config
 from proloaf.event_logging import create_event_logger

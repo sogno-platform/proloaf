@@ -21,10 +21,13 @@
 Provides structures for storing and loading data (e.g. training, validation or test data)
 """
 from __future__ import annotations
-from typing import Optional, Union, Tuple, Callable, Iterable
+
+from typing import Callable, Iterable, Optional, Tuple, Union
+
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, dataloader
+
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)

@@ -1,13 +1,10 @@
 import os
-import sys
 
+import proloaf.event_logging as el
 import proloaf.saliency_map as sm
 from proloaf.cli import parse_basic
-import proloaf.event_logging as el
 
-sys.path.append("../")
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
 
 
 logger = el.create_event_logger("interpreter")

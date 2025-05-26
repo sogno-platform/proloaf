@@ -1,30 +1,25 @@
+import os
+import sys
 from functools import partial
+from random import seed
+
+import matplotlib.pyplot as plt
+import numpy as np
+import optuna
 import pandas as pd
 import torch
-import torch.nn as nn
-import torch.optim.lr_scheduler
-import numpy as np
-import matplotlib.pyplot as plt
-import sys
-import os
-from random import seed
-import optuna
-from time import perf_counter
-from proloaf import metrics
-import proloaf.event_logging as el
+
 import proloaf.confighandler as ch
 import proloaf.datahandler as dh
+import proloaf.event_logging as el
 import proloaf.modelhandler as mh
 import proloaf.tensorloader as tl
-
-from proloaf.event_logging import create_event_logger
-from proloaf.event_logging import timer
+from proloaf import metrics
+from proloaf.event_logging import create_event_logger, timer
 
 logger = create_event_logger(__name__)
 
-sys.path.append("../")
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-sys.path.append(MAIN_PATH)
 
 logger = el.create_event_logger(__name__)
 optuna.logging.enable_propagation()

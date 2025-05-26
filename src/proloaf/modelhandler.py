@@ -23,29 +23,24 @@ Provides functions and classes for using the models to get predictions
 and testing model performance.
 """
 from __future__ import annotations
-import numpy as np
-import pandas as pd
-import sklearn
+
 import os
 import sys
 import tempfile
-import optuna
-import torch
-from typing import Any, Callable, Tuple, Union, List, Dict, Literal
 from copy import deepcopy
+from time import perf_counter
+from typing import Any, Callable, Dict, List, Literal, Tuple, Union
+
+import numpy as np
+import optuna
+import pandas as pd
+import sklearn
+import torch
 
 import proloaf
-
-from time import perf_counter
-from proloaf import models
-from proloaf import metrics
-from proloaf.loghandler import (
-    log_tensorboard,
-    add_tb_element,
-    end_tensorboard,
-)
-from proloaf.event_logging import create_event_logger
-from proloaf.event_logging import timer
+from proloaf import metrics, models
+from proloaf.event_logging import create_event_logger, timer
+from proloaf.loghandler import add_tb_element, end_tensorboard, log_tensorboard
 
 logger = create_event_logger(__name__)
 

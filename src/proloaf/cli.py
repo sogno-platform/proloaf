@@ -21,8 +21,8 @@
 Provides various functions to run command line interface.
 """
 
-import sys
 import argparse
+import sys
 
 
 class flag_and_store(argparse._StoreAction):

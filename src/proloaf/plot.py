@@ -21,11 +21,11 @@
 Provides handy plot functions to visualize predictions and performance over selected timeseries
 """
 import os
-import matplotlib.pyplot as plt
+
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import proloaf.metrics as metrics
 
 
 def plot_timestep(

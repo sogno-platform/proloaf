@@ -28,14 +28,13 @@ useful for testing or future applications.
 
 from datetime import datetime
 from typing import Any, Dict, List, Union
+
 import numpy as np
 import pandas as pd
 import sklearn
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from sklearn.utils.validation import check_is_fitted
-import proloaf.tensorloader as tl
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import MinMaxScaler
+
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)

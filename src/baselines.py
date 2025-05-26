@@ -43,15 +43,14 @@ import torch
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(MAIN_PATH)
-import proloaf.plot as plot
-import proloaf.datahandler as dh
 import proloaf.baselinehandler as baselines
-
+import proloaf.datahandler as dh
+import proloaf.plot as plot
 from proloaf import metrics
-from proloaf.tensorloader import TimeSeriesData
-from proloaf.confighandler import read_config
 from proloaf.cli import parse_with_loss
+from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
+from proloaf.tensorloader import TimeSeriesData
 
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)

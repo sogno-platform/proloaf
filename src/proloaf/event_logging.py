@@ -1,8 +1,9 @@
-import os
+import functools
 import logging
 import logging.config
-import functools
+import os
 import time
+
 from proloaf.confighandler import read_config
 
 MAIN_PATH = os.path.dirname(os.path.abspath(__file__))

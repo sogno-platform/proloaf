@@ -20,15 +20,16 @@
 """
 Provides functions for logging training results and reading and writing those logs to/from csv or tensorboard files.
 """
-from typing import Any, Dict, Union
-import pandas as pd
-import shutil
-import torch
 import os
+import shutil
 from datetime import datetime
-from torch.utils.tensorboard import SummaryWriter
+from typing import Any, Dict, Optional, Union
 
-from proloaf.confighandler import *
+import pandas as pd
+import torch
+from torch.utils.tensorboard.writer import SummaryWriter
+
+from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
@@ -202,7 +203,7 @@ def end_tensorboard(
 
 
 # Loads a logfile if one exists, else creates a pd dataframe (create log)
-def create_log(log_path=None, station_path=None) -> pd.DataFrame:
+def create_log(log_path=None, station_path=None) -> Optional[pd.DataFrame]:
     """
     Provide a pandas.DataFrame to use for logging the training results.
 
