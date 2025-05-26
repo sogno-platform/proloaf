@@ -1,5 +1,6 @@
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
+  PUSH_USER: ci_pipeline
   DOCKER_TAG: $CI_COMMIT_REF_SLUG
   DOCKER_IMAGE_DEV: plf
   DOCKER_IMAGE_PLF: $CI_REGISTRY_IMAGE/${DOCKER_IMAGE_DEV}:${DOCKER_TAG}
@@ -149,7 +150,7 @@ push_to_oracles:
   stage: oracles:deploy
   script:
     - TIMESTAMP=$(python shell/return_timestamp.py)
-    - git clone https://gonca.guerses.tran:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git ./repo/
+    - git clone https://$PUSH_USER:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git ./repo/
     - git config --global user.email "test@test.test"
     - git config --global user.name "GitLab CI train"
     - mkdir -p ./repo/$CI_STATION/$TIMESTAMP
@@ -205,7 +206,7 @@ hugo:
     # - echo $PWD
     - mkdir -p content/en/results/
     - cd content/en/results/
-    - git clone https://gonca.guerses.tran:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
+    - git clone https://$PUSH_USER:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
     - cd ../../..
     - hugo -v
     - ls -l
