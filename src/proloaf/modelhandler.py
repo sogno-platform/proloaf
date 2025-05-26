@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 from copy import deepcopy
 from time import perf_counter
 from typing import Any, Callable, Dict, List, Literal, Tuple, Union

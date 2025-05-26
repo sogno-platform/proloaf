@@ -215,7 +215,7 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     if not isinstance(df.index, pd.DatetimeIndex):
         raise ValueError("data frame is not a timeseries, cylical time features can not be generated.")
-    ## source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
+    # source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
     df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
     df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
     df["weekday_sin"] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
@@ -465,7 +465,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
     assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
     # loop over all ranges
     for col, (start, end) in zip(miss_columns, miss_rows_ranges):
-        assert type(col) == int
+        assert isinstance(col, int)
 
         # dur = end - start
         p = periodicity  # periodicity
@@ -608,7 +608,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
             if group["scaler"] is None or group["scaler"][0] is None:
                 if group.get("name") != "aux":
                     logger.info(
-                        f"{group.get('name','UNNAMED')} features were not scaled, if this was unintentional check the config file."
+                        f"{group.get('name', 'UNNAMED')} features were not scaled, if this was unintentional check the config file."
                     )
                 continue
 

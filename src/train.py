@@ -20,9 +20,9 @@
 """
 Train an RNN model for load forecasting based on provided data.
 
-Train an RNN model on prepared data loaded as pandas dataframe from a csv file. 
-Hyperparameter exploration using optuna is also possible if desired. 
-The trained model is saved at the location specified under "output_path": in the corresponding 
+Train an RNN model on prepared data loaded as pandas dataframe from a csv file.
+Hyperparameter exploration using optuna is also possible if desired.
+The trained model is saved at the location specified under "output_path": in the corresponding
 config.json and can be loaded via torch.load() or evaluated by using the evaluate.py script.
 This script scales the data, loads a custom datastructure and then generates and trains a neural net.
 
@@ -108,7 +108,9 @@ def main(
             train_df,
             device=device,
             preparation_steps=[
-                partial(dh.set_to_hours, freq=config.get("frequency", "1h"), timecolumn=config.get("timecolumn","Time")),
+                partial(
+                    dh.set_to_hours, freq=config.get("frequency", "1h"), timecolumn=config.get("timecolumn", "Time")
+                ),
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
                 dh.add_onehot_features,
@@ -122,7 +124,9 @@ def main(
             val_df,
             device=device,
             preparation_steps=[
-                partial(dh.set_to_hours, freq=config.get("frequency", "1h"), timecolumn=config.get("timecolumn","Time")),
+                partial(
+                    dh.set_to_hours, freq=config.get("frequency", "1h"), timecolumn=config.get("timecolumn", "Time")
+                ),
                 # TODO check if periodicity is correct
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
@@ -156,7 +160,7 @@ def main(
             train_dataset,
             val_dataset,
         )
-        train_dataset = None # unbind data to save some memory
+        train_dataset = None  # unbind data to save some memory
         try:
             ref_model_1 = modelhandler.load_model(
                 os.path.join(

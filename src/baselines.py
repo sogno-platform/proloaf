@@ -35,14 +35,11 @@ Finally evaluate all baseline forecasts using several different metrics and plot
 """
 
 import os
-import sys
 
 import numpy as np
 import pandas as pd
 import torch
 
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
 import proloaf.baselinehandler as baselines
 import proloaf.datahandler as dh
 import proloaf.plot as plot
@@ -52,6 +49,7 @@ from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
 from proloaf.tensorloader import TimeSeriesData
 
+MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 torch.set_printoptions(linewidth=120)  # Display option for output
 torch.set_grad_enabled(True)
 

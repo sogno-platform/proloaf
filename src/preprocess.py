@@ -31,17 +31,16 @@ accomplish the same thing.
 
 """
 
-import pandas as pd
-import sys
 import os
+
+import pandas as pd
+
 import proloaf.datahandler as dh
+from proloaf.cli import parse_basic
+from proloaf.confighandler import read_config
+from proloaf.event_logging import create_event_logger
 
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-
-
-from proloaf.confighandler import read_config
-from proloaf.cli import parse_basic
-from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger("preprocess")
 
