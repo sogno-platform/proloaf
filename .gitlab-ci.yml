@@ -158,6 +158,8 @@ push_to_oracles:
     - mkdir ./repo/$CI_STATION/$TIMESTAMP/runs
     - mkdir ./repo/$CI_STATION/$TIMESTAMP/model
     # - mv logs/* ./repo/$CI_STATION/$TIMESTAMP/logs/
+    - ls -la .
+    - ls -la runs
     - mv runs/* ./repo/$CI_STATION/$TIMESTAMP/runs/
     - touch ./repo/$CI_STATION/$TIMESTAMP/index.md
     - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$CI_STATION $TIMESTAMP" --link=$TIMESTAMP --imginclude==True >> ./repo/$CI_STATION/$TIMESTAMP/index.md
