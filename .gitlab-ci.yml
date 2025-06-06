@@ -240,4 +240,6 @@ pages:
   # tags:
   #     - docker
   rules:
+    - if: $CI_PIPELINE_SOURCE == 'web'
+    - if: $CI_PIPELINE_SOURCE == 'api'
     - if: $CI_COMMIT_BRANCH == 'master'
