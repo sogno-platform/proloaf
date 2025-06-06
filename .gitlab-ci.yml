@@ -212,8 +212,14 @@ hugo:
     paths:
       - docs/public
       #- docs/content/en/results/*
-  only:
-    - master
+  needs:
+    - push_to_oracles
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web'
+    - if: $CI_PIPELINE_SOURCE == 'api'
+    - if: $CI_COMMIT_BRANCH == 'master'
+  # only:
+  #   - master
 
 
 pages:
