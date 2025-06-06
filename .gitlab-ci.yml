@@ -158,14 +158,7 @@ push_to_oracles:
     # - mv logs/* ./repo/$CI_STATION/$TIMESTAMP/logs/
     - mv runs/* ./repo/$CI_STATION/$TIMESTAMP/runs/
     # Generate complete index.md with dynamic content
-    - python shell/create_hugo_header.py \
-        --date=$TIMESTAMP \
-        --title="$CI_STATION $TIMESTAMP" \
-        --link=$TIMESTAMP \
-        --imginclude \
-        --model-path="./repo/$CI_STATION/$TIMESTAMP/model" \
-        --pipeline-id=$CI_PIPELINE_ID \
-        --station=$CI_STATION > ./repo/$CI_STATION/$TIMESTAMP/index.md
+    - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$CI_STATION $TIMESTAMP" --link=$TIMESTAMP --imginclude --model-path="./repo/$CI_STATION/$TIMESTAMP/model" --pipeline-id=$CI_PIPELINE_ID --station=$CI_STATION > ./repo/$CI_STATION/$TIMESTAMP/index.md
     - mv oracles/*/* oracles/
     - mv oracles/* ./repo/$CI_STATION/$TIMESTAMP/model/
     #- chmod +x ./shell/make_station_folder_index.sh
