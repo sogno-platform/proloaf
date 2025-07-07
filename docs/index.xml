@@ -1,4 +1,4 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Probabilistic Load Forecasting – Documentation</title><link>https://sogno.github.io/proloaf/docs/</link><description>Recent content in Documentation on Probabilistic Load Forecasting</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://sogno.github.io/proloaf/docs/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: preprocess.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_prep/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_prep/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Probabilistic Load Forecasting – Documentation</title><link>https://sogno.energy/proloaf/docs/</link><description>Recent content in Documentation on Probabilistic Load Forecasting</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://sogno.energy/proloaf/docs/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: preprocess.py</title><link>https://sogno.energy/proloaf/docs/files-and-scripts/preprocess/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.energy/proloaf/docs/files-and-scripts/preprocess/</guid><description>
 &lt;h3 id="overview">Overview&lt;/h3>
 &lt;p>Preprocess your input data for use with ProLoaF&lt;/p>
 &lt;p>This script transforms the data to a common format (pandas.DataFrame as csv) for all stations.&lt;/p>
@@ -44,102 +44,180 @@ If your data does not match the criteria, you can use a custom script that saves
 &lt;li>data path as defined in the used config.json&lt;/li>
 &lt;/ul>
 &lt;h3 id="reference-documentation">Reference Documentation&lt;/h3>
-&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/src/preprocess.html">docs&lt;/a> for
-this script.&lt;/p></description></item><item><title>Docs: train.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_train/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_train/</guid><description>
+&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.energy/proloaf/reference/proloaf/proloaf/src/preprocess.html">docs&lt;/a> for
+this script.&lt;/p></description></item><item><title>Docs: train.py</title><link>https://sogno.energy/proloaf/docs/files-and-scripts/train/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.energy/proloaf/docs/files-and-scripts/train/</guid><description>
 &lt;h3 id="overview">Overview&lt;/h3>
-&lt;p>This script trains an RNN model on previously prepared data, which is loaded into a pandas Dataframe from a csv file.
-Hyperparameter exploration using optuna is also possible if desired. The trained model is saved at the location
-specified under &lt;code>&amp;quot;output_path&amp;quot;:&lt;/code> in the corresponding config.json and can be loaded via torch.load() or evaluated by
-using the evaluate.py script. This script scales the data, loads a custom data structure and then generates and
-trains a neural net.&lt;/p>
-&lt;h3 id="hyperparameter-exploration">Hyperparameter Exploration&lt;/h3>
-&lt;p>Any training parameter is considered a hyper parameter as long as it is specified in either &lt;em>config.json&lt;/em> or
-&lt;em>tuning.json&lt;/em>. The latter is the standard file where the (so far) best found configuration is saved and should usually
-not be manually adapted unless new tests are for some reason not comparable to older ones (e.g. after changing the loss
-function).&lt;/p>
-&lt;h3 id="json-config-files">.json Config Files&lt;/h3>
-&lt;h4 id="configjson">&lt;em>config.json&lt;/em>&lt;/h4>
-&lt;p>The config should define parameters that are not considered hyperparameters. Anything considered a hyperparameter (see above) may be defined but will be overwritten in training. These are many parameters not listed here, the structure is evident from the config however. The not so obvious parameters are:&lt;/p>
-&lt;ol>
-&lt;li>&amp;ldquo;feature_groups&amp;rdquo; (list) of dicts each specifying:
-&lt;ol>
-&lt;li>&amp;ldquo;name&amp;rdquo;: (str) name of the group for identification&lt;/li>
-&lt;li>&amp;ldquo;scaler&amp;rdquo;: (list or null) with [0] the name of a scaler, [1] and [2] the arguments for its creation, or null for unscaled features&lt;/li>
-&lt;li>&amp;ldquo;features&amp;rdquo;: (list) feature names that should be scaled by the corresponding scaler, no double listing supported.
-A feature that is not listed in any feature group is not considered by the net.&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;li>&amp;ldquo;encoder/decoder_features&amp;rdquo;: (list) features that are visible to the encoder/decoder.&lt;/li>
-&lt;/ol>
-&lt;h4 id="tuningjson">&lt;em>tuning.json&lt;/em>&lt;/h4>
-&lt;p>Here all settings considering hyperparameter exploration can be adjusted. Any hyper parameter that is to be explored should be defined here in the &amp;ldquo;settings&amp;rdquo; dict (example below). In addition to settings dict there are two settings:&lt;/p>
-&lt;ol>
-&lt;li>&amp;ldquo;rel_base_path&amp;rdquo;: (str or null) relative path to the base config w.r.t. the project folder. If the file does not exist, it will be created at the end to save the best performing setup. If the file exists, the base setup will be trained first to be compared with the others (or to train the net with the most performant parameters).&lt;/li>
-&lt;li>&amp;ldquo;number_of_tests&amp;rdquo;: (int optional) number of nets that are trained and compared, defaults to 1 if not specified. This number includes the base setup if one is defined.&lt;/li>
-&lt;li>&amp;ldquo;settings&amp;rdquo; (dict of dicts): defines parameters as keys of this dict e.g. &amp;ldquo;learning_rate&amp;rdquo; could be a key of the settings dict and its value is either:
-&lt;ol>
-&lt;li>A value, the parameter is set to this value for all iterations. If the value itself is supposed to be a list, it has to be a list inside a list otherwise it will be interpreted as list of values.&lt;/li>
-&lt;li>A list of values, the list is cycled over for each test.&lt;/li>
-&lt;li>A dict defining:
-&lt;ol>
-&lt;li>&amp;ldquo;function&amp;rdquo;: (str) a string defining the import to a function, e.g &amp;lsquo;random.gauss&amp;rsquo; will import the function &amp;lsquo;gauss&amp;rsquo; from the &amp;lsquo;random&amp;rsquo; module. This function will be called multiple times if necessary to generate values. If the function generates a list, each value will be used exactly once before generating new values, making random.choices() a candidate to prevent too much repetition. This should work with custom functions, but this has not been tested.&lt;/li>
-&lt;li>&amp;ldquo;kwargs&amp;rdquo;: (dict) a dict containing all necessary arguments to call the function.&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;/ol>
-&lt;p>&lt;em>Example:&lt;/em>&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json">&lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;number_of_tests&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">100&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;settings&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;learning_rate&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;function&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;suggest_loguniform&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;kwargs&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;learning_rate&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;low&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.000001&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;high&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.0001&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;span style="color:#000;font-weight:bold">},&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;history_horizon&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;function&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;suggest_int&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;kwargs&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;history_horizon&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;low&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;high&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">168&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;span style="color:#000;font-weight:bold">},&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;batch_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;function&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;suggest_int&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;kwargs&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;batch_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;low&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">32&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;high&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">120&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/code>&lt;/pre>&lt;/div>&lt;p>Possible hyperparameters are:&lt;/p>
-&lt;p>target_column, encoder_features, decoder_features, max_epochs, learning_rate, batch_size,
-shuffle, history_horizon, forecast_horizon,
-train_split, validation_split, core_net,
-relu_leak, dropout_fc, dropout_core,
-rel_linear_hidden_size, rel_core_hidden_size,
-optimizer_name, cuda_id&lt;/p>
-&lt;h3 id="inputs">Inputs&lt;/h3>
-&lt;p>One of the following:&lt;/p>
+&lt;p>This script trains a forecasting model on a dataset, which is loaded into a pandas Dataframe from a csv file.
+Hyperparameter exploration using &lt;a href="https://optuna.org/">optuna&lt;/a> is also possible if desired. The trained model is saved at the location specified under &lt;code>&amp;quot;output_path&amp;quot;&lt;/code> in the corresponding &lt;a href="config.md#main-config">config.json&lt;/a> and can be loaded via &lt;code>torch.load()&lt;/code> or evaluated by using the &lt;a href="./evaluate.md">evaluate.py&lt;/a> script. This script performs desired preprocessing, like adding one-hot encoded time features and scaling, loads a custom data structure and then generates and trains a neural net.&lt;/p>
+&lt;h4 id="inputs">Inputs&lt;/h4>
 &lt;ul>
-&lt;li>./data/opsd.csv&lt;/li>
-&lt;li>./data/&amp;laquo;user_provided_data&amp;raquo;.csv&lt;/li>
-&lt;li>./data/gefcom2017/&amp;laquo;station&amp;raquo;_data.csv (data not available as of March 2022, but present in earlier versions&lt;/li>
+&lt;li>A &lt;a href="./config.md#main-config">config file&lt;/a>&lt;/li>
+&lt;li>Training and validation data. All in one &lt;code>.csv&lt;/code> file. This can also include the test data (see &lt;code>test_split&lt;/code> in &lt;a href="./config.md#training-settings">config description&lt;/a>)&lt;/li>
 &lt;/ul>
-&lt;h3 id="outputs">Outputs&lt;/h3>
+&lt;h4 id="outputs">Outputs&lt;/h4>
 &lt;ul>
-&lt;li>./oracles/model_station&lt;/li>
+&lt;li>Trained model&lt;/li>
+&lt;li>Tensorboard logs&lt;/li>
+&lt;li>New config if hyper-parameter optimization has been performed&lt;/li>
 &lt;/ul>
+&lt;h3 id="hyper-parameter-exploration">Hyper-Parameter Exploration&lt;/h3>
+&lt;p>Any training parameter is considered a hyper parameter as long as it is specified in either &lt;a href="config.md#main-config">config.json&lt;/a>. The latter is the standard file where the (so far) best found configuration is saved and should usually not be manually adapted unless new tests are for some reason not comparable to older ones (e.g. after changing the loss function).&lt;/p>
+&lt;h3 id="usage">Usage&lt;/h3>
+&lt;p>To run training you need to create at least a the main &lt;a href="config.md#main-config">config.json&lt;/a> first.
+Then you can run&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">$ python src/train -s &amp;lt;station_name&amp;gt;
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>where station name is a folder in the folder &lt;code>src/targets&lt;/code> that contains a config names &lt;code>conifg.json&lt;/code>.
+Alternatively you can run training using&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">$ python src/train -c &amp;lt;path_to_config&amp;gt;
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>to specify a path relative to the project folder directly to the config file.&lt;/p>
+&lt;p>If not otherwise specified, during training, per default the neural network maximizes the
+&lt;a href="http://jrmeyer.github.io/machinelearning/2017/08/18/mle.html">Maximum Likelihood Estimation of Gaussian Parameters&lt;/a>,
+for a 95% prediction interval. This so-called loss criterion can be changed to any metric that quantifies the (probabilistic) performance of the forecast. A common non-parametric option is the quantile loss. You can apply quantile loss criterion as follows:&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">$ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd --quantiles 0.025 0.975
+&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>Here we have specified the 95% prediction interval, by setting &lt;code>q1=0.025&lt;/code> and &lt;code>q2=0.975&lt;/code>.&lt;/p>
+&lt;/blockquote>
+&lt;p>See more detailed descriptions and further loss options in the full &lt;a href="#metrics">list of available training metrics&lt;/a>.&lt;/p>
+&lt;h3 id="structure">Structure&lt;/h3>
+&lt;p>To be able to adjust the training script if necessary it might be helpful to understand the overall structure of the script. If you feel like the script is missing general features, feel free to &lt;a href="../Contribution%20Guidelines/_index.md">pose a feature request&lt;/a>&lt;/p>
+&lt;blockquote>
+&lt;p>[!Note]
+There might be slight differences from the code presented here and the up-to-date &lt;code>train.py&lt;/code>.
+The file itself should be the correct version, what is presented here should however always be recognizable.
+&lt;strong>imports&lt;/strong>&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-python" data-lang="python">&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">os&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">warnings&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">from&lt;/span> &lt;span style="color:#000">copy&lt;/span> &lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">deepcopy&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">from&lt;/span> &lt;span style="color:#000">functools&lt;/span> &lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">partial&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">pandas&lt;/span> &lt;span style="color:#204a87;font-weight:bold">as&lt;/span> &lt;span style="color:#000">pd&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">torch&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">proloaf.confighandler&lt;/span> &lt;span style="color:#204a87;font-weight:bold">as&lt;/span> &lt;span style="color:#000">ch&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">proloaf.datahandler&lt;/span> &lt;span style="color:#204a87;font-weight:bold">as&lt;/span> &lt;span style="color:#000">dh&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">proloaf.modelhandler&lt;/span> &lt;span style="color:#204a87;font-weight:bold">as&lt;/span> &lt;span style="color:#000">mh&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">proloaf.tensorloader&lt;/span> &lt;span style="color:#204a87;font-weight:bold">as&lt;/span> &lt;span style="color:#000">tl&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">from&lt;/span> &lt;span style="color:#000">proloaf.cli&lt;/span> &lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">parse_with_loss&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">from&lt;/span> &lt;span style="color:#000">proloaf.confighandler&lt;/span> &lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">read_config&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">from&lt;/span> &lt;span style="color:#000">proloaf.event_logging&lt;/span> &lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000">create_event_logger&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>Nothing out of the ordinary, note however the direct dependency on pandas and torch.
+&lt;strong>globals&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-python" data-lang="python">&lt;span style="color:#000">MAIN_PATH&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">os&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">dirname&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">os&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">dirname&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">os&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">realpath&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">__file__&lt;/span>&lt;span style="color:#000;font-weight:bold">)))&lt;/span>
+&lt;span style="color:#000">torch&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">set_printoptions&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">linewidth&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">120&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span> &lt;span style="color:#8f5902;font-style:italic"># Display option for output&lt;/span>
+&lt;span style="color:#000">torch&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">set_grad_enabled&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#3465a4">True&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000">warnings&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">filterwarnings&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;ignore&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000">logger&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">create_event_logger&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;train&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#8f5902;font-style:italic"># torch.manual_seed(1)&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>MAIN_PATH&lt;/code> is the path all other path settings are relative to.
+Enable uncomment &lt;code>torch.manual_seed(1)&lt;/code> to have deterministic training.&lt;/p>
+&lt;h4 id="main">Main&lt;/h4>
+&lt;p>This function trains a model and comparse it to an existing model with the same name, if it exists. It then discards the model performing worse. It does everything but loading the config and parsing cli arguments.&lt;/p>
+&lt;p>&lt;strong>Load &amp;amp; Prepare Data&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-python" data-lang="python">&lt;span style="color:#000">logger&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">info&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;Current working directory is {:s}&amp;#34;&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">format&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">work_dir&lt;/span>&lt;span style="color:#000;font-weight:bold">))&lt;/span>
+&lt;span style="color:#8f5902;font-style:italic"># Read load data&lt;/span>
+&lt;span style="color:#000">config&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">deepcopy&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#8f5902;font-style:italic"># log_df = log.init_logging(model_name=station_name, work_dir=work_dir, config=config)&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">try&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#000">df&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">pd&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">read_csv&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">infile&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">sep&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;;&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">index_col&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000">train_df&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">val_df&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">split&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">df&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;train_split&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.7&lt;/span>&lt;span style="color:#000;font-weight:bold">)])&lt;/span>
+&lt;span style="color:#000">scaler&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">MultiScaler&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;feature_groups&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">])&lt;/span>
+&lt;span style="color:#000">train_dataset&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">tl&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">TimeSeriesData&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">train_df&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">device&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">device&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">preparation_steps&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#000">partial&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">set_to_hours&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">freq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">PAR&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;frequency&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;1h&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">)),&lt;/span>
+&lt;span style="color:#000">partial&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">fill_if_missing&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">periodicity&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;periodicity&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span>&lt;span style="color:#000;font-weight:bold">)),&lt;/span>
+&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">add_cyclical_features&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">add_onehot_features&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">scaler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">fit_transform&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">check_continuity&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">],&lt;/span>
+&lt;span style="color:#ce5c00;font-weight:bold">**&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000">val_dataset&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">tl&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">TimeSeriesData&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">val_df&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">device&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">device&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">preparation_steps&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#000">partial&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">set_to_hours&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">freq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">PAR&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;frequency&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;1H&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">)),&lt;/span>
+&lt;span style="color:#000">partial&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">fill_if_missing&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">periodicity&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;periodicity&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span>&lt;span style="color:#000;font-weight:bold">)),&lt;/span>
+&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">add_cyclical_features&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">add_onehot_features&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">scaler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">transform&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">dh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">check_continuity&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">],&lt;/span>
+&lt;span style="color:#ce5c00;font-weight:bold">**&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>Data is first loaded into a Pandas dataframe, then split and loaded into the &lt;code>TimeSeriesData&lt;/code> objects.
+These data structures fulfill the purpose of exposing the data as the original pandas dataframe (via the &lt;code>.data&lt;/code> attribute) on one side and createing data samples for training on the other side.
+The &lt;code>preparation_steps&lt;/code> are callables that take a dataframe and return a (modified) dataframe. These steps are chained to prepare the data, like interpolating gaps.
+Note that the scaler is is fit on the training data and then only applied on the validation data.
+The &lt;code>partial&lt;/code> function can be used to provide additional arguments. All steps in the preparation are applied lazily to allow dynamic adjustments.&lt;/p>
+&lt;p>&lt;strong>Model Creation &amp;amp; Training&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-python" data-lang="python">&lt;span style="color:#204a87;font-weight:bold">if&lt;/span> &lt;span style="color:#000">config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;exploration_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span> &lt;span style="color:#204a87;font-weight:bold">is&lt;/span> &lt;span style="color:#3465a4">None&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#000">tuning_config&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#3465a4">None&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">else&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#000">tuning_config&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">read_config&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">config_path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;exploration_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">],&lt;/span>
+&lt;span style="color:#000">main_path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">work_dir&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000">modelhandler&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">mh&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">ModelHandler&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">work_dir&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">work_dir&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">tuning_config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">tuning_config&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">scalers&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">scaler&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">loss&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">loss&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">loss_kwargs&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">loss_kwargs&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">device&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">device&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000">modelhandler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">fit&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">train_dataset&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">val_dataset&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000">train_dataset&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#3465a4">None&lt;/span> &lt;span style="color:#8f5902;font-style:italic"># unbind data to save some memory&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>First load the tuning config, then create the modelhandler. The modelhandler provides an api with a &lt;code>fit&lt;/code> and a &lt;code>predict&lt;/code> method as it is common in &lt;a href="https://scikit-learn.org/1.5/developers/develop.html">scikit-learns predictors&lt;/a> though with slightly different arguments.&lt;/p>
+&lt;p>&lt;strong>Model compariosn&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-python" data-lang="python">&lt;span style="color:#204a87;font-weight:bold">try&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#000">ref_model_1&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#000">modelhandler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">load_model&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">os&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">join&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">work_dir&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;output_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">),&lt;/span>
+&lt;span style="color:#000">f&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;{config[&amp;#39;model_name&amp;#39;]}.pkl&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">except&lt;/span> &lt;span style="color:#000">FileNotFoundError&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#000">ref_model_1&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#3465a4">None&lt;/span>
+&lt;span style="color:#000">logger&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">info&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;No old version of the trained model was found for the new one to compare to&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">except&lt;/span> &lt;span style="color:#c00;font-weight:bold">Exception&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#000">ref_model_1&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#3465a4">None&lt;/span>
+&lt;span style="color:#000">logger&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">warning&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;An older version of this model was found but could not be loaded, this is likely due to diverignig ProLoaF versions.&amp;#34;&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">try&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">if&lt;/span> &lt;span style="color:#000">ref_model_1&lt;/span> &lt;span style="color:#204a87;font-weight:bold">is&lt;/span> &lt;span style="color:#204a87;font-weight:bold">not&lt;/span> &lt;span style="color:#3465a4">None&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#000">modelhandler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">select_model&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">val_dataset&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#000">ref_model_1&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">modelhandler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">model_wrap&lt;/span>&lt;span style="color:#000;font-weight:bold">],&lt;/span>
+&lt;span style="color:#000">modelhandler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">_model_wrap&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">loss_metric&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">except&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>
+&lt;span style="color:#000">logger&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">warning&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;An older version of this model was found but could not be compared to the new one, this might be due to diverging model structures.&amp;#34;&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>If there is already a model that would be overwritten by the new one, it will be loaded and compared to the new one. This is done on the basis of the validation dataset and the training loss used for the current training.
+The worse performing model, is then discarded. This allows to compared the trials from hyper-parameter tuning with the original configuration.&lt;/p>
+&lt;p>&lt;strong>Saving&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-python" data-lang="python">&lt;span style="color:#000">modelhandler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">save_current_model&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">os&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">join&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">work_dir&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;output_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">),&lt;/span> &lt;span style="color:#000">f&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;{config[&amp;#39;model_name&amp;#39;]}.pkl&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">update&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">modelhandler&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">get_config&lt;/span>&lt;span style="color:#000;font-weight:bold">())&lt;/span>
+&lt;span style="color:#000">ch&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">write_config&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">model_name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">ARGS&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">station&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">config_path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">ARGS&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">.&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000">main_path&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">work_dir&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>Both the model and current config are saved. The config is saved in case hyper-parameter tuning was performed.&lt;/p>
 &lt;h3 id="reference-documentation">Reference Documentation&lt;/h3>
-&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/src/train.html">docs&lt;/a> for
-this script.&lt;/p></description></item><item><title>Docs: interpreter.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/interpreter/</link><pubDate>Wed, 16 Feb 2022 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/interpreter/</guid><description>
+&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.energy/proloaf/reference/proloaf/proloaf/src/train.html">reference&lt;/a> for this script.&lt;/p></description></item><item><title>Docs: evaluate_saliency.py</title><link>https://sogno.energy/proloaf/docs/files-and-scripts/evaluate_saliency/</link><pubDate>Mon, 23 May 2022 00:00:00 +0000</pubDate><guid>https://sogno.energy/proloaf/docs/files-and-scripts/evaluate_saliency/</guid><description>
 &lt;h3 id="overview">Overview&lt;/h3>
 &lt;p>This script evaluates a trained neural network on its salient features regarding the time and feature dimension and creates a saliency heatmap.
 The neural network should be trained beforehand.&lt;/p>
@@ -147,88 +225,285 @@ The neural network should be trained beforehand.&lt;/p>
 &lt;ul>
 &lt;li>./data/&amp;lt;path_to_data_csv&amp;gt;.csv&lt;/li>
 &lt;li>./oracles/model_station&lt;/li>
+&lt;li>./targets/&amp;lt;model_name&amp;gt;/saliency.json&lt;/li>
 &lt;/ul>
-&lt;h3 id="outputs">Outputs&lt;/h3>
-&lt;h1 id="plots-tensors-and-metrics-in-structures-table">Plots, tensors and metrics in structures table&lt;/h1>
+&lt;h3 id="plots-and-tensors">Plots and tensors&lt;/h3>
 &lt;ul>
-&lt;li>./oracles/interpretation/&amp;lt;name_of_evaluation_folder&amp;gt;/&lt;/li>
+&lt;li>./oracles/interpretation/&amp;lt;model_name&amp;gt;/&amp;lt;date_time&amp;gt;_heatmap.png&lt;/li>
+&lt;li>./oracles/interpretation/&amp;lt;model_name&amp;gt;/&amp;lt;date_time&amp;gt;_save&lt;/li>
 &lt;/ul>
 &lt;h3 id="example-output-files">Example Output Files&lt;/h3>
-&lt;p>The output consists of the most salient features visualized in the form of saliency maps split up into multiple .png images together with a csv file on the metrics and the model&amp;rsquo;s output tensors.
-&lt;img src="https://sogno.github.io/proloaf/img/heatmap_HL_base.png" alt="Basic Saliency Map" title="Basic Saliency Map">&lt;em>Basic saliency map with 7 days long recent history horizon input (predictor variable load, and hour of the day) in the encoder and one day prediction. Decoder inputs are sinus and cosinus encoding of the hour of the day.&lt;/em>&lt;/p>
-&lt;p>&lt;img src="https://sogno.github.io/proloaf/img/heatmap_HL_plus_zoomed.png" alt="Larger Saliency Study" title="Larger Saliency Study">&lt;em>Saliency map showing the importance of features per timestep tp maintain the trained loss.&lt;/em>&lt;/p>
+&lt;p>The output consists of the most salient features visualized in the form of a saliency map.
+&lt;img src="https://sogno.energy/proloaf/img/heatmap_HL_base.png" alt="Basic Saliency Map" title="Basic Saliency Map">&lt;em>Basic saliency map with 7 days long recent history horizon input (predictor variable load, and hour of the day) in the encoder and one day prediction. Decoder inputs are sinus and cosinus encoding of the hour of the day.&lt;/em>&lt;/p>
+&lt;p>&lt;img src="https://sogno.energy/proloaf/img/heatmap_HL_plus_zoomed.png" alt="Larger Saliency Study" title="Larger Saliency Study">&lt;em>Saliency map showing the importance of features per timestep op maintain the trained loss.&lt;/em>&lt;/p>
 &lt;h3 id="step-by-step-guide-what-the-interpreter-does">Step-by-step guide what the interpreter does:&lt;/h3>
 &lt;h4 id="step-1-preparations">Step 1: Preparations&lt;/h4>
 &lt;p>Select and download the data on which you want to train a neural network on and put it in the data folder.
-Make a new folder in the targets folder and put a &lt;code>config.json&lt;/code> and tuning.json file within.
-There you can set all the relevant paths and parameters.
-Now train the neural network on the data by using the fc_train function.
-The resulting net will be saved in the oracles folder&lt;/p>
-&lt;p>Now in &lt;code>__main__&lt;/code> function of the &lt;code>interpreter.py&lt;/code> the following setting need to be made:&lt;/p>
+Make a new folder in the targets folder and put a &lt;code>config.json&lt;/code> and &lt;code>tuning.json&lt;/code> file within.
+There you can set all the relevant paths and parameters. Now &lt;a href="./train.md">train&lt;/a> the neural network on the data by using the &lt;code>train.py&lt;/code>.&lt;/p>
+&lt;p>Now in &lt;a href="./config.md#saliency-config">saliency config&lt;/a> in the same folder the following settings need to be made:&lt;/p>
 &lt;ul>
-&lt;li>set the &lt;code>MAX_BATCH_SIZE&lt;/code> to the number of references to use for each feature (recommended: At least 10)&lt;/li>
-&lt;li>set &lt;code>MAX_EPOCHS&lt;/code> to the number of epochs of the saliency map optimization process (recommended: At least a few thousand)&lt;/li>
-&lt;li>set &lt;code>N_TRIALS&lt;/code> to the number of hyperparameter search trials to run (recommended: at least 30)&lt;/li>
-&lt;li>set &lt;code>MODEL_NAME&lt;/code> to the name of the folder in the targets folder created before&lt;/li>
-&lt;li>set &lt;code>SEP&lt;/code> to the column seperation sign used in the data file (eg. &amp;ldquo;;&amp;rdquo; or &amp;ldquo;,&amp;quot;)&lt;/li>
-&lt;li>set &lt;code>timesteps&lt;/code> to any number of timesteps to interpret (e.g [1,2,3])
+&lt;li>set the &lt;code>ref_batch_size&lt;/code> to the number of references to use for each feature (recommended: At least 10)&lt;/li>
+&lt;li>set &lt;code>max_epochs&lt;/code> to the number of epochs of the saliency map optimization process (recommended: At least a few thousand)&lt;/li>
+&lt;li>set &lt;code>n_trials&lt;/code> to the number of hyperparameter search trials to run (recommended: at least 30)&lt;/li>
+&lt;li>set &lt;code>lr_low&lt;/code> to the lowest learning rate a trial should take for the optimization process&lt;/li>
+&lt;li>set &lt;code>lr_high&lt;/code> to the highest learning rate a trial should take for the optimization process&lt;/li>
+&lt;li>set &lt;code>rel_interpretation_path&lt;/code> to the name of the output folder (recommended:oracles/interpretation/)&lt;/li>
+&lt;li>set &lt;code>date&lt;/code> to the date for which the saliency map should be created for&lt;/li>
+&lt;li>set &lt;code>lambda&lt;/code> according to how high big saliency map values should be penalized
+&lt;ul>
+&lt;li>
+&lt;p>lambda is the weight that determines the size of the mask weight error.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>A high lambda value means that high mask values are penalized more in the objective function, so that the mask values turn out to be smaller overall.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>A low lambda value means that high mask values are penalized less in the objective function, so that the mask values turn out to be bigger overall.&lt;/p>
 &lt;blockquote>
-&lt;p>beware that the timestep indicates the beginning of the history horizon, not the forecast horizon.
+&lt;p>beware that the date indicates the beginning of the forecast horizon.
 Also the timestep should be identical to the one of the internal dataloader not the datasheet file in the data folder&lt;/p>
 &lt;/blockquote>
 &lt;/li>
 &lt;/ul>
-&lt;h4 id="step-2-run-the-function">Step 2: Run the Function&lt;/h4>
-&lt;p>Now run the &lt;code>interpreter.py&lt;/code> script.
-The function will now read in all the parameters it needs from the &lt;code>config.json&lt;/code> file.
-The trained net will be loaded and the saliency map is calculated for each timestep.
-During the hyperparameter search some tensor will be saved to the oracles/interpretation/Tensors folder
-and the Tensors of the best performing saliency map are loaded again automatically after the process for plotting purposes.&lt;/p>
-&lt;h4 id="step-3-looking-at-the-results">Step 3: Looking at the Results&lt;/h4>
-&lt;p>After the &lt;code>interpreter.py&lt;/code> script has finished several plots can be found in the oracles/interpretation/plots/&amp;lt;model name&amp;gt; folder:&lt;/p>
-&lt;ul>
-&lt;li>plot of the saliency map&lt;/li>
-&lt;li>the corresponding input feature plots&lt;/li>
-&lt;li>a plot with the target values, the original predictions and the perturbated predictions&lt;/li>
+&lt;/li>
 &lt;/ul>
-&lt;p>The numbers in the plot names refer to the timestep of the plot&lt;/p></description></item><item><title>Docs: evaluate.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_evaluate/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/fc_evaluate/</guid><description>
+&lt;h4 id="step-2-run-the-function">Step 2: Run the Function&lt;/h4>
+&lt;p>Now run the &lt;code>evaluate_saliency.py&lt;/code> script with the -s &amp;lt;target_folder&amp;gt; flag. The function will now read in all the parameters it needs from the &lt;code>saliency.json&lt;/code> file.
+The trained net will be loaded and the saliency map is calculated for the given date.&lt;/p>
+&lt;p>The script also saves an instance of a saliency map handler class into&lt;/p>
+&lt;h4 id="step-3-looking-at-the-results">Step 3: Looking at the Results&lt;/h4>
+&lt;p>After the &lt;code>evaluate_saliency.py&lt;/code> script has finished a plot of the saliency map can be found in the &lt;code>&amp;lt;evaluation_path&amp;gt;/interpretation/&amp;lt;model name&amp;gt;&lt;/code> folder.&lt;/p>
+&lt;h4 id="step-4-other-useful-functions">Step 4: Other useful functions:&lt;/h4>
+&lt;p>The script also saves an instance of a saliency map handler class into&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;code>&amp;lt;evaluation_path&amp;gt;/interpretation/&amp;lt;model_name&amp;gt;/&amp;lt;date&amp;gt;_save&lt;/code>&lt;/p>
+&lt;/blockquote>
+&lt;p>This save file can be loaded with the load() function:&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;code>saliency_map_handler = proloaf.saliency_map.SaliencyMapHandler.load(&amp;lt;target_name&amp;gt;)&lt;/code>&lt;/p>
+&lt;/blockquote>
+&lt;p>Now, with the class instance any of the following functions can be used&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>saliency_map_handler.plot_predictions&lt;/code> to plot the target, model prediction and mean perturbed prediction&lt;/li>
+&lt;li>&lt;code>saliency_map_handler.saliency_map&lt;/code> to access the saliency tensors&lt;/li>
+&lt;li>&lt;code>saliency_map_handler.model_prediction&lt;/code> to access the model prediction tensors&lt;/li>
+&lt;/ul>
+&lt;p>For more information on existing methods have a look at the &lt;a href="https://sogno.energy/proloaf/reference/proloaf/proloaf/src/evaluate.html">Reference&lt;/a>&lt;/p></description></item><item><title>Docs: evaluate.py</title><link>https://sogno.energy/proloaf/docs/files-and-scripts/evaluate/</link><pubDate>Mon, 09 Mar 2020 00:00:00 +0000</pubDate><guid>https://sogno.energy/proloaf/docs/files-and-scripts/evaluate/</guid><description>
 &lt;h3 id="overview">Overview&lt;/h3>
 &lt;p>This script runs the trained net on test data and evaluates the result. It provides several graphs as outputs that show the performance of the trained model.
-The output path can be changed under the the &lt;code>&amp;quot;evaluation_path&amp;quot;: &lt;/code> option in the corresponding config file.&lt;/p>
+The output path can be changed under the the &lt;code>&amp;quot;evaluation_path&amp;quot;: &lt;/code> option in the corresponding &lt;a href="./config.md">config file&lt;/a>.&lt;/p>
 &lt;h3 id="inputs">Inputs&lt;/h3>
 &lt;ul>
-&lt;li>./data/&amp;lt;path_to_data_csv&amp;gt;.csv&lt;/li>
-&lt;li>./oracles/model_station&lt;/li>
+&lt;li>A &lt;a href="./config.md#main-config">config file&lt;/a>&lt;/li>
+&lt;li>Test data. All in one &lt;code>.csv&lt;/code> file. This can also include the validation and training data (see &lt;code>test_split&lt;/code> in &lt;a href="./config.md#training-settings">config description&lt;/a>). Path is defined in the config.&lt;/li>
+&lt;li>A trained model, path is also defined in the config.&lt;/li>
 &lt;/ul>
 &lt;h3 id="outputs">Outputs&lt;/h3>
 &lt;ul>
-&lt;li>./oracles/&amp;lt;name_of_evaluation_folder&amp;gt;/&lt;/li>
+&lt;li>Benchmark and error plots&lt;/li>
 &lt;/ul>
 &lt;h3 id="example-output-files">Example Output Files&lt;/h3>
 &lt;p>The output consists of the actual load prediction graph split up into multiple .png images and a metrics plot containing information about the model&amp;rsquo;s performance.
-&lt;img src="https://sogno.github.io/proloaf/img/eval_hour_plots.png" alt="Predicted load at different hours" title="Predicted residual load at different hours">&lt;em>Plots of the predicted load at different hours&lt;/em>&lt;/p>
-&lt;p>&lt;img src="https://sogno.github.io/proloaf/img/metrics_plot.png" alt="Metrics plot with performance information" title="Metrics plot with performance information">&lt;em>Metrics plot with results of evaluation&lt;/em>&lt;/p>
+&lt;img src="https://sogno.energy/proloaf/img/eval_hour_plots.png" alt="Predicted load at different hours" title="Predicted residual load at different hours">&lt;em>Plots of the predicted load at different hours&lt;/em>&lt;/p>
+&lt;p>&lt;img src="https://sogno.energy/proloaf/img/metrics_plot.png" alt="Metrics plot with performance information" title="Metrics plot with performance information">&lt;em>Metrics plot with results of evaluation&lt;/em>&lt;/p>
 &lt;h3 id="summarized-description-of-performance-metrics">Summarized Description of Performance Metrics&lt;/h3>
-&lt;p>If you need more details on which deterministic and probabilistic metrics we take to quantify if the produced forecast is considered &amp;ldquo;good&amp;rdquo; or &amp;ldquo;bad&amp;rdquo;, please take a look at the &lt;a href="https://sogno.github.io/proloaf/https://github.com/sogno-platform/proloaf/blob/master/notebooks/A%20User%20Guide%20on%20the%20ProLoaF%20Forecast%20Performance%20Metrics.ipynb">Tutorial Notebook&lt;/a>.&lt;/p>
+&lt;p>If you need more details on which deterministic and probabilistic metrics we take to quantify if the produced forecast is considered &amp;ldquo;good&amp;rdquo; or &amp;ldquo;bad&amp;rdquo;, please take a look at the &lt;a href="https://sogno.energy/proloaf/https://github.com/sogno-platform/proloaf/blob/master/notebooks/A%20User%20Guide%20on%20the%20ProLoaF%20Forecast%20Performance%20Metrics.ipynb">Tutorial Notebook&lt;/a>.&lt;/p>
 &lt;h3 id="reference-documentation">Reference Documentation&lt;/h3>
-&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.github.io/proloaf/reference/proloaf/proloaf/src/evaluate.html">docs&lt;/a> for
-this script.&lt;/p></description></item><item><title>Docs: config.json</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/config/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/config/</guid><description>
+&lt;p>If you need more details, please take a look at the &lt;a href="https://sogno.energy/proloaf/reference/proloaf/proloaf/src/evaluate.html">reference&lt;/a> for
+this script.&lt;/p></description></item><item><title>Docs: config.json</title><link>https://sogno.energy/proloaf/docs/files-and-scripts/config/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://sogno.energy/proloaf/docs/files-and-scripts/config/</guid><description>
 &lt;h3 id="configuration">Configuration&lt;/h3>
+&lt;p>This page describes the different config files used in ProLoaF.&lt;/p>
 &lt;h4 id="main-config">Main Config&lt;/h4>
 &lt;p>ProLoaF&amp;rsquo;s configuration file is written using JSON. As such, whitespace is allowed and ignored in your syntax.
 We mostly use strings, boolean, and &lt;code>null&lt;/code>, to specify the paths, and parameters of our targeted forecasting project.
 Numbers and booleans should be unquoted.&lt;/p>
 &lt;p>For better readability, we assume in the examples below,
 that your working directory is set to the main project path of the cloned
-&lt;a href="https://github.com/sogno-platform/proloaf">repository&lt;/a>.&lt;/p>
-&lt;h4 id="generating-a-configuration-file">Generating a Configuration File&lt;/h4>
-&lt;p>A &lt;em>new&lt;/em> config file can be generated automatically by using:&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">python src&lt;span style="color:#4e9a06">\c&lt;/span>onfigmaker.py --new targets/&amp;lt;STATION-NAME&amp;gt;/config.json
-&lt;/code>&lt;/pre>&lt;/div>&lt;p>or manually.&lt;/p>
-&lt;p>To &lt;em>modify&lt;/em> the file, you can change parameters with our helper or apply modifications manually.
-When using the helper, your modifications must be set in &lt;code>configmaker.py&lt;/code>. You can then run:&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">python src&lt;span style="color:#4e9a06">\c&lt;/span>onfigmaker.py --mod targets/&amp;lt;STATION-NAME&amp;gt;/config.json
-&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="configuration-loading">Configuration Loading&lt;/h4>
+&lt;a href="https://github.com/sogno-platform/proloaf">repository&lt;/a>. There is also template config file availble in the &lt;a href="https://github.com/sogno-platform/proloaf/tree/master/targets/opsd">targets folder&lt;/a>.&lt;/p>
+&lt;p>We will split this config superficially into multiple thematical parts and discuss all available options.&lt;/p>
+&lt;h5 id="path-settings">Path Settings&lt;/h5>
+&lt;p>Through the config file the user specifies the data source location, and the directories for logging,
+exporting performance analyses and most importantly, the trained RNN model binary.&lt;/p>
+&lt;p>&lt;strong>Path Specs:&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json"> &lt;span style="color:#4e9a06">&amp;#34;data_path&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./data/&amp;lt;FILE-NAME&amp;gt;.csv&amp;#34;&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;evaluation_path&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./oracles/eval_&amp;lt;MODEL-NAME&amp;gt;/&amp;#34;&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;output_path&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./oracles/&amp;#34;&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;exploration_path&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./targets/opsd/tuning.json&amp;#34;&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;log_path&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./logs/&amp;#34;&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>The output-, exploration- and log- paths may stay unchanged, but the data path and evaluation path must be specified.&lt;/p>
+&lt;ul>
+&lt;li>data_path: Specifies the path to the input data as csv.&lt;/li>
+&lt;li>evaluation_path: The path where plots and data from the evaluation is stored when &lt;code>evaluation.py&lt;/code> is run.&lt;/li>
+&lt;li>output_path: Path to the folder where the model should be stored.&lt;/li>
+&lt;li>exploration_path: Path to the &lt;a href="#tuning-config">tuning config&lt;/a>. If no tuning is to be done (&lt;code>exploration = false&lt;/code> see below.) this can be ommited (or &lt;code>null&lt;/code>).&lt;/li>
+&lt;li>log_path: Output to the logs from hyperparameter tuning.&lt;/li>
+&lt;/ul>
+&lt;h5 id="data-settings">Data Settings&lt;/h5>
+&lt;p>These settings describe the data and how it should be used.&lt;/p>
+&lt;p>&lt;strong>Data Specs&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json"> &lt;span style="color:#4e9a06">&amp;#34;start_date&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#204a87;font-weight:bold">null&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;history_horizon&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">147&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;forecast_horizon&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;frequency&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;1h&amp;#34;&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;train_split&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.6&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;validation_split&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.8&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;periodicity&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;feature_groups&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;main&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;scaler&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;minmax&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#0000cf;font-weight:bold">0.0&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#0000cf;font-weight:bold">1.0&lt;/span>
+&lt;span style="color:#000;font-weight:bold">],&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;features&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;AT_load_actual_entsoe_transparency&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_load_actual_entsoe_transparency&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_temperature&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_radiation_direct_horizontal&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_radiation_diffuse_horizontal&amp;#34;&lt;/span>
+&lt;span style="color:#000;font-weight:bold">]&lt;/span>
+&lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;aux&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;scaler&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#204a87;font-weight:bold">null&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;features&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;hour_sin&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;weekday_sin&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;mnth_sin&amp;#34;&lt;/span>
+&lt;span style="color:#000;font-weight:bold">]&lt;/span>
+&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>start_date: All value before this date will be cut off.&lt;/li>
+&lt;li>history_horizon: Number of timesteps taken into account in the past to create a forecast. It is possible to change this value between training and running the model if an RNN model is used, this might however negatively impact performance.&lt;/li>
+&lt;li>forecast_horizon: Number of timesteps that are being forecast as well as how many other forecasted values (from external sources) are considered for this. It is possible to change this value between training and running the model if an RNN model is used, this might however negatively impact performance.&lt;/li>
+&lt;li>frequency: Frequency of the data, number and unit. For hourly data use &lt;code>&amp;quot;1h&amp;quot;&lt;/code> for quarter-hourly &lt;code>&amp;quot;15min&amp;quot;&lt;/code>.&lt;/li>
+&lt;li>train_split: Float between 0.0 and 1.0, should be smaller than &lt;code>validation_split&lt;/code>. Gives the ratio of the whole dataset is to be used for training as opposed to validation and evaluataion. It is also possible to specify the split by time in the iso 8601 (&lt;code>YYYY-MM-DD HH:MM:SS&lt;/code>) format.&lt;/li>
+&lt;li>validation_split: Float between 0.0 and 1.0. should be larger than &lt;code>train_split&lt;/code>. Defines the second split between validation data and evaluation data. It is also possible to specify the split by time in the iso 8601 (&lt;code>YYYY-MM-DD HH:MM:SS&lt;/code>) format.&lt;/li>
+&lt;li>periodicity: The expected period of the data in number of timesteps. For data following a daily cycle and 15 min frequency this should be 95 (= 24 * 4). This is used to extrapolate gaps in data.&lt;/li>
+&lt;li>feature_groups: A list of json object that define groups of features and how they should be scaled. Features are usually scaled so the relative magnitude of their values (and chosen units) does not impact the forecasting model. Features are only grouped to reduce the number parameters that need to be set.
+These groups consist of
+&lt;ul>
+&lt;li>name: Some name, only for identifaction. The name &amp;ldquo;aux&amp;rdquo; implies that there should not be a warning for not scaling these features.&lt;/li>
+&lt;li>scaler: Name of the scaler, available are &lt;a href="https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html">&amp;ldquo;minmax&amp;rdquo;&lt;/a>, &lt;a href="https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html">&amp;ldquo;standard&amp;rdquo;&lt;/a> and &lt;a href="https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.RobustScaler.html">&amp;ldquo;robust&amp;rdquo;&lt;/a>. The numbers following are the arguments given to its constructor. For more information refer to the provided links.&lt;/li>
+&lt;li>features: List of feature names that are to be scaled.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h5 id="model-settings">Model Settings&lt;/h5>
+&lt;p>These settings describe the model itself, including inputs, outputs and model structure.&lt;/p>
+&lt;p>&lt;strong>Model Specs&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json"> &lt;span style="color:#4e9a06">&amp;#34;model_name&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;opsd_recurrent&amp;#34;&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;target_id&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_load_actual_entsoe_transparency&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;AT_load_actual_entsoe_transparency&amp;#34;&lt;/span>
+&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;encoder_features&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;AT_load_actual_entsoe_transparency&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_load_actual_entsoe_transparency&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_temperature&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_radiation_direct_horizontal&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_radiation_diffuse_horizontal&amp;#34;&lt;/span>
+&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;decoder_features&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;DE_temperature&amp;#34;&lt;/span>
+&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;aux_features&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;hour_sin&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;weekday_sin&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;mnth_sin&amp;#34;&lt;/span>
+&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;model_class&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;recurrent&amp;#34;&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;model_parameters&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;recurrent&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;core_net&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;torch.nn.LSTM&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;core_layers&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;dropout_fc&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.4&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;dropout_core&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.3&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;rel_linear_hidden_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1.0&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;rel_core_hidden_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1.0&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;relu_leak&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.1&lt;/span>
+&lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;simple_transformer&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;num_layers&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">3&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;dropout&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.4&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;n_heads&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">6&lt;/span>
+&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>model_name: Any string that will be used to identify the model. Will be used for the filename of the model.&lt;/li>
+&lt;li>target_id: List of column names that are to be predicted.&lt;/li>
+&lt;li>encoder_features: Features that are known to the encoder. These are the features whose values from the past are available, i. e. the past values of the predicted feature.&lt;/li>
+&lt;li>decoder_features: Features that are known to the decoder. These are features whose value lies in the future, this could be from a weather forecast or a previously decided schedule.&lt;/li>
+&lt;li>aux_features: These features are known to both the decoder and the encoder, if you are using one-hot or geometrically encoded time features these can be included here. In the future these features might be added automatically when they are produced in the preprocessing.&lt;/li>
+&lt;li>model_class: Type of model to be used, available are &lt;code>&amp;quot;recurrent&amp;quot;&lt;/code>, &lt;code>&amp;quot;simple_transformer&amp;quot;&lt;/code>, &lt;code>&amp;quot;autoencoder&amp;quot;&lt;/code>, &lt;code>&amp;quot;dualmodel&amp;quot;&lt;/code>. This also selects which parameters are used from &lt;code>model_parameters&lt;/code> (see below) For more information the models see. &lt;!-- TODO link -->&lt;/li>
+&lt;li>model_parameters: Parameters that describe the specific model. The keys correspond directly to the &lt;code>model_class&lt;/code> setting. Multiple keys are possible to easily switch between different setups but only the one select using &lt;code>model_class&lt;/code> is ever active and required. For a description of the available model classes see &lt;!-- TODO -->&lt;/li>
+&lt;/ul>
+&lt;h5 id="training-settings">Training Settings&lt;/h5>
+&lt;p>These settings, configure how the training is conducted.&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json"> &lt;span style="color:#4e9a06">&amp;#34;optimizer_name&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;adam&amp;#34;&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;exploration&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#204a87;font-weight:bold">false&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;cuda_id&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#204a87;font-weight:bold">null&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;max_epochs&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">50&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;batch_size&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">28&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;learning_rate&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">9.9027931032814e-05&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;early_stopping_patience&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">7&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;span style="color:#4e9a06">&amp;#34;early_stopping_margin&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.0&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>optimizer_name: Name of the optimizer used for training. Available are &lt;code>&amp;quot;adam&amp;quot;&lt;/code> (default), &lt;code>&amp;quot;sgd&amp;quot;&lt;/code> (stochastic gradient decent), &lt;code>&amp;quot;adagrad&amp;quot;&lt;/code>, &lt;code>&amp;quot;adamax&amp;quot;&lt;/code>, &lt;code>&amp;quot;rmsprop&amp;quot;&lt;/code>. For more information consult the &lt;a href="https://pytorch.org/docs/stable/optim.html#algorithms">pytorch documentation&lt;/a>&lt;/li>
+&lt;li>exploration: Boolean value that determines whether hyper parameter exploration is performed. If this is &lt;code>true&lt;/code> a an &lt;code>exploration_path&lt;/code> needs to be provided in the &lt;a href="#path-settings">path settings&lt;/a>&lt;/li>
+&lt;li>cuda_id: ID of a CUDA capabale GPU incase multiple are available and a specific one should be used. If this is null or ommited a GPU will be selected automatically.&lt;/li>
+&lt;li>max_epochs: Maximum number of epochs during training. In each epoch the training dataset is completely run through once. It is generally recommend to use a rather high setting as there is an early stopping mechanism that stops on convergence.&lt;/li>
+&lt;li>batch_size: Number samples per batch. Each batch is evaluated at once before doing an optimization step.&lt;/li>
+&lt;li>learning_rate: Factor for the stepsiez in optimization step. Very dependent on the specific use-case. Generally a higher learning rate leads to faster convergence but less accurate results.&lt;/li>
+&lt;li>early_stopping_patience: Number of epoch without improvement in validation error after which training is stopped.&lt;/li>
+&lt;li>early_stopping_margin: Minimum improvement in validation error to considered an improvement in terms of early stopping. This is an absolute change.&lt;/li>
+&lt;/ul>
+&lt;h4 id="tuning-config">Tuning Config&lt;/h4>
+&lt;p>The tuning config manages the exploration hyper-parameter. To use exploration, activate it in the &lt;a href="#model-settings">main config&lt;/a> and set the &lt;a href="#path-settings">exploration path&lt;/a>.
+In this config specify the tumber of test runs that should be conducted using the attribute&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json">&lt;span style="color:#4e9a06">&amp;#34;number_of_tests&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">5&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>In each test a model will be trained and evaluate against each other.
+The remainder of the config is under the key &lt;code>&amp;quot;settings&amp;quot;&lt;/code>.
+Its value is an object that represents the structure of the &lt;a href="#main-config">main config&lt;/a> only the values work differently and none of the parameters is required, the main config will be used for absent parameters.&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json"> &lt;span style="color:#4e9a06">&amp;#34;batch_size&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;function&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;suggest_int&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;kwargs&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;batch_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;low&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">12&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;high&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">120&lt;/span>
+&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;span style="color:#000;font-weight:bold">}&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>The value of the parameter specifies a function and map (&amp;ldquo;kwargs&amp;rdquo;) that specifies the inputs to that function. Eligible functions are the methods of &lt;a href="https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html">optuna trials&lt;/a>. Obviously only settings can be used whose output corresponds to valid values in main config.&lt;/p>
+&lt;h4 id="saliency-config">Saliency Config&lt;/h4>
+&lt;p>The saliency config dictates how the generation of &lt;a href="https://sogno.energy/proloaf/docs/files-and-scripts/evaluate_saliency/">saliency maps&lt;/a> is conducted.&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json">&lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;rel_interpretation_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;oracles/interpretation&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;date&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;27.07.2019 00:00:00&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;ref_batch_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">40&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;max_epochs&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">3000&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;n_trials&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">5&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;lr_low&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1e-3&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;lr_high&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.1&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;relative_errors&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#204a87;font-weight:bold">true&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;lambda&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;span style="color:#204a87;font-weight:bold">&amp;#34;cuda_id&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#204a87;font-weight:bold">null&lt;/span>
+&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>rel_interpretation_path: Path relative to the project folder where the results are supposed to be stored.&lt;/li>
+&lt;li>date: date and time for which the saliency map is constructed.&lt;/li>
+&lt;li>ref_batch_size: How many noisy samples are used to analyze the impact of said noise on that result. Higher numbers slow down the algorithm, lower ones make the result dependent on stochastic fluctuation. Minimum recommended size is 10.&lt;/li>
+&lt;li>max_epoch: Number of optimization steps to find maximum noise with minium result deterioration.&lt;/li>
+&lt;li>n_trials: How many noise optimizations should be conducted and compared.&lt;/li>
+&lt;li>lr_low: Lower bound for the learning rate during noise optimization.&lt;/li>
+&lt;li>lr_high: Upper bound for the learning rate during noise optimization.&lt;/li>
+&lt;li>relative_errors: Boolean that switchen between relative and absolute weighting of errors. If true (recommended) the terms for &amp;ldquo;low amount of noise applied&amp;rdquo; and &amp;ldquo;quality deterioration&amp;rdquo; are normalized according to their values from the initial naive guess for a noise mask. For more detail see (https://sogno.energy/proloaf/docs/files-and-scripts/evaluate_saliency/)&lt;/li>
+&lt;li>lambda: Weighting of the two errors against eachother. If &lt;code>realatve_erros: true&lt;/code> this is a relative weighting Value &amp;gt;1 increases the value on applying as much noise as possible, &amp;lt;1 increases the focus on not negatively impacting the prediction quality. If &lt;code>realatve_erros: false&lt;/code> this is absolute and the value might vary greatly (e. g. `lambda: 1e-4 might be reasonable) and is highly dependent on the use-case.&lt;/li>
+&lt;li>cuda_id: ID of a CUDA capabale GPU incase multiple are available and a specific one should be used. If this is null or ommited a GPU will be selected automatically.&lt;/li>
+&lt;/ul>
+&lt;h4 id="specifying-a-config-file">Specifying a config file&lt;/h4>
 &lt;p>The default location of the main configuration file is &lt;code>./targets/&lt;/code> or better &lt;code>./targets/&amp;lt;STATION&amp;gt;&lt;/code>.
 The best practice is to generate sub-directories for each forecasting exercise, i.e. a new &lt;em>station&lt;/em>.
 As the project originated from electrical load forecasting on substation-level,
@@ -239,275 +514,34 @@ as it serves as a central place for parametrization.&lt;/p>
 &lt;p>At this stage you should have the main config file for your forecasting project: &lt;code>./targets/&amp;lt;STATION&amp;gt;/config.json&lt;/code>.
 &lt;a href="https://github.com/sogno-platform/proloaf/tree/master/src/proloaf">ProLoaF&lt;/a> comes with basic functions to parse,
 edit and store the config file. We make use of this when calling e.g. our example training script:&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">$ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd
-&lt;/code>&lt;/pre>&lt;/div>&lt;p>The flag &lt;code>-s&lt;/code> allows us to specify the station name (=target directory) through the string that follows,
-i.e. &lt;em>opsd&lt;/em>. The &amp;lsquo;train&amp;rsquo; script will expect and parse the config.json given in the target directory.&lt;/p>
-&lt;!---
-```sh
-from proloaf.cli import read_config, parse_with_loss
-MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(MAIN_PATH)
-ARGS, LOSS_OPTIONS = parse_with_loss()
-PAR = read_config(model_name=ARGS.station, config_path=ARGS.config, main_path=MAIN_PATH)
-```
---->
-&lt;p>You can also manually specify the path to the config file by adding &lt;code>-c &amp;lt;CONFIG_PATH&amp;gt;&lt;/code> to the above mentioned
-statement.&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">$ python src/train.py -s opsd
+&lt;/code>&lt;/pre>&lt;/div>&lt;p>The flag &lt;code>-s&lt;/code> allows us to specify the station name (=target directory) through the string that follows, i.e. &lt;em>opsd&lt;/em>. The &amp;lsquo;train&amp;rsquo; script will expect and parse the config.json given in the target directory. You can also manually specify the path to the config file by adding &lt;code>-c &amp;lt;CONFIG_PATH&amp;gt;&lt;/code> to the above mentioned
+statement. The equivalent statement would be:&lt;/p>
+&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh">$ python src/train.py -c ./targets/opsd/config.json
+&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: metrics</title><link>https://sogno.energy/proloaf/docs/files-and-scripts/metrics/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://sogno.energy/proloaf/docs/files-and-scripts/metrics/</guid><description>
+&lt;h3 id="metrics">Metrics&lt;/h3>
+&lt;p>When training a model its exact behaviour depends on the metric. For example a model using mean-squared-error is more sensitive to outliers than mean-absolute-error, which is equivalent with predicting the median. In addition these metrics can have implicit assumptions, e. g. the negative-log-likelihood-Gaussian (nllg) loss assumes that the value at each timestep is a normal distributed random variable. These losses are also parameterized in different ways. ProLoaF predicts these additional parameters directly (e. g. the log variance for nllg).
+Using ProLoaF will make sure that the model is constructed with the correct number of output parameters every time.&lt;/p>
+&lt;h4 id="usage">Usage&lt;/h4>
+&lt;p>Every metric in ProLoaF inherits from an abstract base class. All the metric objects are callable with predicitons and targets and will return a single value by default. They all have an argument named &lt;code>avg_over&lt;/code>. Possible inputs are &lt;code>&amp;quot;sample&amp;quot;&lt;/code>, &lt;code>&amp;quot;time&amp;quot;&lt;/code>, &lt;code>&amp;quot;feature&amp;quot;&lt;/code>, &lt;code>&amp;quot;all&amp;quot;&lt;/code> Or a combination of them in a tuple. For training &lt;code>&amp;quot;all&amp;quot;&lt;/code> is used these can be used to analyse the performance of the model in more detail. Due to their definition not all metrics support averageing over each dimension separately.
+Since the model output depends on the metric used for training different metrics can not be applied directly. To circumvent this every loss metric has a method &lt;code>get_quantile_prediction&lt;/code> that changes to prediction into multiple predicitons, one for each quantile specified and each feature. The metrics also have a &lt;code>from_quantiles&lt;/code> method that allows to calculate the metric from quantile predictions. Since the quantiles do not necessary support the assumptions in loss (e. g. being normally distributed) these calculations may be approximations.&lt;/p>
+&lt;p>For a general overview of the metric there is a &lt;a href="https://github.com/sogno-platform/proloaf/blob/master/notebooks/A%20User%20Guide%20on%20the%20ProLoaF%20Forecast%20Performance%20Metrics.ipynb">Jupyter notebook&lt;/a> going more into detail.
+For a full list of all available metrics please refer the to reference (TODO link).&lt;/p></description></item><item><title>Docs: baselines.py</title><link>https://sogno.energy/proloaf/docs/files-and-scripts/baselines/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://sogno.energy/proloaf/docs/files-and-scripts/baselines/</guid><description>
 &lt;blockquote>
-&lt;p>&lt;strong>&lt;em>Note:&lt;/em>&lt;/strong> If not otherwise specified, during training, per default the neural network maximizes the
-&lt;a href="http://jrmeyer.github.io/machinelearning/2017/08/18/mle.html">Maximum Likelihood Estimation of Gaussian Parameters&lt;/a>,
-for a 95% prediction interval.
-This so-called loss criterion can be changed to any metric that quantifies the (probabilistic) performance
-of the forecast. A common non-parametric option is the quantile loss.
-You can apply quantile loss criterion as follows:&lt;/p>
+&lt;p>WARNING:
+This script is currently not functional due to a version mismatch on numpy. For more information see the &lt;a href="https://github.com/alkaline-ml/pmdarima/issues/577%22">related issue&lt;/a>.&lt;/p>
 &lt;/blockquote>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh"> $ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd --quantiles 0.025 0.975
-&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
-&lt;p>Here we have specified the 95% prediction interval, by setting &lt;code>q1=0.025&lt;/code> and &lt;code>q2=0.975&lt;/code>.&lt;/p>
-&lt;/blockquote>
-&lt;p>See more detailed descriptions and further loss options in the full &lt;a href="#parameter-list">list of parameters&lt;/a>.&lt;/p>
-&lt;h4 id="path-settings">Path Settings&lt;/h4>
-&lt;p>Through the config file the user specifies the data source location, and the directories for logging,
-exporting performance analyses and most importantly, the trained RNN model binary.&lt;/p>
-&lt;p>&lt;strong>Path Specs:&lt;/strong>&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json">&lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;data_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./data/&amp;lt;FILE-NAME&amp;gt;.csv&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;evaluation_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./oracles/eval_&amp;lt;MODEL-NAME&amp;gt;/&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;output_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./oracles/&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;exploration_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./targets/sege/tuning.json&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;log_path&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;./logs/&amp;#34;&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/code>&lt;/pre>&lt;/div>&lt;p>The output-, exploration- and log- paths may stay unchanged, but the data path and evaluation path must be specified.&lt;/p>
-&lt;blockquote>
-&lt;p>&lt;strong>&lt;em>Note:&lt;/em>&lt;/strong> The data path should contain a csv file that includes all input data column-wise in any time-resolution.
-In our example train-&amp;amp; evaluation scripts, the first column is treated as datetime information and declared as
-pandas datetime index. &lt;em>oracles&lt;/em> is the default naming of the output directory,
-in which the prediction model and predictive performance are stored.&lt;/p>
-&lt;/blockquote>
-&lt;h4 id="timeseries-settings">Timeseries Settings&lt;/h4>
-&lt;p>ProLoaF is a machine-learning based timeseries forecasting project. The supervised learning requires data with
-a (pandas) datetime index. Typical time resolutions are:&lt;code>ms&lt;/code>, &lt;code>s&lt;/code>, &lt;code>m&lt;/code>, &lt;code>h&lt;/code>, &lt;code>d&lt;/code>.
-Endogenous (lagged) inputs and exogenous (=explanatory) variables that affect the future explained variable,
-are split into multiple windows with the sequence length of &lt;code>history_horizon&lt;/code> and fed to the encoder.
-For better understanding, we recommend
-&lt;a href="https://github.com/bentrevett/pytorch-seq2seq/blob/master/1%20-%20Sequence%20to%20Sequence%20Learning%20with%20Neural%20Networks.ipynb">the illustrative guide&lt;/a>
-on a similar sequence-to-sequence architecture authored by Ben Trevett.&lt;/p>
-&lt;p>The time step size is equal to the underlying timeseries data resolution.
-The example files apply day-ahead forecasting in hourly resolution.&lt;/p>
-&lt;blockquote>
-&lt;p>&lt;strong>&lt;em>Note:&lt;/em>&lt;/strong> A forecast that produces a predicted sequence starting from the forecasting execution time and including the next day,
-is &amp;gt;=24h, depending on the forecast execution time t, e.g. a day-ahead forecast executed at 9 am, shall produce a 40 hour horizon.&lt;/p>
-&lt;/blockquote>
-&lt;p>Following parameters configure the input- and output- sequence length:&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json">&lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;history_horizon&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">42&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;forecast_horizon&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="data-partitioning">Data Partitioning&lt;/h4>
-&lt;p>In machine learning, we typically split available data to train the model and test its performance.
-With the training set, the model is parameterized. By checking against validation data, we track the fitting process.
-In a final step, the test set serves to assess and confirm the predictive power of the trained model.
-To configure the size of each mentioned set, specify:&lt;/p>
-&lt;ul>
-&lt;li>
-&lt;p>&lt;strong>train_split&lt;/strong>:
-Given an input dataframe df, all timestamps before the specified split are used for training:
-&lt;code>df[:train_split*df.shape[0]]&lt;/code>.&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;strong>validation_split&lt;/strong>:
-For validation during training, we use all data between train and validation limiters in the dataframe df:
-&lt;code>df[train_split*df.shape[0]:validation_split*df.shape[0]]&lt;/code>.&lt;/p>
-&lt;/li>
-&lt;/ul>
-&lt;blockquote>
-&lt;p>&lt;strong>&lt;em>Note:&lt;/em>&lt;/strong> The &lt;em>test_split&lt;/em> is set per default, through the remaining input data from df:
-&lt;code>df[validation_split*df.shape[0]:]&lt;/code>.&lt;/p>
-&lt;/blockquote>
-&lt;h4 id="data-pre-processing-through-scaling">Data Pre-processing through Scaling&lt;/h4>
-&lt;h4 id="feature-selection">Feature Selection&lt;/h4>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json"> &lt;span style="color:#4e9a06">&amp;#34;feature_groups&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
-&lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;main&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;scaler&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
-&lt;span style="color:#4e9a06">&amp;#34;robust&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#0000cf;font-weight:bold">15&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#0000cf;font-weight:bold">85&lt;/span>
-&lt;span style="color:#000;font-weight:bold">],&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;features&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
-&lt;span style="color:#4e9a06">&amp;#34;&amp;lt;COLUMN-IDENTIFIER-1&amp;gt;&amp;#34;&lt;/span>
-&lt;span style="color:#000;font-weight:bold">]&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json"> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;add&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;scaler&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
-&lt;span style="color:#4e9a06">&amp;#34;minmax&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#0000cf;font-weight:bold">-1.0&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#0000cf;font-weight:bold">1.0&lt;/span>
-&lt;span style="color:#000;font-weight:bold">],&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;features&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
-&lt;span style="color:#4e9a06">&amp;#34;&amp;lt;COLUMN-IDENTIFIER-2&amp;gt;&amp;#34;&lt;/span>
-&lt;span style="color:#000;font-weight:bold">]&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json"> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;aux&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;scaler&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#204a87;font-weight:bold">null&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;features&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
-&lt;span style="color:#4e9a06">&amp;#34;&amp;lt;COLUMN-IDENTIFIER-3&amp;gt;&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#4e9a06">&amp;#34;&amp;lt;COLUMN-IDENTIFIER-4&amp;gt;&amp;#34;&lt;/span>
-&lt;span style="color:#000;font-weight:bold">]&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;span style="color:#a40000">]&lt;/span>
-&lt;/code>&lt;/pre>&lt;/div>&lt;pre>&lt;code class="language-"encoder_features":" data-lang=""encoder_features":"> &amp;quot;&amp;lt;COLUMN-IDENTIFIER-1&amp;gt;&amp;quot;,
-&amp;quot;&amp;lt;COLUMN-IDENTIFIER-2&amp;gt;&amp;quot;
-],
-&amp;quot;decoder_features&amp;quot;: [
-&amp;quot;&amp;lt;COLUMN-IDENTIFIER-3&amp;gt;&amp;quot;,
-&amp;quot;&amp;lt;COLUMN-IDENTIFIER-4&amp;gt;&amp;quot;
-],
-### RNN Cell Type
-- GRU: trains typically faster (per epoch) with similar results compared to LSTM cells.
-- LSTM
-```json
-{
-&amp;quot;history_horizon&amp;quot;: 42,
-&amp;quot;forecast_horizon&amp;quot;: 24
-}
-&lt;/code>&lt;/pre>&lt;h4 id="hyperparameters-and-tuning">Hyperparameters and Tuning&lt;/h4>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-json" data-lang="json">&lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;max_epochs&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;batch_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;learning_rate&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.0001&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;core_layers&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;rel_linear_hidden_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1.0&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;rel_core_hidden_size&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1.0&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;dropout_fc&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.4&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
-&lt;span style="color:#204a87;font-weight:bold">&amp;#34;dropout_core&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0.3&lt;/span>
-&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
-&lt;li>
-&lt;p>&lt;strong>max_epochs&lt;/strong>:&amp;hellip;.&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;strong>batch_size&lt;/strong>: &amp;hellip;&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;strong>learning_rate&lt;/strong>: &amp;hellip;&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;strong>core_layers&lt;/strong>: &amp;hellip;&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;strong>rel_linear_hidden_size&lt;/strong>: &amp;hellip;&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;strong>rel_core_hidden_size&lt;/strong>: &amp;hellip;&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;strong>dropout_fc&lt;/strong>: &amp;hellip;&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;strong>dropout_core&lt;/strong>: &amp;hellip;&lt;/p>
-&lt;/li>
-&lt;/ul>
-&lt;p>Configure which hyperparameters are optimized and specify each parameters search space through a separate
-&lt;a href="#tuning-config">tuning config&lt;/a>.&lt;/p>
-&lt;blockquote>
-&lt;p>&lt;strong>&lt;em>Note:&lt;/em>&lt;/strong> Best practice is to save the tuning.config in the same directory in which the main config is given.
-However, by setting a &lt;a href="#path-settings">specific exploration_path&lt;/a>, the user can direct to a
-different location on the machine.&lt;/p>
-&lt;/blockquote>
-&lt;h4 id="gpu-specs">GPU Specs&lt;/h4>
-&lt;p>Some text on cuda id&lt;/p>
-&lt;h4 id="selecting-the-best-model">Selecting the best model&lt;/h4>
-&lt;ul>
-&lt;li>&lt;strong>best_loss&lt;/strong>:&lt;/li>
-&lt;li>&lt;strong>best_score&lt;/strong>:&lt;/li>
-&lt;/ul>
-&lt;h4 id="parameter-list">Parameter List&lt;/h4>
-&lt;p>The following table summarizes the default parameters of the main config file:&lt;/p>
-&lt;p>&lt;strong>Config Params&lt;/strong>&lt;/p>
-&lt;table>
-&lt;thead>
-&lt;tr>
-&lt;th align="center">Parameter&lt;/th>
-&lt;th align="center">Data Type&lt;/th>
-&lt;th align="center">Value Range&lt;/th>
-&lt;/tr>
-&lt;/thead>
-&lt;tbody>
-&lt;tr>
-&lt;td align="center">history_horizon&lt;/td>
-&lt;td align="center">int&lt;/td>
-&lt;td align="center">&amp;gt; 0&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td align="center">forecast_horizon&lt;/td>
-&lt;td align="center">int&lt;/td>
-&lt;td align="center">&amp;gt; 0&lt;/td>
-&lt;/tr>
-&lt;/tbody>
-&lt;/table>
-&lt;p>&lt;strong>Shell Params Upon Script Execution&lt;/strong>&lt;/p>
-&lt;p>Example:&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh"> $ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd --rmse
-&lt;/code>&lt;/pre>&lt;/div>&lt;p>or&lt;/p>
-&lt;div class="highlight">&lt;pre style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4">&lt;code class="language-sh" data-lang="sh"> $ python src&lt;span style="color:#4e9a06">\t&lt;/span>rain.py -s opsd --smoothed_quantiles 0.025 0.975
-&lt;/code>&lt;/pre>&lt;/div>&lt;table>
-&lt;thead>
-&lt;tr>
-&lt;th align="center">Parameter&lt;/th>
-&lt;th align="center">Data Type&lt;/th>
-&lt;th align="center">Value Range&lt;/th>
-&lt;th align="center">Short Description&lt;/th>
-&lt;/tr>
-&lt;/thead>
-&lt;tbody>
-&lt;tr>
-&lt;td align="center">&amp;ndash;&amp;lt; loss &amp;gt;&lt;/td>
-&lt;td align="center">string in shell&lt;/td>
-&lt;td align="center">{mse, mape, rmse, mis, nll_gauss, quantiles, smoothed_quantiles, crps}&lt;/td>
-&lt;td align="center">Set the loss function for training&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td align="center">&amp;ndash;ci&lt;/td>
-&lt;td align="center">boolean&lt;/td>
-&lt;td align="center">True or False&lt;/td>
-&lt;td align="center">Enables execution mode optimized for GitLab&amp;rsquo;s CI&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td align="center">&amp;ndash;logname&lt;/td>
-&lt;td align="center">str&lt;/td>
-&lt;td align="center">&amp;quot; &amp;quot;&lt;/td>
-&lt;td align="center">Name of the run, displayed in Tensorboard&lt;/td>
-&lt;/tr>
-&lt;/tbody>
-&lt;/table>
-&lt;h3 id="tuning-config">Tuning Config&lt;/h3>
-&lt;blockquote>
-&lt;p>Tensorboard utilization&lt;/p>
-&lt;/blockquote>
-&lt;p>This project uses Tensorboard to display in-depth information about each train run. Information about the run itself like training time and validation
-loss are visible in the &lt;code>Scalars&lt;/code> tab. The &lt;code>HParams&lt;/code> tab allows sorting of runs by hyper parameters as well as parallel and scatter plots. To define which
-data should be logged, a &lt;code>log.json&lt;/code> of following structure is used in the targets/ folder of each station:&lt;/p>
-&lt;pre>&lt;code>{
-&amp;quot;features&amp;quot;: [
-{
-&amp;quot;name&amp;quot;: &amp;quot;time_stamp&amp;quot;
-},
-{
-&amp;quot;name&amp;quot;: &amp;quot;train_loss&amp;quot;
-},
-{
-&amp;quot;name&amp;quot;: &amp;quot;val_loss&amp;quot;
-},
-{
-&amp;quot;name&amp;quot;: &amp;quot;total_time&amp;quot;
-}
-]
-}
-&lt;/code>&lt;/pre>&lt;p>Install Tensorboard and run the Tensorboard command-line interface as described &lt;a href="https://pytorch.org/tutorials/recipes/recipes/tensorboard_with_pytorch.html">here&lt;/a>. The default directory that runs get saved in is the &lt;code>runs/&lt;/code> directory.
-To display runs in Tensorboard, use &lt;code>tensorboard --logdir=runs&lt;/code>, then open a browser and navigate to &lt;a href="127.0.0.1:6006">127.0.0.1:6006&lt;/a>&lt;/p>
-&lt;h3 id="preprocessing-config">Preprocessing Config&lt;/h3></description></item><item><title>Docs: baselines.py</title><link>https://sogno.github.io/proloaf/docs/files-and-scripts/baselines/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://sogno.github.io/proloaf/docs/files-and-scripts/baselines/</guid><description>
 &lt;p>Checkout the baselines benchmark notebook for further reading on the baseline models that are implemented in ProLoaF to benchmark the model.&lt;/p>
-&lt;p>Here: &lt;a href="https://github.com/sogno-platform/proloaf/tree/master/notebooks">Tutorial Notebooks&lt;/a>&lt;/p></description></item></channel></rss>
+&lt;p>Here: &lt;a href="https://github.com/sogno-platform/proloaf/tree/master/notebooks">Tutorial Notebooks&lt;/a>&lt;/p></description></item><item><title>Docs:</title><link>https://sogno.energy/proloaf/docs/files-and-scripts/models/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://sogno.energy/proloaf/docs/files-and-scripts/models/</guid><description>
+&lt;h3 id="the-models">The Models&lt;/h3>
+&lt;p>There are multiple models available to be created using ProLoaF.&lt;/p>
+&lt;h4 id="recurrent-neural-networks-rnn">Recurrent Neural Networks (RNN)&lt;/h4>
+&lt;p>The default recommended model is an &lt;a href="https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html">long-short-term-memory (LSTM)&lt;/a>. This model also allows the use of other recurrent model like &lt;a href="https://pytorch.org/docs/stable/generated/torch.ao.nn.quantized.dynamic.GRU.html">gated-recurrent-units (GRU)&lt;/a>.
+The models are dynamically imported in the constructor so any model that implements &lt;code>torch.nn.Module&lt;/code> and follows the signature of LSTM and GRU can be used as core model.&lt;/p>
+&lt;!-- TODO add description of input output Format -->
+&lt;h4 id="transformer-models">Transformer Models&lt;/h4>
+&lt;p>A &lt;a href="https://pytorch.org/docs/stable/generated/torch.nn.Transformer.html#transformer">Transformer&lt;/a> model is available for forecasting. This model could not show superior results when compared to RNN models while using a higher amount of resources and training time. Since theses test were somewhat limited the model could be reevaluated for a specific use-case, specifically when complex temporal dependencies are suspected and the size of the training dataset is sufficently large.&lt;/p>
+&lt;!-- TODO possible to reference Master thesis? -->
+&lt;h4 id="autoencoder-hybrid-model">AutoEncoder Hybrid Model&lt;/h4>
+&lt;p>This is an experimental model not recommended for practial use. This model is based on the RNN model, but combines the forecast with a decoder for recustruction of the input data during training, as would be the case in an autoencoder.&lt;/p>
+&lt;!-- TODO add reference to the original paper about this hybrid model --></description></item></channel></rss>
