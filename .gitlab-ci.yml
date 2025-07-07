@@ -157,13 +157,10 @@ push_to_oracles:
     - mkdir ./repo/$CI_STATION/$TIMESTAMP/model
     # - mv logs/* ./repo/$CI_STATION/$TIMESTAMP/logs/
     - mv runs/* ./repo/$CI_STATION/$TIMESTAMP/runs/
-    - touch ./repo/$CI_STATION/$TIMESTAMP/index.md
-    - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$CI_STATION $TIMESTAMP" --link=$TIMESTAMP --imginclude==True >> ./repo/$CI_STATION/$TIMESTAMP/index.md
-    - echo "[Source Pipeline](https://git.rwth-aachen.de/acs/public/automation/plf/proloaf/-/pipelines/$CI_PIPELINE_ID)" >> ./repo/$CI_STATION/$TIMESTAMP/index.md
-    - echo "" >> ./repo/$CI_STATION/$TIMESTAMP/index.md
-    - cat oracles/result_page_content.md >> ./repo/$CI_STATION/$TIMESTAMP/index.md
     - mv oracles/*/* oracles/
     - mv oracles/* ./repo/$CI_STATION/$TIMESTAMP/model/
+    # Generate complete index.md with dynamic content
+    - python shell/create_hugo_header.py --date=$TIMESTAMP --title="$CI_STATION $TIMESTAMP" --link=$TIMESTAMP --imginclude --model-path="./repo/$CI_STATION/$TIMESTAMP/model" --pipeline-id=$CI_PIPELINE_ID --station=$CI_STATION > ./repo/$CI_STATION/$TIMESTAMP/index.md
     #- chmod +x ./shell/make_station_folder_index.sh
     #- ./shell/make_station_folder_index.sh
     - python ./shell/make_station_folder_index.py $CI_STATION
@@ -215,8 +212,14 @@ hugo:
     paths:
       - docs/public
       #- docs/content/en/results/*
-  only:
-    - master
+  needs:
+    - push_to_oracles
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web'
+    - if: $CI_PIPELINE_SOURCE == 'api'
+    - if: $CI_COMMIT_BRANCH == 'master'
+  # only:
+  #   - master
 
 
 pages:
@@ -237,4 +240,6 @@ pages:
   # tags:
   #     - docker
   rules:
+    - if: $CI_PIPELINE_SOURCE == 'web'
+    - if: $CI_PIPELINE_SOURCE == 'api'
     - if: $CI_COMMIT_BRANCH == 'master'
