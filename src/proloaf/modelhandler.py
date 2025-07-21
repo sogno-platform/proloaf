@@ -393,8 +393,6 @@ class ModelWrapper:
         #     model_parameters = {}
 
         if self.model_class == "simple_transformer":
-            if len(self.target_id) > 1:
-                raise NotImplementedError("simpletransformer does not support multiple target_ids yet.")
             n_heads = model_parameters.get("max_n_heads", 1)
             f_size = max(len(self.encoder_features), len(self.decoder_features)) + len(self.aux_features)
 
@@ -409,6 +407,7 @@ class ModelWrapper:
                 dropout=model_parameters.get("dropout"),
                 n_heads=n_heads,
                 out_size=len(self.output_labels),
+                n_target_features=len(self.target_id),
                 dim_feedforward=model_parameters.get("dim_feedforward", 1024),
                 # n_target_features=len(self.target_id),
                 encoder_features=self.encoder_features,

@@ -579,6 +579,7 @@ class Transformer(nn.Module):
         dropout: float = 0.0,
         n_heads: int = 0,
         out_size: int = 1,
+        n_target_features: int = 1,
         encoder_features: list = [],
         decoder_features: list = [],
         dim_feedforward: int = 1024,
@@ -587,6 +588,9 @@ class Transformer(nn.Module):
 
         self.encoder_features = encoder_features
         self.decoder_features = decoder_features
+        self.out_size = out_size
+        self.n_target_features = n_target_features
+
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=feature_size,
@@ -596,7 +600,7 @@ class Transformer(nn.Module):
             dim_feedforward=dim_feedforward,
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.decoder = nn.Linear(feature_size, out_size)
+        self.decoder = nn.Linear(feature_size, out_size * n_target_features)
 
         self.init_weights()
 
@@ -658,4 +662,9 @@ class Transformer(nn.Module):
         attention = self.transformer_encoder(inputs, mask)
         output = self.decoder(attention).unsqueeze(2)
 
-        return output[:, -inputs_dec.shape[1] :, ...], attention
+        return output[:, -inputs_dec.shape[1] :, ...].reshape(
+                inputs_dec.size(0),
+                inputs_dec.size(1),
+                self.n_target_features,
+                self.out_size,
+            ), attention
