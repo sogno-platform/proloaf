@@ -28,7 +28,7 @@ import os
 import sys
 from copy import deepcopy
 from time import perf_counter
-from typing import Any, Callable, Dict, List, Literal, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, Union
 
 import numpy as np
 import optuna
@@ -102,7 +102,7 @@ class EarlyStopping:
         if self.verbose:
             logger.info(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...")
         temp_dir = "./"  # tempfile.mktemp()
-        torch.save(model.state_dict(), temp_dir + "checkpoint.pt")
+        torch.save(model.state_dict(), temp_dir + f"checkpoint_4.pt")
         self.val_loss_min = val_loss
         self.temp_dir = temp_dir
 
@@ -807,7 +807,10 @@ class ModelHandler:
         data: proloaf.tensorloader.TimeSeriesData,
         models: List[ModelWrapper],
         test_metrics: List[metrics.Metric],
-        avg_over: Union[Union[Literal["time"], Literal["sample"], Literal["all"], Literal["feature"]], Tuple] = "all",
+        avg_over: Union[
+            Union[Literal["all"], Literal["sample"], Literal["time"], Literal["feature"]],
+            Sequence[Union[Literal["sample"], Literal["time"], Literal["feature"]]],
+        ],
     ) -> pd.DataFrame:
         """Benchmark a list of models. Calculates all the metrics for all models.
 
@@ -891,15 +894,17 @@ class ModelHandler:
                 performance = np.array(performance)
                 if len(performance.shape) == 1:
                     performance = performance[np.newaxis, ...]
-                else:
+                elif len(performance.shape) == 2:
                     performance = performance.T
+                else:
+                    # XXX this is a bit hacky, this implies that that time and feature will be stacked, like (time0,feat0), (time0,feat1)
+                    # this is not communicated in any way as the modelhandler is not aware of any indices, timestamps etc.
+                    performance = performance.reshape(performance.shape[0],-1).T
 
                 df = pd.DataFrame(data=performance, columns=[met.id for met in test_metrics])
                 name = model.name
-                i = 1
-                while name in bench:
-                    name = model.name + f"({i})"
-                    i = i + 1
+                for i, name in enumerate(bench):
+                    name = model.name + f"({i + 1})"
                 bench[name] = df
         return pd.concat(bench.values(), keys=bench.keys(), axis=1)
 
@@ -1505,7 +1510,7 @@ class TrainingRun:
                     f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
                 )
                 # load the last checkpoint with the best model
-                self.model.load_state_dict(torch.load(self.early_stopping.temp_dir + "checkpoint.pt"))
+                self.model.load_state_dict(torch.load(self.early_stopping.temp_dir + "checkpoint_4.pt"))
                 self.validation_loss = self.early_stopping.val_loss_min
                 break
         self.model.eval()
