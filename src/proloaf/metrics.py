@@ -2050,10 +2050,9 @@ class Rae(Metric):
         # on the test set -->outsample
         return avg_over_dims(res_test, over_dims=avg_over) / avg_over_dims(res_naive, over_dims=avg_over)
 
-
-class Mae(Metric):
+class Mape(Metric):
     """Calculates mean absolute error
-    MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+    MAPE is different from MAE in that the average of mean error is normalized over the average of all the actual values is taken in MAPE but not in MAE
     """
 
     def __init__(self):
@@ -2097,7 +2096,72 @@ class Mae(Metric):
     ):
         """
         Calculates mean absolute error
-        MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+        MAPE is different from MAE in that the average of mean error is normalized over the average of all the actual values is taken in MAPE but not in MAE
+
+        Parameters
+        ----------
+        target : torch.tensor
+            true values of the target variable
+        predictions :  torch.tensor
+            Predicted values over samples and time. Dimension have to be (sample number, timestep,1).
+        avg_over: str, default = "all"
+            Averages the results over the coresponding axis.
+
+        Returns
+        -------
+        torch.tensor
+            A scalar with the overall mae (the lower the better)
+
+        """
+
+
+class Mae(Metric):
+    """Calculates mean absolute error
+    MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values is taken in MAPE but not in MAE
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.input_labels = ["expected_value"]
+
+    def from_quantiles(
+        self,
+        target: torch.tensor,
+        quantile_prediction: QuantilePrediction,
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        **_,
+    ):
+        """
+        Calculates the value of the metric based on the values for each quantile over the timeframe.
+
+        Parameters
+        ----------
+        target: torch.tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+         quantile_prediction: QuantilePrediction
+            A prediction for several quantiles. Has to contain atleast the median prediction.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
+        avg_over: str
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
+
+        Returns
+        -------
+        torch.tensor
+            Value of the metric, which depending on the value of 'avg_over'
+            is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
+        """
+        return self(target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over)
+
+    @staticmethod
+    def func(
+        target: torch.tensor,
+        predictions: torch.tensor,
+        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        **_,
+    ):
+        """
+        Calculates mean absolute error
+        MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values is taken in MAPE but not in MAE
 
         Parameters
         ----------
