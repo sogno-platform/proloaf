@@ -2113,6 +2113,7 @@ class Mape(Metric):
             A scalar with the overall mae (the lower the better)
 
         """
+        return avg_over_dims(torch.abs((target - predictions[..., 0])/target), over_dims=avg_over)
 
 
 class Mae(Metric):
