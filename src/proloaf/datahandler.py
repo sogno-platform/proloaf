@@ -462,10 +462,12 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
                 miss_columns.append(c)  # corresponding columns to "miss_rows_ranges"
 
     last_index = df.shape[0] - 1
-    assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
+    if not np.isnan(df.iloc[last_index, 0]):
+        # XXX nan != nan 
+        assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
     # loop over all ranges
     for col, (start, end) in zip(miss_columns, miss_rows_ranges):
-        assert isinstance(col, int)
+        assert type(col) == int
 
         # dur = end - start
         p = periodicity  # periodicity
