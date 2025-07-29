@@ -216,8 +216,12 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
     if not isinstance(df.index, pd.DatetimeIndex):
         raise ValueError("data frame is not a timeseries, cylical time features can not be generated.")
     # source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
-    df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
-    df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
+
+    # df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
+    # df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
+    day_ratio = df.index.hour / 24 + df.index.minute / (24 * 60) +df.index.second / (24 * 60 * 60)
+    df["hour_sin"] = np.sin(day_ratio * (2.0 * np.pi))
+    df["hour_cos"] = np.cos(day_ratio * (2.0 * np.pi))
     df["weekday_sin"] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
     df["weekday_cos"] = np.cos((df.index.weekday) * (2.0 * np.pi / 7))
     df["mnth_sin"] = np.sin((df.index.month - 1) * (2.0 * np.pi / 12))
