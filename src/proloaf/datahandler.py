@@ -219,7 +219,7 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
     # df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
-    day_ratio = df.index.hour / 24 + df.index.minute / (24 * 60) +df.index.second / (24 * 60 * 60)
+    day_ratio = df.index.hour / 24 + df.index.minute / (24 * 60) + df.index.second / (24 * 60 * 60)
     df["hour_sin"] = np.sin(day_ratio * (2.0 * np.pi))
     df["hour_cos"] = np.cos(day_ratio * (2.0 * np.pi))
     df["weekday_sin"] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
