@@ -229,7 +229,7 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_onehot_features(df):
+def add_onehot_features(df, timestep: timedelta = timedelta(hours=1)):
     """
     Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
 
@@ -244,24 +244,32 @@ def add_onehot_features(df):
         The modified DataFrame
 
     """
+    if timedelta(hours=1) <= timestep:
+        # create continous timesteps
+        steps_per_hour = timedelta(hours=1) / timestep
+        timestep_index = df.index.hour * steps_per_hour + ((60*df.index.minute + df.index.second)/ timestep.total_seconds()).astype(int)
+    # timesteps per hour, bound at 1 hour
+    else:
+        timestep_index = df.index.hour
+    
     # add one-hot encoding for Hour, Month & Weekdays
-    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(df.index)  # one-hot encoding of hours
+    timesteps = pd.get_dummies(timestep_index, prefix="timestep").set_index(df.index)  # one-hot encoding of hours
     month = pd.get_dummies(df.index.month, prefix="month").set_index(df.index)  # one-hot encoding of month
     weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
     # df = pd.concat([df, hours, month, weekday], axis=1)
     # if these columns already exist but are not in the time interval of df they should be filled with 0
     # month not in timeframe -> timestamp can not be in that month
-    other_hours = [
+    other_timesteps = [
         col
         for col in df.columns
-        if col.startswith("hour_")
-        and col not in hours.columns
+        if col.startswith("timestep_")
+        and col not in timesteps.columns
         and not col.endswith("_sin")
         and not col.endswith("_cos")
     ]
-    if other_hours:
-        df[other_hours] = 0
-    df[hours.columns] = hours
+    if other_timesteps:
+        df[other_timesteps] = 0
+    df[timesteps.columns] = timesteps
 
     other_month = [
         col
