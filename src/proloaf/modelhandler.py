@@ -102,7 +102,7 @@ class EarlyStopping:
         if self.verbose:
             logger.info(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...")
         temp_dir = "./"  # tempfile.mktemp()
-        torch.save(model.state_dict(), temp_dir + f"checkpoint_4.pt")
+        torch.save(model.state_dict(), temp_dir + f"checkpoint.pt")
         self.val_loss_min = val_loss
         self.temp_dir = temp_dir
 
@@ -1510,7 +1510,7 @@ class TrainingRun:
                     f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
                 )
                 # load the last checkpoint with the best model
-                self.model.load_state_dict(torch.load(self.early_stopping.temp_dir + "checkpoint_4.pt"))
+                self.model.load_state_dict(torch.load(self.early_stopping.temp_dir + "checkpoint.pt"))
                 self.validation_loss = self.early_stopping.val_loss_min
                 break
         self.model.eval()

@@ -26,9 +26,11 @@ Some functions are no longer used directly in the project, but may nonetheless b
 useful for testing or future applications.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import Any, Dict, List, Union
 
+import holidays
 import numpy as np
 import pandas as pd
 import sklearn
@@ -120,6 +122,41 @@ def load_raw_data_xlsx(files, path):
     if len(combined_files) > 0:
         individual_files.append(pd.concat(combined_files))
     return individual_files
+
+
+class CategoryDay(StrEnum):
+    WEEKDAY = "weekday"
+    SATURDAY = "saturday"
+    SUNDAY = "sunday"
+
+
+def type_day(dt: datetime, country: str | None = None):
+    if country is None:
+        days = []
+    else:
+        days = holidays.country_holidays(country)
+    if dt.date() in days:
+        return CategoryDay.SUNDAY
+    if dt.weekday() == 5:
+        return CategoryDay.SATURDAY
+    if dt.weekday() == 6:
+        return CategoryDay.SUNDAY
+    else:
+        return CategoryDay.WEEKDAY
+
+
+def add_onehot_daytype(df: pd.DataFrame, country: str | None = None):
+    if country is None:
+        logger.warning("You are trying to add a encoding for holidays but no country has been specified")
+    daytype = [type_day(time, country) for time in df.index]
+    onehot = pd.get_dummies(daytype, dtype=int, prefix="daytype")
+    onehot.index = df.index
+    expected_onehot_columns = [CategoryDay.WEEKDAY, CategoryDay.SATURDAY, CategoryDay.SUNDAY]
+    for feat in expected_onehot_columns:
+        if feat not in onehot.columns:
+            onehot[feat] = 0
+
+    return df.join(onehot)
 
 
 def load_raw_data_csv(files: List[Dict[str, Any]], path: str):
@@ -475,7 +512,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
 
     last_index = df.shape[0] - 1
     if not np.isnan(df.iloc[last_index, 0]):
-        # XXX nan != nan 
+        # XXX nan != nan
         assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
     # loop over all ranges
     for col, (start, end) in zip(miss_columns, miss_rows_ranges):
