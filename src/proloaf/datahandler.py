@@ -281,14 +281,18 @@ def add_onehot_features(df, timestep: timedelta = timedelta(hours=1)):
         The modified DataFrame
 
     """
-    if timedelta(hours=1) <= timestep:
+    if isinstance(timestep, str):
+        timestep = pd.Timedelta(timestep)
+    if timedelta(hours=1) > timestep:
         # create continous timesteps
         steps_per_hour = timedelta(hours=1) / timestep
-        timestep_index = df.index.hour * steps_per_hour + ((60*df.index.minute + df.index.second)/ timestep.total_seconds()).astype(int)
+        timestep_index = (
+            df.index.hour * steps_per_hour + ((60 * df.index.minute + df.index.second) / timestep.total_seconds())
+        ).astype(int)
     # timesteps per hour, bound at 1 hour
     else:
         timestep_index = df.index.hour
-    
+
     # add one-hot encoding for Hour, Month & Weekdays
     timesteps = pd.get_dummies(timestep_index, prefix="timestep").set_index(df.index)  # one-hot encoding of hours
     month = pd.get_dummies(df.index.month, prefix="month").set_index(df.index)  # one-hot encoding of month
