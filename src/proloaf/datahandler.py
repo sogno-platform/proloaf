@@ -27,7 +27,13 @@ useful for testing or future applications.
 """
 
 from datetime import datetime, timedelta
-from enum import StrEnum
+try:
+    from enum import StrEnum
+except ImportError:
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
 from typing import Any, Dict, List, Union
 
 import holidays
