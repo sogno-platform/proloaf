@@ -27,6 +27,7 @@ useful for testing or future applications.
 """
 
 from datetime import datetime, timedelta
+
 try:
     from enum import StrEnum
 except ImportError:
@@ -34,7 +35,10 @@ except ImportError:
 
     class StrEnum(str, Enum):
         pass
-from typing import Any, Dict, List, Union
+
+
+from itertools import chain
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import holidays
 import numpy as np
@@ -606,6 +610,39 @@ def fill_if_missing(df: pd.DataFrame, periodicity: int = 24) -> pd.DataFrame:
     else:
         logger.info("No missing data")
     return df
+
+
+# TODO flesh out description
+def stack_features(df: pd.DataFrame, map: Optional[dict[str, List]] = None):
+    """Stacks multiple features into one by creating a multi index.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Pandas dataframe containing the original data
+    map : Optional[dict[str, Sequence]], optional
+        If set stack all features in the values part of the dict into a column with the key as name, by default None
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with the stacked features.
+    """
+    if map is None:
+        return df
+    keys, vals = zip(*tuple(map.items()))
+    new_index = pd.MultiIndex.from_product([df.index, *vals], names=[df.index.name, *keys])
+    remaining_cols = [col for col in df.columns if col not in chain(*vals)]
+    new_cols = remaining_cols + list(keys)
+    new_df = pd.DataFrame(index=new_index, columns=new_cols)
+    # create index mapping from time in old df to new df
+    idx_time = df.index.get_indexer(new_df.index.get_level_values("time"))
+    for i, (key, cols) in enumerate(map.items()):
+        new_df = new_df.swaplevel(1, i + 1, axis="index")
+        new_df[key] = df.filter(cols, axis="columns").stack().rename(key).to_frame()
+    new_df = new_df.swaplevel(1, -1, axis="index")
+    new_df[remaining_cols] = df[remaining_cols].to_numpy()[idx_time]
+    return new_df
 
 
 class MultiScaler(sklearn.base.TransformerMixin):
