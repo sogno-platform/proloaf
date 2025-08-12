@@ -27,6 +27,7 @@ useful for testing or future applications.
 """
 
 from datetime import datetime, timedelta
+import time
 
 try:
     from enum import StrEnum
@@ -134,6 +135,44 @@ def load_raw_data_xlsx(files, path):
     return individual_files
 
 
+def extract_timeindex(df: pd.DataFrame, time_index_level: str | int | None = None) -> pd.DatetimeIndex:
+    """Extract the part of the dataframes index that represents the time.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe to extract the timeindex from
+    time_index_level : str | int | None, optional
+        Level of the multi index to look for the timeindex at. Can be either index or name of the level, by default None.
+        If None the first index level that is a datetimeindex will be returend.
+        Will be ignore for simple index
+
+    Returns
+    -------
+    pd.DatetimeIndex
+        Datetime part of the index if
+
+    Raises
+    ------
+    ValueError
+        If the dataframe has not timeindex component on the indicated level
+    """
+    if isinstance(df.index, pd.MultiIndex):
+        if time_index_level is None:
+            for i,lvl in enumerate(df.index.levels):
+                if isinstance(lvl, pd.DatetimeIndex):
+                    # returning lvl directly will not have the correct dimensions (total len of dataframe)
+                    timeindex = df.index.get_level_values(i)
+                    break
+        else:
+            timeindex = df.index.get_level_values(time_index_level)
+    else:
+        timeindex = df.index
+    if not isinstance(timeindex, pd.DatetimeIndex):
+        raise ValueError("data frame is not a timeseries, cylical time features can not be generated.")
+    return timeindex
+
+
 class CategoryDay(StrEnum):
     WEEKDAY = "weekday"
     SATURDAY = "saturday"
@@ -158,7 +197,8 @@ def type_day(dt: datetime, country: str | None = None):
 def add_onehot_daytype(df: pd.DataFrame, country: str | None = None):
     if country is None:
         logger.warning("You are trying to add a encoding for holidays but no country has been specified")
-    daytype = [type_day(time, country) for time in df.index]
+    timeindex = extract_timeindex(df)
+    daytype = timeindex.map(lambda x: type_day(x, country))
     onehot = pd.get_dummies(daytype, dtype=int, prefix="daytype")
     onehot.index = df.index
     expected_onehot_columns = [CategoryDay.WEEKDAY, CategoryDay.SATURDAY, CategoryDay.SUNDAY]
@@ -260,19 +300,18 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
         The modified DataFrame
 
     """
-    if not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError("data frame is not a timeseries, cylical time features can not be generated.")
+    timeindex = extract_timeindex(df)
     # source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
 
     # df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
     # df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
-    day_ratio = df.index.hour / 24 + df.index.minute / (24 * 60) + df.index.second / (24 * 60 * 60)
+    day_ratio = timeindex.hour / 24 + timeindex.minute / (24 * 60) + timeindex.second / (24 * 60 * 60)
     df["hour_sin"] = np.sin(day_ratio * (2.0 * np.pi))
     df["hour_cos"] = np.cos(day_ratio * (2.0 * np.pi))
-    df["weekday_sin"] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
-    df["weekday_cos"] = np.cos((df.index.weekday) * (2.0 * np.pi / 7))
-    df["mnth_sin"] = np.sin((df.index.month - 1) * (2.0 * np.pi / 12))
-    df["mnth_cos"] = np.cos((df.index.month - 1) * (2.0 * np.pi / 12))
+    df["weekday_sin"] = np.sin((timeindex.weekday) * (2.0 * np.pi / 7))
+    df["weekday_cos"] = np.cos((timeindex.weekday) * (2.0 * np.pi / 7))
+    df["mnth_sin"] = np.sin((timeindex.month - 1) * (2.0 * np.pi / 12))
+    df["mnth_cos"] = np.cos((timeindex.month - 1) * (2.0 * np.pi / 12))
     return df
 
 
@@ -293,20 +332,21 @@ def add_onehot_features(df, timestep: timedelta = timedelta(hours=1)):
     """
     if isinstance(timestep, str):
         timestep = pd.Timedelta(timestep)
+    timeindex = extract_timeindex(df)
     if timedelta(hours=1) > timestep:
         # create continous timesteps
         steps_per_hour = timedelta(hours=1) / timestep
         timestep_index = (
-            df.index.hour * steps_per_hour + ((60 * df.index.minute + df.index.second) / timestep.total_seconds())
+            timeindex.hour * steps_per_hour + ((60 * timeindex.minute + timeindex.second) / timestep.total_seconds())
         ).astype(int)
     # timesteps per hour, bound at 1 hour
     else:
-        timestep_index = df.index.hour
+        timestep_index = timeindex.hour
 
     # add one-hot encoding for Hour, Month & Weekdays
     timesteps = pd.get_dummies(timestep_index, prefix="timestep").set_index(df.index)  # one-hot encoding of hours
-    month = pd.get_dummies(df.index.month, prefix="month").set_index(df.index)  # one-hot encoding of month
-    weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
+    month = pd.get_dummies(timeindex.month, prefix="month").set_index(df.index)  # one-hot encoding of month
+    weekday = pd.get_dummies(timeindex.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
     # df = pd.concat([df, hours, month, weekday], axis=1)
     # if these columns already exist but are not in the time interval of df they should be filled with 0
     # month not in timeframe -> timestamp can not be in that month
@@ -370,11 +410,20 @@ def check_continuity(df: pd.DataFrame) -> pd.DataFrame:
     ValueError
         If index of DataFrame is not a continous datetime index.
 
-    """
-    if not hasattr(df.index, "freq") or not df.index.equals(
-        pd.date_range(min(df.index), max(df.index), freq=df.index.freq)
+    """ 
+
+    timeindex = None
+    if isinstance(df.index, pd.MultiIndex):
+        for lvl in df.index.levels:
+            if isinstance(lvl, pd.DatetimeIndex):
+                timeindex = lvl
+                break
+    else:
+        timeindex = df.index
+    if timeindex is None or not hasattr(timeindex, "freq") or not timeindex.equals(
+        pd.date_range(min(timeindex), max(timeindex), freq=timeindex.freq)
     ):
-        raise ValueError("DateTime index is not continuous")
+        raise ValueError("DateTime index is not continuous or not present")
     return df
 
 
@@ -473,8 +522,11 @@ def extend_df(df: pd.DataFrame, add_steps: int) -> pd.DataFrame:
     pd.DataFrame
         The extended dataframe.
     """
-    freq = df.index.freq if df.index.freq else df.index.inferred_freq
-    add_index = pd.date_range(df.index[-1], periods=add_steps + 1, freq=freq, inclusive="right", name=df.index.name)
+    timeindex = extract_timeindex(df)
+    assert not isinstance(df.index, pd.MultiIndex), "Dataframe extention has not been implemented for multi index"
+    # TODO does this need to be adjusted for multiindex 
+    freq = timeindex.freq if timeindex.freq else timeindex.inferred_freq
+    add_index = pd.date_range(timeindex[-1], periods=add_steps + 1, freq=freq, inclusive="right", name=timeindex.name)
     add_df = pd.DataFrame(columns=df.columns, index=add_index)
     df = pd.concat((df, add_df))
     return df
@@ -636,7 +688,7 @@ def stack_features(df: pd.DataFrame, map: Optional[dict[str, List]] = None):
     new_cols = remaining_cols + list(keys)
     new_df = pd.DataFrame(index=new_index, columns=new_cols)
     # create index mapping from time in old df to new df
-    idx_time = df.index.get_indexer(new_df.index.get_level_values("time"))
+    idx_time = df.index.get_indexer(new_df.index.get_level_values(0))
     for i, (key, cols) in enumerate(map.items()):
         new_df = new_df.swaplevel(1, i + 1, axis="index")
         new_df[key] = df.filter(cols, axis="columns").stack().rename(key).to_frame()
