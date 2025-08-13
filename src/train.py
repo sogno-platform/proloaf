@@ -111,7 +111,7 @@ def main(
                     dh.set_to_hours, freq=config.get("frequency", "1h"), timecolumn=config.get("timecolumn", "Time")
                 ),
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
-                # partial(dh.stack_features, map={"test": ["CS_201", "CS_268"], "test2": ["CS_2005", "CS_5076"]}),
+                partial(dh.stack_features, map=config.get("stack_columns")),
                 dh.add_cyclical_features,
                 partial(dh.add_onehot_features, timestep=config["frequency"]),
                 partial(dh.add_onehot_daytype, country=config.get("country_code")),
@@ -130,7 +130,7 @@ def main(
                 ),
                 # TODO check if periodicity is correct
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
-                # partial(dh.stack_features, map={"test": ["CS_201", "CS_268"], "test2": ["CS_2005", "CS_5076"]}),
+                partial(dh.stack_features, map=config.get("stack_columns")),
                 dh.add_cyclical_features,
                 partial(dh.add_onehot_features, timestep=config["frequency"]),
                 partial(dh.add_onehot_daytype, country=config.get("country_code")),

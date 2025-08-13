@@ -666,7 +666,8 @@ def fill_if_missing(df: pd.DataFrame, periodicity: int = 24) -> pd.DataFrame:
 
 # TODO flesh out description
 def stack_features(df: pd.DataFrame, map: Optional[dict[str, List]] = None):
-    """Stacks multiple features into one by creating a multi index.
+    """Stacks multiple features into one by creating a multi index. This step should be done before fitting the scaler,
+    this way there is a single feature to the scaler. 
 
     Parameters
     ----------
