@@ -179,11 +179,7 @@ class CategoryDay(StrEnum):
     SUNDAY = "sunday"
 
 
-def type_day(dt: datetime, country: str | None = None):
-    if country is None:
-        days = []
-    else:
-        days = holidays.country_holidays(country)
+def type_day(dt: datetime, days: Iterable[datetime] | holidays.HolidayBase):
     if dt.date() in days:
         return CategoryDay.SUNDAY
     if dt.weekday() == 5:
@@ -198,7 +194,11 @@ def add_onehot_daytype(df: pd.DataFrame, country: str | None = None):
     if country is None:
         logger.warning("You are trying to add a encoding for holidays but no country has been specified")
     timeindex = extract_timeindex(df)
-    daytype = timeindex.map(lambda x: type_day(x, country))
+    if country is None:
+        days = []
+    else:
+        days = holidays.country_holidays(country)
+    daytype = timeindex.map(lambda x: type_day(x, days))
     onehot = pd.get_dummies(daytype, dtype=int, prefix="daytype")
     onehot.index = df.index
     expected_onehot_columns = [CategoryDay.WEEKDAY, CategoryDay.SATURDAY, CategoryDay.SUNDAY]
