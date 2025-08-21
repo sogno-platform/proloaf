@@ -35,6 +35,7 @@ import optuna
 import pandas as pd
 import sklearn
 import torch
+import uuid
 
 import proloaf
 from proloaf import metrics, models
@@ -82,6 +83,12 @@ class EarlyStopping:
         self.checkpoint_path = f"checkpoint_{self.model_name}_{self.training_id}.pt"
         self.cleanup_on_completion = True
 
+        logger.debug(f"EarlyStopping initialized with checkpoint path: {self.checkpoint_path}, model name: {self.model_name}, training ID: {self.training_id}")
+
+        # Check if checkpoint with this name already exists and warn if so
+        if os.path.exists(self.checkpoint_path):
+            logger.warning(f"Checkpoint file {self.checkpoint_path} already exists. Possible overlapping with previous runs.")
+
     def __call__(self, val_loss: float, model):
         score = -val_loss
 
@@ -111,10 +118,6 @@ class EarlyStopping:
         """
         if self.verbose:
             logger.info(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...")
-        
-        # Check if checkpoint with this name already exists and warn if so
-        if os.path.exists(self.checkpoint_path):
-            logger.warning(f"Checkpoint file {self.checkpoint_path} already exists. Possible overlapping with previous runs.")
     
         torch.save(model.state_dict(), self.checkpoint_path)
         self.val_loss_min = val_loss
@@ -1048,7 +1051,7 @@ class ModelHandler:
             self.model_wrap = self.run_training(
                 train_data,
                 validation_data,
-                trial_id="main",
+                trial_id=uuid.uuid4().hex,  # Use a random id for the training run
             )
         return self
 

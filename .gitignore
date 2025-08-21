@@ -23,3 +23,7 @@ docs/go.mod
 docs/go.sum
 docs/public/
 docs/resources/
+
+build/
+*.egg-info/
+*.pt
