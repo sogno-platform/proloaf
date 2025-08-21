@@ -56,13 +56,18 @@ class EarlyStopping:
         If True, prints a message for each validation loss improvement.
     delta : float, default = 0.0
         Minimum change in the monitored quantity to qualify as an improvement.
+    model_name : str, default = None
+        Name of the model for checkpoint naming. If None, uses "model".
+    training_id : Union[str, int], default = None
+        Unique identifier for this training run.
 
     Notes
     -----
     Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
 
-    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0):
+    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0, 
+                 model_name: str = None, training_id: Union[str, int] = None):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -70,7 +75,12 @@ class EarlyStopping:
         self.early_stop = False
         self.val_loss_min = np.inf
         self.delta = delta
-        self.temp_dir = ""
+        
+        # Generate unique checkpoint filename
+        self.model_name = model_name or "model"
+        self.training_id = training_id
+        self.checkpoint_path = f"checkpoint_{self.model_name}_{self.training_id}.pt"
+        self.cleanup_on_completion = True
 
     def __call__(self, val_loss: float, model):
         score = -val_loss
@@ -101,10 +111,47 @@ class EarlyStopping:
         """
         if self.verbose:
             logger.info(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...")
-        temp_dir = "./"  # tempfile.mktemp()
-        torch.save(model.state_dict(), temp_dir + f"checkpoint.pt")
+        
+        # Check if checkpoint with this name already exists and warn if so
+        if os.path.exists(self.checkpoint_path):
+            logger.warning(f"Checkpoint file {self.checkpoint_path} already exists. Possible overlapping with previous runs.")
+    
+        torch.save(model.state_dict(), self.checkpoint_path)
         self.val_loss_min = val_loss
-        self.temp_dir = temp_dir
+        logger.debug(f"Checkpoint saved to: {self.checkpoint_path}")
+
+    def load_best_checkpoint(self, model):
+        """
+        Load the best checkpoint into the model
+        
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The model to load the checkpoint into
+            
+        Returns
+        -------
+        bool
+            True if checkpoint was loaded successfully, False otherwise
+        """
+        if self.checkpoint_path and os.path.exists(self.checkpoint_path):
+            logger.info(f"Loading best checkpoint from: {self.checkpoint_path}")
+            model.load_state_dict(torch.load(self.checkpoint_path))
+            return True
+        else:
+            logger.warning(f"No checkpoint found at: {self.checkpoint_path}")
+            return False
+
+    def cleanup_checkpoint(self):
+        """
+        Remove the checkpoint file if cleanup is enabled
+        """
+        if self.cleanup_on_completion and self.checkpoint_path and os.path.exists(self.checkpoint_path):
+            try:
+                os.remove(self.checkpoint_path)
+                logger.debug(f"Cleaned up checkpoint: {self.checkpoint_path}")
+            except OSError as e:
+                logger.warning(f"Failed to clean up checkpoint {self.checkpoint_path}: {e}")
 
 
 class ModelWrapper:
@@ -514,6 +561,7 @@ class ModelWrapper:
         training_run = TrainingRun(
             self.model,
             id=trial_id,
+            model_name=self.name,  # Pass model name for checkpoint naming
             optimizer_name=self.optimizer_name,
             train_data=train_data,
             validation_data=validation_data,
@@ -1217,6 +1265,8 @@ class TrainingRun:
         Timesteps of data given to the decoder.
     id: Union[str, int] = None,
         identifier for a training run, consecutive number by default, only stored in memory (reset on each restart).
+    model_name: str = None,
+        Name of the model for checkpoint identification.
     device: str = "cpu",
         Device the training is run on. See `torch.Tensor.to(...)` for additional inforamtion.
     log_tb: torch.utils.tensorboard.SummaryWriter, default = None,
@@ -1261,6 +1311,7 @@ class TrainingRun:
         history_horizon: int = 24,
         forecast_horizon: int = 24,
         id: Union[str, int] = None,
+        model_name: str = None,
         device: str = "cpu",
         log_tb: torch.utils.tensorboard.SummaryWriter = None,
     ):
@@ -1286,7 +1337,12 @@ class TrainingRun:
         self.step_counter = 0
         self.max_epochs = max_epochs
         self.n_epochs = None
-        self.early_stopping = EarlyStopping(patience=early_stopping_patience, delta=early_stopping_margin)
+        self.early_stopping = EarlyStopping(
+            patience=early_stopping_patience, 
+            delta=early_stopping_margin,
+            model_name=model_name,
+            training_id=self.id
+        )
         self.log_tb = log_tb
         self.training_start_time = None
         self.training_end_time = None
@@ -1479,45 +1535,60 @@ class TrainingRun:
         self.training_start_time = perf_counter()
         logger.info("Begin training...")
         self.model.train()
-        for epoch in range(self.max_epochs):
-            t1_start = perf_counter()
-            self.step()
-            t1_stop = perf_counter()
-            if self.validation_dl:
-                self.validate()
-                self.early_stopping(self.validation_loss, self.model)
-            else:
-                logger.warning("No validation data was provided, thus no validation was performed")
-            logger.info(
-                "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
-                    epoch + 1,
-                    self.max_epochs,
-                    self.training_loss,
-                    self.validation_loss,
-                    t1_stop - t1_start,
-                )
-            )
-            if self.log_tb:
-                add_tb_element(
-                    net=self.model,
-                    tb=self.log_tb,
-                    epoch_loss=self.training_loss,
-                    validation_loss=self.validation_loss,
-                    training_start=self.training_start_time,
-                    epoch_stop=t1_stop,
-                    epoch_start=t1_start,
-                    next_epoch=epoch + 1,
-                    step_counter=self.step_counter,
-                )
-            self.n_epochs = epoch + 1
-            if self.early_stopping.early_stop:
+        training_completed = False
+        try:
+            for epoch in range(self.max_epochs):
+                t1_start = perf_counter()
+                self.step()
+                t1_stop = perf_counter()
+                if self.validation_dl:
+                    self.validate()
+                    self.early_stopping(self.validation_loss, self.model)
+                else:
+                    logger.warning("No validation data was provided, thus no validation was performed")
                 logger.info(
-                    f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
+                    "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
+                        epoch + 1,
+                        self.max_epochs,
+                        self.training_loss,
+                        self.validation_loss,
+                        t1_stop - t1_start,
+                    )
                 )
-                # load the last checkpoint with the best model
-                self.model.load_state_dict(torch.load(self.early_stopping.temp_dir + "checkpoint.pt"))
-                self.validation_loss = self.early_stopping.val_loss_min
-                break
+                if self.log_tb:
+                    add_tb_element(
+                        net=self.model,
+                        tb=self.log_tb,
+                        epoch_loss=self.training_loss,
+                        validation_loss=self.validation_loss,
+                        training_start=self.training_start_time,
+                        epoch_stop=t1_stop,
+                        epoch_start=t1_start,
+                        next_epoch=epoch + 1,
+                        step_counter=self.step_counter,
+                    )
+                self.n_epochs = epoch + 1
+                if self.early_stopping.early_stop:
+                    logger.info(
+                        f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
+                    )
+                    # load the last checkpoint with the best model
+                    if self.early_stopping.load_best_checkpoint(self.model):
+                        self.validation_loss = self.early_stopping.val_loss_min
+                    # Training completed with early stopping
+                    training_completed = True
+                    break
+            else:
+                # Training completed without early stopping
+                training_completed = True
+        finally:
+            # Clean up checkpoint if training completed successfully
+            if training_completed:
+                self.early_stopping.cleanup_checkpoint()
+            else:
+                # Keep checkpoint for potential warm restart if training was interrupted
+                logger.info(f"Training was interrupted. Checkpoint preserved at: {self.early_stopping.checkpoint_path}")
+                
         self.model.eval()
         self.training_end_time = t1_stop
         return self
