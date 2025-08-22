@@ -12,6 +12,8 @@ stages:
   - lint
   - training
   - evaluation
+  - versioning
+  - release
   - oracles:deploy
   - pdoc
   - build
@@ -142,6 +144,57 @@ test_eval:
   # only:
   #   variables:
   #     - $CI_PIPELINE_SOURCE == 'push'
+
+# ## Versioning Jobs
+check_version:
+  stage: versioning
+  image: python:3.11
+  script:
+    - VERSION=$(grep "^version" pyproject.toml | head -1 | cut -d'"' -f2)
+    - echo "Detected version in pyproject.toml: $VERSION"
+    - git fetch --tags
+    - LAST_TAG=$(git tag --sort=-version:refname | head -1 || echo "none")
+    - echo "Last tag: $LAST_TAG"
+    - LAST_VERSION=${LAST_TAG#v}
+    - if [ "$LAST_TAG" != "none" ] && [ "$LAST_VERSION" = "$VERSION" ]; then
+        echo "Version in pyproject.toml ($VERSION) was not bumped (same as last tag).";
+        exit 1;
+      fi
+    - echo "Version bump detected: $LAST_VERSION -> $VERSION"
+    - echo $VERSION > version.txt
+  artifacts:
+    paths:
+      - version.txt
+    expire_in: 1 hour
+  rules:
+    # - if: $CI_COMMIT_BRANCH == "master"
+    # - if: $CI_COMMIT_BRANCH == "22361-auto-versioning"
+
+create_tag:
+  stage: versioning
+  image: alpine:latest
+  script:
+    - VERSION=$(cat version.txt)
+    - echo "Tagging commit $CI_COMMIT_SHA as v$VERSION"
+    - git config --global user.email "ci@eonerc.rwth-aachen.de"
+    - git config --global user.name "CI Bot"
+    - git tag "v$VERSION" $CI_COMMIT_SHA
+    - git push origin "v$VERSION"
+  needs:
+    - check_version
+  rules:
+    # - if: $CI_COMMIT_BRANCH == "master"
+
+# ## Publish to PyPI test.pypi.org
+publish_pypi_test:
+  stage: release
+  image: python:3.11
+  script:
+    - pip install --upgrade build twine
+    - python -m build
+    - twine upload --repository-url https://test.pypi.org/legacy/ -u __token__ -p $PYPI_TOKEN dist/*
+  rules:
+    # - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
 
 # ## Deploy Results of latest Runs to Oracles
 push_to_oracles:
