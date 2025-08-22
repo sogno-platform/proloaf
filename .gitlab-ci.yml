@@ -148,7 +148,7 @@ test_eval:
 # ## Versioning Jobs
 check_version:
   stage: versioning
-  image: python:3.11
+  image: ${DOCKER_IMAGE_PLF}
   script:
     - VERSION=$(grep "^version" pyproject.toml | head -1 | cut -d'"' -f2) 
     - echo "Detected version in pyproject.toml = $VERSION"
@@ -173,7 +173,7 @@ check_version:
 
 create_tag:
   stage: versioning
-  image: alpine:latest
+  image: ${DOCKER_IMAGE_PLF}
   script:
     - VERSION=$(cat version.txt)
     - echo "Tagging commit $CI_COMMIT_SHA as v$VERSION"
@@ -189,7 +189,7 @@ create_tag:
 # ## Publish to PyPI test.pypi.org
 publish_pypi_test:
   stage: release
-  image: python:3.11
+  image: ${DOCKER_IMAGE_PLF}
   script:
     - pip install --upgrade build twine
     - python -m build
