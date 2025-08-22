@@ -666,8 +666,9 @@ def fill_if_missing(df: pd.DataFrame, periodicity: int = 24) -> pd.DataFrame:
 
 # TODO flesh out description
 def stack_features(df: pd.DataFrame, map: Optional[dict[str, List]] = None):
-    """Stacks multiple features into one by creating a multi index. This step should be done before fitting the scaler,
-    this way there is a single feature to the scaler. 
+    """Stacks multiple features into one by creating a multi index. This step is succeptible to the position in data prep steps.
+    Most importantly, if scaling is done first there will not be a scaler for a general feature (not availble during training). 
+    You will have to have enough data to fit a scaler for the new feature.  
 
     Parameters
     ----------

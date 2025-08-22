@@ -899,7 +899,7 @@ class ModelHandler:
                 else:
                     # XXX this is a bit hacky, this implies that that time and feature will be stacked, like (time0,feat0), (time0,feat1)
                     # this is not communicated in any way as the modelhandler is not aware of any indices, timestamps etc.
-                    performance = performance.reshape(performance.shape[0],-1).T
+                    performance = performance.reshape(performance.shape[0], -1).T
 
                 df = pd.DataFrame(data=performance, columns=[met.id for met in test_metrics])
                 name = model.name
