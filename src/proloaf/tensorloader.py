@@ -315,22 +315,22 @@ class TimeSeriesData(Dataset):
         # this makes getitem cyclical aswell
         # TODO make sure this still works with a single index (which it should not atm)
         idx_aux = [idx % self._idx_mod[i] // self._idx_mod[i + 1] for i in range(len(self._idx_mod) - 1)]
+        encoder_slice = (slice(idx_aux[0], idx_aux[0] + self.history_horizon), *idx_aux[1:])
+        decoder_slice = (
+            slice(idx_aux[0] + self.history_horizon, idx_aux[0] + self.history_horizon + self.forecast_horizon),
+            *idx_aux[1:],
+        )
+        last_value_slice = (
+            slice(idx_aux[0] + self.history_horizon - 1, idx_aux[0] + self.history_horizon),
+            *idx_aux[1:],
+        )
         return (
-            self.encoder_tensor[idx_aux[0] : idx_aux[0] + self.history_horizon, *idx_aux[1:]],
-            self.aux_tensor[idx_aux[0] : idx_aux[0] + self.history_horizon, *idx_aux[1:]],
-            self.decoder_tensor[
-                idx_aux[0] + self.history_horizon : idx_aux[0] + self.history_horizon + self.forecast_horizon,
-                *idx_aux[1:],
-            ],
-            self.aux_tensor[
-                idx_aux[0] + self.history_horizon : idx_aux[0] + self.history_horizon + self.forecast_horizon,
-                *idx_aux[1:],
-            ],
-            self.target_tensor[idx_aux[0] + self.history_horizon - 1 : idx_aux[0] + self.history_horizon, *idx_aux[1:]],
-            self.target_tensor[
-                idx_aux[0] + self.history_horizon : idx_aux[0] + self.history_horizon + self.forecast_horizon,
-                *idx_aux[1:],
-            ],
+            self.encoder_tensor[encoder_slice],
+            self.aux_tensor[encoder_slice],
+            self.decoder_tensor[decoder_slice],
+            self.aux_tensor[decoder_slice],
+            self.target_tensor[last_value_slice],
+            self.target_tensor[decoder_slice],
         )
 
     def to(self, device: Union[str, int]):
