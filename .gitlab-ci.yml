@@ -10,8 +10,8 @@ stages:
   - prepare
   - check
   - lint
-  - training
-  - evaluation
+  # - training
+  # - evaluation
   - versioning
   - release
   - oracles:deploy
