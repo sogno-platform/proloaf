@@ -150,17 +150,18 @@ check_version:
   stage: versioning
   image: python:3.11
   script:
-    - VERSION=$(grep "^version" pyproject.toml | head -1 | cut -d'"' -f2)
-    - echo "Detected version in pyproject.toml: $VERSION"
+    - VERSION=$(grep "^version" pyproject.toml | head -1 | cut -d'"' -f2) 
+    - echo "Detected version in pyproject.toml = $VERSION"
     - git fetch --tags
     - LAST_TAG=$(git tag --sort=-version:refname | head -1 || echo "none")
-    - echo "Last tag: $LAST_TAG"
+    - echo "Last tag = $LAST_TAG"
     - LAST_VERSION=${LAST_TAG#v}
-    - if [ "$LAST_TAG" != "none" ] && [ "$LAST_VERSION" = "$VERSION" ]; then
+    - |
+      if [ "$LAST_TAG" != "none" ] && [ "$LAST_VERSION" = "$VERSION" ]; then
         echo "Version in pyproject.toml ($VERSION) was not bumped (same as last tag).";
         exit 1;
       fi
-    - echo "Version bump detected: $LAST_VERSION -> $VERSION"
+    - echo "Version bump detected $LAST_VERSION -> $VERSION"
     - echo $VERSION > version.txt
   artifacts:
     paths:
