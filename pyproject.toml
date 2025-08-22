@@ -25,6 +25,7 @@ requires-python = ">=3.9"
 dependencies = [
     "arch~=7.0.0",
     "datetime~=5.5",
+    "holidays~=0.77",
     "matplotlib~=3.9.1",
     "numpy~=2.0.0",
     "optuna~=3.6.1",

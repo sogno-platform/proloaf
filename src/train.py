@@ -102,7 +102,6 @@ def main(
         df = pd.read_csv(infile, sep=";", index_col=0)
 
         train_df, val_df = dh.split(df, [config.get("train_split", 0.7)])
-
         scaler = dh.MultiScaler(config["feature_groups"])
         train_dataset = tl.TimeSeriesData(
             train_df,
@@ -113,7 +112,8 @@ def main(
                 ),
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
-                dh.add_onehot_features,
+                partial(dh.add_onehot_features, timestep=config["frequency"]),
+                partial(dh.add_onehot_daytype, country=config.get("country_code")),
                 scaler.fit_transform,
                 partial(dh.add_missing_features, all_columns=config["aux_features"]),
                 dh.check_continuity,
@@ -130,7 +130,8 @@ def main(
                 # TODO check if periodicity is correct
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
-                dh.add_onehot_features,
+                partial(dh.add_onehot_features, timestep=config["frequency"]),
+                partial(dh.add_onehot_daytype, country=config.get("country_code")),
                 scaler.transform,
                 partial(dh.add_missing_features, all_columns=config["aux_features"]),
                 dh.check_continuity,

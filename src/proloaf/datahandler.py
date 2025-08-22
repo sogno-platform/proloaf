@@ -26,9 +26,17 @@ Some functions are no longer used directly in the project, but may nonetheless b
 useful for testing or future applications.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
+try:
+    from enum import StrEnum
+except ImportError:
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
 from typing import Any, Dict, List, Union
 
+import holidays
 import numpy as np
 import pandas as pd
 import sklearn
@@ -120,6 +128,41 @@ def load_raw_data_xlsx(files, path):
     if len(combined_files) > 0:
         individual_files.append(pd.concat(combined_files))
     return individual_files
+
+
+class CategoryDay(StrEnum):
+    WEEKDAY = "weekday"
+    SATURDAY = "saturday"
+    SUNDAY = "sunday"
+
+
+def type_day(dt: datetime, country: str | None = None):
+    if country is None:
+        days = []
+    else:
+        days = holidays.country_holidays(country)
+    if dt.date() in days:
+        return CategoryDay.SUNDAY
+    if dt.weekday() == 5:
+        return CategoryDay.SATURDAY
+    if dt.weekday() == 6:
+        return CategoryDay.SUNDAY
+    else:
+        return CategoryDay.WEEKDAY
+
+
+def add_onehot_daytype(df: pd.DataFrame, country: str | None = None):
+    if country is None:
+        logger.warning("You are trying to add a encoding for holidays but no country has been specified")
+    daytype = [type_day(time, country) for time in df.index]
+    onehot = pd.get_dummies(daytype, dtype=int, prefix="daytype")
+    onehot.index = df.index
+    expected_onehot_columns = [CategoryDay.WEEKDAY, CategoryDay.SATURDAY, CategoryDay.SUNDAY]
+    for feat in expected_onehot_columns:
+        if feat not in onehot.columns:
+            onehot[feat] = 0
+
+    return df.join(onehot)
 
 
 def load_raw_data_csv(files: List[Dict[str, Any]], path: str):
@@ -229,7 +272,7 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_onehot_features(df):
+def add_onehot_features(df, timestep: timedelta = timedelta(hours=1)):
     """
     Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
 
@@ -244,24 +287,36 @@ def add_onehot_features(df):
         The modified DataFrame
 
     """
+    if isinstance(timestep, str):
+        timestep = pd.Timedelta(timestep)
+    if timedelta(hours=1) > timestep:
+        # create continous timesteps
+        steps_per_hour = timedelta(hours=1) / timestep
+        timestep_index = (
+            df.index.hour * steps_per_hour + ((60 * df.index.minute + df.index.second) / timestep.total_seconds())
+        ).astype(int)
+    # timesteps per hour, bound at 1 hour
+    else:
+        timestep_index = df.index.hour
+
     # add one-hot encoding for Hour, Month & Weekdays
-    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(df.index)  # one-hot encoding of hours
+    timesteps = pd.get_dummies(timestep_index, prefix="timestep").set_index(df.index)  # one-hot encoding of hours
     month = pd.get_dummies(df.index.month, prefix="month").set_index(df.index)  # one-hot encoding of month
     weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
     # df = pd.concat([df, hours, month, weekday], axis=1)
     # if these columns already exist but are not in the time interval of df they should be filled with 0
     # month not in timeframe -> timestamp can not be in that month
-    other_hours = [
+    other_timesteps = [
         col
         for col in df.columns
-        if col.startswith("hour_")
-        and col not in hours.columns
+        if col.startswith("timestep_")
+        and col not in timesteps.columns
         and not col.endswith("_sin")
         and not col.endswith("_cos")
     ]
-    if other_hours:
-        df[other_hours] = 0
-    df[hours.columns] = hours
+    if other_timesteps:
+        df[other_timesteps] = 0
+    df[timesteps.columns] = timesteps
 
     other_month = [
         col
@@ -467,7 +522,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
 
     last_index = df.shape[0] - 1
     if not np.isnan(df.iloc[last_index, 0]):
-        # XXX nan != nan 
+        # XXX nan != nan
         assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
     # loop over all ranges
     for col, (start, end) in zip(miss_columns, miss_rows_ranges):
