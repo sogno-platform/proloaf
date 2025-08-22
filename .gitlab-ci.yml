@@ -10,9 +10,9 @@ stages:
   - prepare
   - check
   - lint
+  - versioning
   - training
   - evaluation
-  - versioning
   - release
   - oracles:deploy
   - pdoc
