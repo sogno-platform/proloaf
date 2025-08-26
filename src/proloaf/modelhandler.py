@@ -68,7 +68,7 @@ class EarlyStopping:
     """
 
     def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0, 
-                 model_name: str = None, training_id: Union[str, int] = None):
+                 training_id: Union[str, int] = None):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -78,17 +78,16 @@ class EarlyStopping:
         self.delta = delta
         
         # Generate unique checkpoint filename
-        self.model_name = model_name or "model"
         self.training_id = training_id
-        self.checkpoint_path = f"checkpoint_{self.model_name}_{self.training_id}_{uuid.uuid4().hex}.pt"
+        self.checkpoint_path = f"checkpoint_{self.training_id}.pt"
         self.cleanup_on_completion = True
 
-        logger.debug(f"EarlyStopping initialized with checkpoint path: {self.checkpoint_path}, model name: {self.model_name}, training ID: {self.training_id}")
+        logger.debug(f"EarlyStopping initialized with checkpoint path: {self.checkpoint_path}, training ID: {self.training_id}")
 
         # Check if checkpoint with this name already exists and prevent overwriting
         if os.path.exists(self.checkpoint_path):
             logger.warning(f"Checkpoint file {self.checkpoint_path} already exists. Possible overlapping with previous runs.")
-            self.checkpoint_path = f"checkpoint_{self.model_name}_{self.training_id}_{uuid.uuid4().hex}.pt" 
+            self.checkpoint_path = f"checkpoint_{self.training_id}_{uuid.uuid4().hex}.pt" 
             logger.debug(f"Creating new checkpoint file: {self.checkpoint_path}")
             
 
@@ -676,6 +675,7 @@ class ModelHandler:
         self.work_dir = work_dir if work_dir is not None else os.path.dirname(os.path.abspath(sys.argv[0]))
         self.config = deepcopy(config)
         self.tuning_config = deepcopy(tuning_config)
+        self.id = f"{self.config.get("model_name", "model")}_{uuid.uuid4().hex}"
 
         self._model_wrap: ModelWrapper = ModelWrapper(
             name=config.get("model_name"),
@@ -989,35 +989,38 @@ class ModelHandler:
             The trained model
         """
         # to track the validation loss as the model trains
+        try:
+            config = deepcopy(self.config)
+            # XXX this is a quick and dirty solution to enable continuing the training of a loaded model, should be refactored
+            if hparams:
+                model_parameters = hparams.pop("model_parameters", None)
+                config.update(hparams)
 
-        config = deepcopy(self.config)
-        # XXX this is a quick and dirty solution to enable continuing the training of a loaded model, should be refactored
-        if hparams:
-            model_parameters = hparams.pop("model_parameters", None)
-            config.update(hparams)
+                if model_parameters is not None:
+                    hparams["model_parameters"] = model_parameters
+                    for model_class, params in model_parameters.items():
+                        config["model_parameters"][model_class].update(params)
 
-            if model_parameters is not None:
-                hparams["model_parameters"] = model_parameters
-                for model_class, params in model_parameters.items():
-                    config["model_parameters"][model_class].update(params)
+                temp_model_wrap: ModelWrapper = (self.model_wrap.copy().update(**hparams).init_model()).to(self._device)
+            else:
+                # XXX if no hparams the model is copied
+                temp_model_wrap = self.model_wrap.copy().to(self._device)
+            tb = log_tensorboard(
+                work_dir=self.work_dir,
+                exploration=self.config["exploration"],
+                trial_id=trial_id,
+            )
+            temp_model_wrap.run_training(train_data, validation_data, trial_id, tb, config.get("batch_size"))
 
-            temp_model_wrap: ModelWrapper = (self.model_wrap.copy().update(**hparams).init_model()).to(self._device)
-        else:
-            # XXX if no hparams the model is copied
-            temp_model_wrap = self.model_wrap.copy().to(self._device)
-        tb = log_tensorboard(
-            work_dir=self.work_dir,
-            exploration=self.config["exploration"],
-            trial_id=trial_id,
-        )
-        temp_model_wrap.run_training(train_data, validation_data, trial_id, tb, config.get("batch_size"))
-
-        values = {
-            "hparam/hp_total_time": temp_model_wrap.last_training.training_end_time
-            - temp_model_wrap.last_training.training_start_time,
-            "hparam/score": temp_model_wrap.last_training.validation_loss,
-        }
-        end_tensorboard(tb, hparams, values)
+            values = {
+                "hparam/hp_total_time": temp_model_wrap.last_training.training_end_time
+                - temp_model_wrap.last_training.training_start_time,
+                "hparam/score": temp_model_wrap.last_training.validation_loss,
+            }
+            end_tensorboard(tb, hparams, values)
+        except KeyboardInterrupt:
+            logger.warning("Training interrupted by user, cleaning up...")
+            
         return temp_model_wrap
 
     @timer(logger)
@@ -1054,7 +1057,7 @@ class ModelHandler:
             self.model_wrap = self.run_training(
                 train_data,
                 validation_data,
-                trial_id="main"
+                trial_id=self.id,
             )
         return self
 
@@ -1226,7 +1229,7 @@ class ModelHandler:
                 train_data,
                 validation_data,
                 hparams=hparams,
-                trial_id=trial.number,
+                trial_id=f'{self.id}_trial{trial.number}',
             )
             model_wrap.last_training.remove_data()
             trial.set_user_attr("wrapped_model", model_wrap)
@@ -1346,7 +1349,6 @@ class TrainingRun:
         self.early_stopping = EarlyStopping(
             patience=early_stopping_patience, 
             delta=early_stopping_margin,
-            model_name=model_name,
             training_id=self.id
         )
         self.log_tb = log_tb
