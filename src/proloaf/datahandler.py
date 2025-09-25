@@ -682,7 +682,7 @@ def stack_features(df: pd.DataFrame, map: Optional[dict[str, List]] = None):
     pd.DataFrame
         DataFrame with the stacked features.
     """
-    if map is None:
+    if map is None or len(map) == 0:
         return df
     keys, vals = zip(*tuple(map.items()))
     new_index = pd.MultiIndex.from_product([df.index, *vals], names=[df.index.name, *keys])
