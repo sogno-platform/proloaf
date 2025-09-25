@@ -37,6 +37,7 @@ dependencies = [
     "tensorboard~=2.18.0",
     # "tb-nightly",
     "torch~=2.5.1",
+    "holidays~=0.58"
 ]
 
 [project.optional-dependencies]

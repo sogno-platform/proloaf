@@ -108,7 +108,8 @@ class TimeSeriesData(Dataset):
         self.device = device
         self.tensor_prepared = False
         self.frame_prepared = False
-        self.preparation_steps = preparation_steps
+        self.preparation_steps = list(preparation_steps) if preparation_steps is not None else []
+        self._idx_mod = None
 
     @property
     def encoder_features(self):
@@ -229,7 +230,7 @@ class TimeSeriesData(Dataset):
             raise AttributeError(
                 "The preparationsteps were already applied to the Dataframe and can not be removed anymore"
             )
-        self.preparation_steps = None
+        self.preparation_steps = []
         self.tensor_prepared = False
         return self
 
@@ -257,7 +258,7 @@ class TimeSeriesData(Dataset):
             The object itself
 
         """
-        if self.preparation_steps is None or self.frame_prepared:
+        if len(self.preparation_steps) == 0 or self.frame_prepared:
             self.frame_prepared = True
             return self
         self.data = self._apply_prep_to_frame(self.data, self.preparation_steps)
@@ -280,6 +281,7 @@ class TimeSeriesData(Dataset):
             6 DataFrames (data for encoder, auxillary data for encoder, Data for decoder, auxillary data for decoder, last historic target, targets)
 
         """
+        # TODO check implications of multiindex on this method
         if not isinstance(idx, int):
             idx = self.data.index.get_loc(idx)
         assert isinstance(idx, int)
@@ -310,13 +312,25 @@ class TimeSeriesData(Dataset):
             6 Tensor (data for encoder, auxillary data for encoder, Data for decoder, auxillary data for decoder, last historic target, Targets)
 
         """
+        # this makes getitem cyclical aswell
+        # TODO make sure this still works with a single index (which it should not atm)
+        idx_aux = [idx % self._idx_mod[i] // self._idx_mod[i + 1] for i in range(len(self._idx_mod) - 1)]
+        encoder_slice = (slice(idx_aux[0], idx_aux[0] + self.history_horizon), *idx_aux[1:])
+        decoder_slice = (
+            slice(idx_aux[0] + self.history_horizon, idx_aux[0] + self.history_horizon + self.forecast_horizon),
+            *idx_aux[1:],
+        )
+        last_value_slice = (
+            slice(idx_aux[0] + self.history_horizon - 1, idx_aux[0] + self.history_horizon),
+            *idx_aux[1:],
+        )
         return (
-            self.encoder_tensor[idx : idx + self.history_horizon],
-            self.aux_tensor[idx : idx + self.history_horizon],
-            self.decoder_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
-            self.aux_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
-            self.target_tensor[idx + self.history_horizon - 1 : idx + self.history_horizon],
-            self.target_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
+            self.encoder_tensor[encoder_slice],
+            self.aux_tensor[encoder_slice],
+            self.decoder_tensor[decoder_slice],
+            self.aux_tensor[decoder_slice],
+            self.target_tensor[last_value_slice],
+            self.target_tensor[decoder_slice],
         )
 
     def to(self, device: Union[str, int]):
@@ -445,6 +459,21 @@ class TimeSeriesData(Dataset):
             .float()
             .to(self.device)
         )
+        if isinstance(df.index, pd.MultiIndex):
+            idx_shape = [len(lvl) for lvl in df.index.levels]
+            self._idx_mod = [1]
+            for i, lvl in enumerate(reversed(idx_shape)):
+                self._idx_mod.append(self._idx_mod[i] * lvl)
+            self._idx_mod = tuple(reversed(self._idx_mod))
+
+            idx_shape.append(-1)
+            self.encoder_tensor = self.encoder_tensor.reshape(*idx_shape)
+            self.decoder_tensor = self.decoder_tensor.reshape(*idx_shape)
+            self.aux_tensor = self.aux_tensor.reshape(*idx_shape)
+            self.target_tensor = self.target_tensor.reshape(*idx_shape)
+        else:
+            self._idx_mod = (len(df), 1)
+
         self.tensor_prepared = True
         return self
 
