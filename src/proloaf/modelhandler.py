@@ -1466,11 +1466,16 @@ class TrainingRun:
                 last_value,
                 targets,
             ) = next(iter(self.train_dl))
-
-            self.log_tb.add_graph(
-                self.model,
-                [inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value],
-            )
+            try:
+                self.log_tb.add_graph(
+                    self.model,
+                    [inputs_enc, inputs_enc_aux, inputs_dec, inputs_dec_aux, last_value],
+                )
+            except AttributeError:
+                logger.warning(
+                    "Unable to create model graph in tensorboard. This can happen if the program was executed in a different context like by a profiler." \
+                    " This should not have any impact on the training itself"
+                )
         self.training_start_time = perf_counter()
         logger.info("Begin training...")
         self.model.train()
