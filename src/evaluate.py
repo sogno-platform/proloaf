@@ -97,11 +97,11 @@ if __name__ == "__main__":
             preparation_steps=[
                 partial(dh.set_to_hours, freq=PAR.get("frequency", "1h"), timecolumn=PAR.get("timecolumn", "Time")),
                 partial(dh.fill_if_missing, periodicity=PAR.get("periodicity", 24)),
-                partial(dh.stack_features, map=PAR.get("stack_columns")),
                 dh.add_cyclical_features,
+                net.scalers.transform,
                 partial(dh.add_onehot_features, timestep=PAR["frequency"]),
                 partial(dh.add_onehot_daytype, country=PAR.get("country_code")),
-                net.scalers.transform,
+                partial(dh.stack_features, map=PAR.get("stack_columns")),
                 dh.check_continuity,
             ],
             **PAR,
