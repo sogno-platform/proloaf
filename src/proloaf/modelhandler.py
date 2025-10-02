@@ -751,6 +751,7 @@ class ModelHandler:
         Explores the searchspace of hyperparameters defined during initialization by training
         multiple models and comparing them. The best configuration is then used to update the config.
 
+        When interrupted by a keyboard interrupt the best trial model found so far will be used.
 
         Notes
         -----
@@ -770,54 +771,80 @@ class ModelHandler:
         -------
         self
         """
-        logger.info(
-            "Max. number of iteration trials for hyperparameter tuning: {!s}".format(
-                self.tuning_config["number_of_tests"]
+        study = None
+        interrupted = False
+
+        try:
+            logger.info(
+                "Max. number of iteration trials for hyperparameter tuning: {!s}".format(
+                    self.tuning_config["number_of_tests"]
+                )
             )
-        )
-        study = self.make_study()
-        study.optimize(
-            self.tuning_objective(
-                self.tuning_config["settings"],
-                train_data=train_data,
-                validation_data=validation_data,
-            ),
-            n_trials=self.tuning_config.get("number_of_tests", None),
-            timeout=self.tuning_config.get("timeout", None),
-        )
+            study = self.make_study()
+            study.optimize(
+                self.tuning_objective(
+                    self.tuning_config["settings"],
+                    train_data=train_data,
+                    validation_data=validation_data,
+                ),
+                n_trials=self.tuning_config.get("number_of_tests", None),
+                timeout=self.tuning_config.get("timeout", None),
+            )
 
-        logger.info("Number of finished trials: {!s}".format(len(study.trials)))
-        trials_df = study.trials_dataframe()
+            logger.info("Number of finished trials: {!s}".format(len(study.trials)))
+            trials_df = study.trials_dataframe()
 
-        if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
-            os.mkdir(os.path.join(self.work_dir, self.config["log_path"]))
-        if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
-            os.mkdir(
+            if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
+                os.mkdir(os.path.join(self.work_dir, self.config["log_path"]))
+            if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
+                os.mkdir(
+                    os.path.join(
+                        self.work_dir,
+                        self.config["log_path"],
+                        f"tuning-results_{self.model_wrap.name}",
+                    )
+                )
+            trials_df.to_csv(
                 os.path.join(
                     self.work_dir,
                     self.config["log_path"],
                     f"tuning-results_{self.model_wrap.name}",
-                )
+                ),
+                index=False,
             )
-        trials_df.to_csv(
-            os.path.join(
-                self.work_dir,
-                self.config["log_path"],
-                f"tuning-results_{self.model_wrap.name}",
-            ),
-            index=False,
-        )
 
-        trial = study.best_trial
-        logger.info("Best trial")
-        logger.info(" Value: {!s}\n".format(trial.value))
-        logger.info("Params:")
-        for key, value in trial.params.items():
-            logger.info("    {}: {}".format(key, value))
 
-        # The order here is important as .get_config() pulls parameters directly from model_wrap
-        self.model_wrap = trial.user_attrs["wrapped_model"]
-        self.config.update(self.get_config())
+        
+        except Exception as err:
+            raise RuntimeError("Hyperparameter tuning failed") from err
+        
+        except KeyboardInterrupt:
+            logger.warning("Hyperparameter tuning was interrupted")
+            interrupted = True
+
+        finally:
+            if study is not None and len(study.trials) > 0:
+                completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+                
+                if len(completed_trials) == 0:
+                    logger.warning("No trials completed successfully")
+                    if interrupted:
+                        logger.info("Training was interrupted before any trial could complete")
+                    return self
+                
+                logger.info(f"Number of finished trials: {len(study.trials)}")
+                logger.info(f"Number of successful trials: {len(completed_trials)}")
+                
+                trial = study.best_trial
+                logger.info("Best trial")
+                logger.info(" Value: {!s}\n".format(trial.value))
+                logger.info("Params:")
+                for key, value in trial.params.items():
+                    logger.info("    {}: {}".format(key, value))
+
+                # The order here is important as .get_config() pulls parameters directly from model_wrap
+                self.model_wrap = trial.user_attrs["wrapped_model"]
+                self.config.update(self.get_config())
 
         return self
 
@@ -1020,6 +1047,8 @@ class ModelHandler:
             end_tensorboard(tb, hparams, values)
         except KeyboardInterrupt:
             logger.warning("Training interrupted by user, cleaning up...")
+            # end_tensorboard(tb, hparams, {})
+            raise
             
         return temp_model_wrap
 
@@ -1224,21 +1253,30 @@ class ModelHandler:
                     logger.info("Creating parameter: {!s}".format(key))
                     func_generator = getattr(trial, hparam["function"])
                     hparams["model_parameters"][model_class][key] = func_generator(**(hparam["kwargs"]))
-
-            model_wrap = self.run_training(
-                train_data,
-                validation_data,
-                hparams=hparams,
-                trial_id=f'{self.id}_trial{trial.number}',
-            )
-            model_wrap.last_training.remove_data()
-            trial.set_user_attr("wrapped_model", model_wrap)
-            trial.set_user_attr("training_run", model_wrap.last_training)
+            try:
+                model_wrap = self.run_training(
+                    train_data,
+                    validation_data,
+                    hparams=hparams,
+                    trial_id=f'{self.id}_trial{trial.number}',
+                )
+                if model_wrap.last_training is not None:
+                    model_wrap.last_training.remove_data()
+                    trial.set_user_attr("wrapped_model", model_wrap)
+                    trial.set_user_attr("training_run", model_wrap.last_training)
+                    validation_loss = model_wrap.last_training.validation_loss
+                else:
+                    raise optuna.exceptions.TrialPruned()
+            except KeyboardInterrupt:
+                # Re-raise KeyboardInterrupt to stop the entire study
+                logger.warning("KeyboardInterrupt received - stopping hyperparameter tuning")
+                raise
+            
             # Handle pruning based on the intermediate value.
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
-            return model_wrap.last_training.validation_loss
+            return validation_loss
 
         return search_params
 
