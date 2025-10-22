@@ -1,7 +1,7 @@
 ---
 title: "metrics"
 linkTitle: "metrics"
-date: 2020-19-08
+date: 2020-08-19
 weight: 4
 description: >
   Introduction to forecasting metrics.
