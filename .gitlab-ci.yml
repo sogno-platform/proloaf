@@ -199,7 +199,7 @@ hugo:
     # Install all npm dependencies (includes Bootstrap, Font Awesome, postcss, autoprefixer)
     - npm install
     # Patch Docsy's hugo.yaml to disable Hugo Module imports (incompatible with git submodule + local node_modules)
-    - sed -i 's/disable: false/disable: true/g' themes/docsy/hugo.yaml
+    - "sed -i 's/disable: false/disable: true/g' themes/docsy/hugo.yaml"
     # Initialize Hugo modules if go.mod doesn't exist (for module imports)
     - hugo mod init proloaf/docs || true
     - hugo mod tidy
