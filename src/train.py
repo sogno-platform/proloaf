@@ -32,10 +32,10 @@ Notes
 """
 
 import os
-from typing import Literal, Union
 import warnings
 from copy import deepcopy
 from functools import partial
+from typing import Literal, Union
 
 import pandas as pd
 
@@ -93,7 +93,7 @@ def main(
     device : "cpu" | "cuda", optional
         Which device to run the training on, by default "cpu". "cuda is recommended if available.
     """
-    logger.info("Current working directory is {:s}".format(work_dir))
+    logger.info(f"Current working directory is {work_dir:s}")
 
     # Read load data
     config = deepcopy(config)
@@ -187,7 +187,7 @@ def main(
                     [ref_model_1, modelhandler.model_wrap],
                     modelhandler._model_wrap.loss_metric,
                 )
-        except:
+        except Exception:
             logger.warning(
                 "An older version of this model was found but could not be compared to the new one, this might be due to diverging model structures."
             )

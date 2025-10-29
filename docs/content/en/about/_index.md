@@ -13,7 +13,7 @@ menu:
 {{< /blocks/cover >}}
 
 {{% blocks/lead %}}
-ProLoaF makes use of the big data paradigm that allows machine learning algorithms, trained with data from the power system field. The core comprises a recurrent neural network (encoder-decoder architecture) to predict the target variable. 
+ProLoaF makes use of the big data paradigm that allows machine learning algorithms, trained with data from the power system field. The core comprises a recurrent neural network (encoder-decoder architecture) to predict the target variable.
 The targets can vary from timerseries of PV, Wind or other generators to most commonly the total energy consumption.
 Both, the relevant input data history and prediction horizon are arbitrarily long and customizable for any specific need.
 

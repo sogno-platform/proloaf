@@ -1,12 +1,13 @@
 from functools import partial
 from pathlib import Path
+
 import pandas as pd
 from matplotlib import pyplot as plt
 
+from proloaf import datahandler as dh
 from proloaf import modelhandler as mh
 from proloaf.confighandler import read_config
 from proloaf.tensorloader import TimeSeriesData
-from proloaf import datahandler as dh
 
 # Path to the pro
 config_path = Path(__file__).parent / "config.json"

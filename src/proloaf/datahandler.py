@@ -27,7 +27,6 @@ useful for testing or future applications.
 """
 
 from datetime import datetime, timedelta
-import time
 
 try:
     from enum import StrEnum
@@ -38,8 +37,9 @@ except ImportError:
         pass
 
 
+from collections.abc import Iterable
 from itertools import chain
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Optional, Union
 
 import holidays
 import numpy as np
@@ -159,7 +159,7 @@ def extract_timeindex(df: pd.DataFrame, time_index_level: str | int | None = Non
     """
     if isinstance(df.index, pd.MultiIndex):
         if time_index_level is None:
-            for i,lvl in enumerate(df.index.levels):
+            for i, lvl in enumerate(df.index.levels):
                 if isinstance(lvl, pd.DatetimeIndex):
                     # returning lvl directly will not have the correct dimensions (total len of dataframe)
                     timeindex = df.index.get_level_values(i)
@@ -209,7 +209,7 @@ def add_onehot_daytype(df: pd.DataFrame, country: str | None = None):
     return df.join(onehot)
 
 
-def load_raw_data_csv(files: List[Dict[str, Any]], path: str):
+def load_raw_data_csv(files: list[dict[str, Any]], path: str):
     """
     Load data from a csv file
 
@@ -389,7 +389,7 @@ def add_onehot_features(df, timestep: timedelta = timedelta(hours=1)):
     return df
 
 
-def add_missing_features(df: pd.DataFrame, all_columns: List[str], fill_value=0):
+def add_missing_features(df: pd.DataFrame, all_columns: list[str], fill_value=0):
     for col in all_columns:
         if col not in df.columns:
             df[col] = fill_value
@@ -410,7 +410,7 @@ def check_continuity(df: pd.DataFrame) -> pd.DataFrame:
     ValueError
         If index of DataFrame is not a continous datetime index.
 
-    """ 
+    """
 
     timeindex = None
     if isinstance(df.index, pd.MultiIndex):
@@ -420,8 +420,10 @@ def check_continuity(df: pd.DataFrame) -> pd.DataFrame:
                 break
     else:
         timeindex = df.index
-    if timeindex is None or not hasattr(timeindex, "freq") or not timeindex.equals(
-        pd.date_range(min(timeindex), max(timeindex), freq=timeindex.freq)
+    if (
+        timeindex is None
+        or not hasattr(timeindex, "freq")
+        or not timeindex.equals(pd.date_range(min(timeindex), max(timeindex), freq=timeindex.freq))
     ):
         raise ValueError("DateTime index is not continuous or not present")
     return df
@@ -524,7 +526,7 @@ def extend_df(df: pd.DataFrame, add_steps: int) -> pd.DataFrame:
     """
     timeindex = extract_timeindex(df)
     assert not isinstance(df.index, pd.MultiIndex), "Dataframe extention has not been implemented for multi index"
-    # TODO does this need to be adjusted for multiindex 
+    # TODO does this need to be adjusted for multiindex
     freq = timeindex.freq if timeindex.freq else timeindex.inferred_freq
     add_index = pd.date_range(timeindex[-1], periods=add_steps + 1, freq=freq, inclusive="right", name=timeindex.name)
     add_df = pd.DataFrame(columns=df.columns, index=add_index)
@@ -582,7 +584,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
         assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
     # loop over all ranges
     for col, (start, end) in zip(miss_columns, miss_rows_ranges):
-        assert type(col) == int
+        assert isinstance(col, int)
 
         # dur = end - start
         p = periodicity  # periodicity
@@ -602,7 +604,6 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
         else:
             # now we are dealing with a range
             if (start - p) <= 0 or (end + p) > (df.shape[0]):  # if the range is close to the beginning or end
-
                 if start == 0:  # special case: range begins with first value
                     # fill all beginning NaN values with the next existing value
                     df.iloc[start : end + 1, col] = df.iloc[end + 1, col]
@@ -665,10 +666,10 @@ def fill_if_missing(df: pd.DataFrame, periodicity: int = 24) -> pd.DataFrame:
 
 
 # TODO flesh out description
-def stack_features(df: pd.DataFrame, map: Optional[dict[str, List]] = None):
+def stack_features(df: pd.DataFrame, map: Optional[dict[str, list]] = None):
     """Stacks multiple features into one by creating a multi index. This step is succeptible to the position in data prep steps.
-    Most importantly, if scaling is done first there will not be a scaler for a general feature (not availble during training). 
-    You will have to have enough data to fit a scaler for the new feature.  
+    Most importantly, if scaling is done first there will not be a scaler for a general feature (not availble during training).
+    You will have to have enough data to fit a scaler for the new feature.
 
     Parameters
     ----------
@@ -725,8 +726,8 @@ class MultiScaler(sklearn.base.TransformerMixin):
 
     def __init__(
         self,
-        feature_groups: List[Dict] = None,
-        scalers: Dict[str, sklearn.base.TransformerMixin] = None,
+        feature_groups: list[dict] = None,
+        scalers: dict[str, sklearn.base.TransformerMixin] = None,
     ):
         if feature_groups is None:
             feature_groups = []
@@ -739,7 +740,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
             self._mark_if_fitted()
 
     @staticmethod
-    def _extract_scaler_from_config(scaler_dict: Dict) -> sklearn.base.TransformerMixin:
+    def _extract_scaler_from_config(scaler_dict: dict) -> sklearn.base.TransformerMixin:
         if scaler_dict[0] == "standard":
             return StandardScaler()
         elif scaler_dict[0] == "robust":
@@ -934,7 +935,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.is_fitted_ = True
 
 
-def split(df: pd.DataFrame, splits: List[Union[float, datetime]]):
+def split(df: pd.DataFrame, splits: list[Union[float, datetime]]):
     """Splits a dataframe at the specified points.
 
     Parameters

@@ -52,7 +52,7 @@ def create_event_logger(
             logging.basicConfig(level=default_logging_level)
             logger = logging.getLogger()
             logger.warning(
-                'Logger name "{:s}" could not be found in the logging config. Default logger was created'.format(name)
+                f'Logger name "{name:s}" could not be found in the logging config. Default logger was created'
             )
         else:
             logger = logging.getLogger(name)

@@ -1,5 +1,4 @@
 import os
-import sys
 from functools import partial
 from random import seed
 
@@ -73,9 +72,7 @@ class _SaliencyMap:
 
 
 class SaliencyMapHandler:
-
     def __init__(self, target: str, sep=";"):
-
         # read saliency config
         logger.info("reading saliency.json config")
         ex_config_path = os.path.join("targets", target, "saliency.json")
@@ -92,7 +89,7 @@ class SaliencyMapHandler:
 
         # setting device
         self._device = self.set_device(self._saliency_config["cuda_id"])
-        logger.debug("Device: {}".format(self._device))
+        logger.debug(f"Device: {self._device}")
 
         # get scaler
         scaler = dh.MultiScaler(model_config["feature_groups"])
@@ -122,7 +119,7 @@ class SaliencyMapHandler:
             logger.info("loading the forecasting model")
             model_wrap_path = os.path.join(MAIN_PATH, model_config["output_path"], model_config["model_name"] + ".pkl")
             self._model_wrap = mh.ModelHandler.load_model(path=model_wrap_path, locate=self._device)
-        except:
+        except Exception:
             logger.error(
                 "An error has occurred while trying to load the forecasting model."
                 "The model has to be trained and saved as a loadable file."
@@ -180,7 +177,7 @@ class SaliencyMapHandler:
         if torch.cuda.is_available():
             if cuda_id is not None:
                 torch.cuda.set_device(cuda_id)
-            logger.debug("Current CUDA ID: {}".format(torch.cuda.current_device()))
+            logger.debug(f"Current CUDA ID: {torch.cuda.current_device()}")
             device = "cuda"
             return device
 
@@ -197,7 +194,7 @@ class SaliencyMapHandler:
         if not isinstance(datetime, pd.Timestamp):
             raise TypeError("Only pandas Timestamps are accepted as datetime variables")
         self._datetime = datetime
-        logger.info("Date and Time set to: {}".format(datetime))
+        logger.info(f"Date and Time set to: {datetime}")
 
         self._update_time_step()
 
@@ -210,7 +207,7 @@ class SaliencyMapHandler:
             time_step = int(time_step[0])
             if not isinstance(time_step, int):
                 raise TypeError
-            logger.debug("Timestep for saliency map with the date {!s} is {!s}".format(self.datetime, time_step))
+            logger.debug(f"Timestep for saliency map with the date {self.datetime!s} is {time_step!s}")
             self._time_step = time_step
 
         except ValueError:
@@ -277,7 +274,6 @@ class SaliencyMapHandler:
 
     @model_prediction.setter
     def model_prediction(self, model_prediction):
-
         if hasattr(self, "_model_prediction"):
             logger.warning("Model prediction has already been made.")
             return  # model prediction only has to be made once
@@ -497,13 +493,11 @@ class SaliencyMapHandler:
         """
 
         torch.autograd.set_detect_anomaly(True)
-        lambda_ = 1
         learning_rate = trial.suggest_float(
             "learning rate", low=self._saliency_config["lr_low"], high=self._saliency_config["lr_high"], log=True
         )
 
         mask = self.init_saliency_map(init_value=float(0))
-        start_lr = 1
         optimizer = torch.optim.Adam(mask.tensor_repr(), lr=learning_rate)
 
         assert self._saliency_config["max_epochs"] > 0
@@ -551,7 +545,6 @@ class SaliencyMapHandler:
         self._optimization_done = True
 
     def print_epoch(self, epoch, loss, print_every: int = 1):
-
         if epoch % print_every == 0:  # print every .. epochs
             logger.debug(
                 "epoch {} / {} \t epoch loss: {}".format(epoch, self._saliency_config["max_epochs"], loss.item())
@@ -578,7 +571,7 @@ class SaliencyMapHandler:
             logger.error("The file you tried to load is not a SaliencyMapUtil instance")
             self = None
         except FileNotFoundError:
-            logger.error("no save file found in {}".format(default_path))
+            logger.error(f"no save file found in {default_path}")
             self = None
         return self
 
@@ -625,7 +618,7 @@ class SaliencyMapHandler:
 
         saliency_heatmap[
             self.history_horizon :, self.num_encoder_features : self.num_encoder_features + self.num_decoder_features
-        ] = (sigmoid_map[2].cpu().detach().numpy())
+        ] = sigmoid_map[2].cpu().detach().numpy()
 
         saliency_heatmap[self.history_horizon :, self.num_encoder_features + self.num_decoder_features :] = (
             sigmoid_map[3].cpu().detach().numpy()
@@ -667,7 +660,7 @@ class SaliencyMapHandler:
         # set titles and legends
         ax.set_xlabel("Time")
         ax.set_ylabel("Features")
-        cbar = fig.colorbar(im)  # add colorbar
+        fig.colorbar(im)  # add colorbar
 
         # layout
         fig.tight_layout()
@@ -679,7 +672,7 @@ class SaliencyMapHandler:
         temp_save_path = plot_path + "_heatmap"
         fig.savefig(temp_save_path)
 
-        logger.info("plot saved in {}.".format(temp_save_path))
+        logger.info(f"plot saved in {temp_save_path}.")
         # tmp = plt.figure()
         fig, ax = plt.subplots(1, figsize=(20, 14))
         flat_sal_map = saliency_heatmap.flatten()
@@ -688,7 +681,7 @@ class SaliencyMapHandler:
         fig.tight_layout()
         temp_save_path = plot_path + "_dist"
         fig.savefig(temp_save_path)
-        logger.info("plot saved in {}.".format(temp_save_path))
+        logger.info(f"plot saved in {temp_save_path}.")
 
     def plot_predictions(self, plot_path: str = ""):
         """

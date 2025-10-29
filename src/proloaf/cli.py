@@ -36,7 +36,7 @@ class flag_and_store(argparse._StoreAction):
     def __init__(self, option_strings: str, dest: str, dest_const: str, const: str, nargs=0, **kwargs):
         self.dest_const = dest_const
         self.flag = const
-        super(flag_and_store, self).__init__(option_strings, dest, const=None, nargs=nargs, **kwargs)
+        super().__init__(option_strings, dest, const=None, nargs=nargs, **kwargs)
         self.nargs = nargs
 
     def __call__(self, parser, namespace, values, option_strings=None):

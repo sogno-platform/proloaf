@@ -22,6 +22,7 @@ Provides various functions for reading, writing and working with config files.
 
 Enables design and modification of the RNN via config files only.
 """
+
 import json
 import os
 
@@ -50,7 +51,7 @@ def read_config(model_name=None, config_path=None, main_path=""):
     """
     if config_path is None:
         config_path = os.path.join("targets", model_name, "config.json")
-    with open(os.path.join(main_path, config_path), "r") as input:
+    with open(os.path.join(main_path, config_path)) as input:
         return json.load(input)
 
 

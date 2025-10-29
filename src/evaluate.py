@@ -32,7 +32,6 @@ in the corresponding config file.
 
 """
 
-
 import os
 from functools import partial
 
@@ -192,9 +191,7 @@ if __name__ == "__main__":
                 inputs_dec_aux,
                 last_value,
                 targets,
-            ) = test_data[
-                i
-            ]  # No Error over time for autoencoder
+            ) = test_data[i]  # No Error over time for autoencoder
             if isinstance(net.model, models.AutoEncoder):
                 logger.warning(
                     "Autoencoders do not create a prediction for the future, no plot will be generated comparing the prediciton to the target."
@@ -236,7 +233,7 @@ if __name__ == "__main__":
                 )
 
         results_total_per_forecast.to_csv(os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True)
-        logger.info("Results total per forecast:\n{!s}".format(results_total_per_forecast))
+        logger.info(f"Results total per forecast:\n{results_total_per_forecast!s}")
         (
             inputs_enc,
             inputs_enc_aux,

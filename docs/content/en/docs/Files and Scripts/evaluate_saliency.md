@@ -18,7 +18,7 @@ The neural network should be trained beforehand.
 - ./targets/<model_name>/saliency.json
 
 
-### Plots and tensors 
+### Plots and tensors
 - ./oracles/interpretation/<model_name>/<date_time>_heatmap.png
 - ./oracles/interpretation/<model_name>/<date_time>_save
 
@@ -50,7 +50,7 @@ Now in [saliency config](./config.md#saliency-config) in the same folder the fol
   - lambda is the weight that determines the size of the mask weight error.
   - A high lambda value means that high mask values are penalized more in the objective function, so that the mask values turn out to be smaller overall.
   - A low lambda value means that high mask values are penalized less in the objective function, so that the mask values turn out to be bigger overall.
-  
+
     > beware that the date indicates the beginning of the forecast horizon.
      Also the timestep should be identical to the one of the internal dataloader not the datasheet file in the data folder
 
@@ -59,7 +59,7 @@ Now in [saliency config](./config.md#saliency-config) in the same folder the fol
 Now run the `evaluate_saliency.py` script with the -s <target_folder> flag. The function will now read in all the parameters it needs from the `saliency.json` file.
 The trained net will be loaded and the saliency map is calculated for the given date.
 
-The script also saves an instance of a saliency map handler class into 
+The script also saves an instance of a saliency map handler class into
 
 #### Step 3: Looking at the Results
 
@@ -67,7 +67,7 @@ After the `evaluate_saliency.py` script has finished a plot of the saliency map 
 
 #### Step 4: Other useful functions:
 
-The script also saves an instance of a saliency map handler class into 
+The script also saves an instance of a saliency map handler class into
 > `<evaluation_path>/interpretation/<model_name>/<date>_save`
 
 This save file can be loaded with the load() function:

@@ -27,7 +27,7 @@ import math
 import multiprocessing
 import os
 import pickle
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -44,7 +44,7 @@ from proloaf.event_logging import create_event_logger
 
 try:
     from pmdarima.arima import auto_arima
-except ValueError as exc:
+except ValueError:
     raise ImportError(
         "The pmdarima packackage is currently not compatible with numpy~=2.0. \nFor more information see the related issue: https://github.com/alkaline-ml/pmdarima/issues/577"
     )
@@ -318,10 +318,10 @@ def eval_forecast(
     lower_limits,
     model_name: str,
     path: str,
-    config: Dict[str, Any],
-    analyzed_metrics_avg: List[metrics.Metric],
-    analyzed_metrics_sample: List[metrics.Metric],
-    analyzed_metrics_timesteps: List[metrics.Metric],
+    config: dict[str, Any],
+    analyzed_metrics_avg: list[metrics.Metric],
+    analyzed_metrics_sample: list[metrics.Metric],
+    analyzed_metrics_timesteps: list[metrics.Metric],
 ):
     """
     Calculate evaluation metrics
@@ -610,7 +610,7 @@ def GARCH_predictioninterval(
         test_period = range(limit_steps)
 
     model_garch = arch_model(endog_train, vol="GARCH", mean="LS", lags=periodicity, p=p, q=q)  # (endog_val[1:]
-    res = model_garch.fit(update_freq=20)
+    model_garch.fit(update_freq=20)
 
     # do stepwise iteration and prolongation of the train data again, as a forecast can only work in-sample
     def garch_PI_predict(i):
@@ -634,7 +634,6 @@ def GARCH_predictioninterval(
             i : i + forecast_horizon
         ]  # this can be an issue if we reach the end of endog val with i
         sigma.index = endog_val.index[i : i + forecast_horizon]
-        sigma_hn = sum(sigma) / len(sigma)
 
         fc_u = expected_value + alpha * sigma
         fc_l = expected_value - alpha * sigma
@@ -978,7 +977,7 @@ def exp_smoothing(y_train, y_test, forecast_horizon=1, limit_steps=False, pi_alp
         pred = fit.get_prediction(
             start=y_test.index[i], end=y_test.index[i + forecast_horizon - 1]
         ).summary_frame()  # with: method = 'simulated', simulate_repetitions=100 we can simulate the PI's
-        ## --plotting current prediction--
+        # --plotting current prediction--
         # plt.rcParams['figure.figsize'] = (12, 8)
         # pred["mean"].plot(label='mean prediction')
         # pred["pi_lower"].plot(linestyle='--', color='tab:blue', label='95% interval')

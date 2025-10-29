@@ -7,11 +7,11 @@ description: >
   Basic information on the training script.
 ---
 ### Overview
-This script trains a forecasting model on a dataset, which is loaded into a pandas Dataframe from a csv file. 
+This script trains a forecasting model on a dataset, which is loaded into a pandas Dataframe from a csv file.
 Hyperparameter exploration using [optuna](https://optuna.org/) is also possible if desired. The trained model is saved at the location specified under `"output_path"` in the corresponding [config.json](config.md#main-config) and can be loaded via `torch.load()` or evaluated by using the [evaluate.py](./evaluate.md) script. This script performs desired preprocessing, like adding one-hot encoded time features and scaling, loads a custom data structure and then generates and trains a neural net.
 
 #### Inputs
-- A [config file](./config.md#main-config) 
+- A [config file](./config.md#main-config)
 - Training and validation data. All in one `.csv` file. This can also include the test data (see `test_split` in [config description](./config.md#training-settings))
 
 #### Outputs
@@ -23,7 +23,7 @@ Hyperparameter exploration using [optuna](https://optuna.org/) is also possible 
 Any training parameter is considered a hyper parameter as long as it is specified in either [config.json](config.md#main-config). The latter is the standard file where the (so far) best found configuration is saved and should usually not be manually adapted unless new tests are for some reason not comparable to older ones (e.g. after changing the loss function).
 
 ### Usage
-To run training you need to create at least a the main [config.json](config.md#main-config) first. 
+To run training you need to create at least a the main [config.json](config.md#main-config) first.
 Then you can run
 ```sh
 $ python src/train -s <station_name>
@@ -33,11 +33,11 @@ Alternatively you can run training using
 ```sh
 $ python src/train -c <path_to_config>
 ```
-to specify a path relative to the project folder directly to the config file. 
+to specify a path relative to the project folder directly to the config file.
 
 
-If not otherwise specified, during training, per default the neural network maximizes the 
-[Maximum Likelihood Estimation of Gaussian Parameters](http://jrmeyer.github.io/machinelearning/2017/08/18/mle.html), 
+If not otherwise specified, during training, per default the neural network maximizes the
+[Maximum Likelihood Estimation of Gaussian Parameters](http://jrmeyer.github.io/machinelearning/2017/08/18/mle.html),
 for a 95% prediction interval. This so-called loss criterion can be changed to any metric that quantifies the (probabilistic) performance of the forecast. A common non-parametric option is the quantile loss. You can apply quantile loss criterion as follows:
 
 ```sh
@@ -51,7 +51,7 @@ See more detailed descriptions and further loss options in the full [list of ava
 To be able to adjust the training script if necessary it might be helpful to understand the overall structure of the script. If you feel like the script is missing general features, feel free to [pose a feature request](../Contribution%20Guidelines/_index.md)
 >[!Note]
 >There might be slight differences from the code presented here and the up-to-date `train.py`.
->The file itself should be the correct version, what is presented here should however always be recognizable. 
+>The file itself should be the correct version, what is presented here should however always be recognizable.
 **imports**
 ```python
 import os
@@ -72,7 +72,7 @@ from proloaf.confighandler import read_config
 from proloaf.event_logging import create_event_logger
 ```
 Nothing out of the ordinary, note however the direct dependency on pandas and torch.
-**globals** 
+**globals**
 ```python
 MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -161,7 +161,7 @@ modelhandler.fit(
 )
 train_dataset = None # unbind data to save some memory
 ```
-First load the tuning config, then create the modelhandler. The modelhandler provides an api with a `fit` and a `predict` method as it is common in [scikit-learns predictors](https://scikit-learn.org/1.5/developers/develop.html) though with slightly different arguments. 
+First load the tuning config, then create the modelhandler. The modelhandler provides an api with a `fit` and a `predict` method as it is common in [scikit-learns predictors](https://scikit-learn.org/1.5/developers/develop.html) though with slightly different arguments.
 
 **Model compariosn**
 ```python
@@ -209,7 +209,7 @@ ch.write_config(
     main_path=work_dir,
 )
 ```
-Both the model and current config are saved. The config is saved in case hyper-parameter tuning was performed. 
+Both the model and current config are saved. The config is saved in case hyper-parameter tuning was performed.
 
 
 ### Reference Documentation

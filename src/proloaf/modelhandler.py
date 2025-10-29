@@ -22,13 +22,15 @@
 Provides functions and classes for using the models to get predictions
 and testing model performance.
 """
+
 from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Sequence
 from copy import deepcopy
 from time import perf_counter
-from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, Union
+from typing import Any, Callable, Literal
 
 import numpy as np
 import optuna
@@ -100,9 +102,9 @@ class EarlyStopping:
             The model being trained
         """
         if self.verbose:
-            logger.info(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...")
+            logger.info(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). Saving model ...")
         temp_dir = "./"  # tempfile.mktemp()
-        torch.save(model.state_dict(), temp_dir + f"checkpoint.pt")
+        torch.save(model.state_dict(), temp_dir + "checkpoint.pt")
         self.val_loss_min = val_loss
         self.temp_dir = temp_dir
 
@@ -154,13 +156,13 @@ class ModelWrapper:
     def __init__(
         self,
         name: str = "model",
-        target_id: Union[str, int] = None,
-        encoder_features: List[str] = None,
-        decoder_features: List[str] = None,
-        aux_features: List[str] = None,
+        target_id: str | int = None,
+        encoder_features: list[str] = None,
+        decoder_features: list[str] = None,
+        aux_features: list[str] = None,
         scalers=None,
         training_metric: str = None,
-        metric_options: Dict[str, Any] = None,
+        metric_options: dict[str, Any] = None,
         optimizer_name: str = "adam",
         early_stopping_patience: int = 7,
         early_stopping_margin: float = 0.0,
@@ -168,7 +170,7 @@ class ModelWrapper:
         max_epochs: int = 100,
         forecast_horizon: int = 24,
         model_class: str = "recurrent",
-        model_parameters: Dict[str, Any] = None,
+        model_parameters: dict[str, Any] = None,
         batch_size: int = 1,
         history_horizon: int = 24,
     ):
@@ -249,13 +251,13 @@ class ModelWrapper:
     def update(
         self,
         name: str = None,
-        target_id: Union[str, int] = None,
-        encoder_features: List[str] = None,
-        decoder_features: List[str] = None,
-        aux_features: List[str] = None,
+        target_id: str | int = None,
+        encoder_features: list[str] = None,
+        decoder_features: list[str] = None,
+        aux_features: list[str] = None,
         scalers=None,
         training_metric: str = None,
-        metric_options: Dict[str, Any] = None,
+        metric_options: dict[str, Any] = None,
         optimizer_name: str = None,
         early_stopping_patience: int = None,
         early_stopping_margin: float = None,
@@ -263,7 +265,7 @@ class ModelWrapper:
         max_epochs: int = None,
         forecast_horizon: int = None,
         model_class: str = None,
-        model_parameters: Dict[str, Any] = None,
+        model_parameters: dict[str, Any] = None,
         batch_size: int = None,
         history_horizon: int = None,
         **_,
@@ -471,7 +473,7 @@ class ModelWrapper:
         self.initialzed = True
         return self
 
-    def to(self, device: Union[str, int]):
+    def to(self, device: str | int):
         """Moves the model to a specific device.
         Parameters
         ----------
@@ -528,10 +530,6 @@ class ModelWrapper:
             device=self._device,
         )
         training_run.train()
-        values = {
-            "hparam/hp_total_time": training_run.training_start_time - training_run.training_end_time,
-            "hparam/score": training_run.validation_loss,
-        }
         training_run.remove_data()
         self.last_training = training_run
         return self
@@ -732,7 +730,7 @@ class ModelHandler:
             timeout=self.tuning_config.get("timeout", None),
         )
 
-        logger.info("Number of finished trials: {!s}".format(len(study.trials)))
+        logger.info(f"Number of finished trials: {len(study.trials)!s}")
         trials_df = study.trials_dataframe()
 
         if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
@@ -756,10 +754,10 @@ class ModelHandler:
 
         trial = study.best_trial
         logger.info("Best trial")
-        logger.info(" Value: {!s}\n".format(trial.value))
+        logger.info(f" Value: {trial.value!s}\n")
         logger.info("Params:")
         for key, value in trial.params.items():
-            logger.info("    {}: {}".format(key, value))
+            logger.info(f"    {key}: {value}")
 
         # The order here is important as .get_config() pulls parameters directly from model_wrap
         self.model_wrap = trial.user_attrs["wrapped_model"]
@@ -770,7 +768,7 @@ class ModelHandler:
     def select_model(
         self,
         data: proloaf.tensorloader.TimeSeriesData,
-        models: List[ModelWrapper],
+        models: list[ModelWrapper],
         loss: metrics.Metric,
     ):
         """Select the best model from a list of models.
@@ -805,12 +803,15 @@ class ModelHandler:
     @staticmethod
     def benchmark(
         data: proloaf.tensorloader.TimeSeriesData,
-        models: List[ModelWrapper],
-        test_metrics: List[metrics.Metric],
-        avg_over: Union[
-            Union[Literal["all"], Literal["sample"], Literal["time"], Literal["feature"]],
-            Sequence[Union[Literal["sample"], Literal["time"], Literal["feature"]]],
-        ],
+        models: list[ModelWrapper],
+        test_metrics: list[metrics.Metric],
+        avg_over: (
+            Literal["all"]
+            | Literal["sample"]
+            | Literal["time"]
+            | Literal["feature"]
+            | Sequence[Literal["sample"] | Literal["time"] | Literal["feature"]]
+        ),
     ) -> pd.DataFrame:
         """Benchmark a list of models. Calculates all the metrics for all models.
 
@@ -1086,7 +1087,7 @@ class ModelHandler:
 
     @staticmethod
     def make_study(
-        direction: Union[Literal["minimize"], Literal["maximize"]] = "minimize",
+        direction: Literal["minimize"] | Literal["maximize"] = "minimize",
         pruner: optuna.pruners.BasePruner = optuna.pruners.MedianPruner(),
     ):
         """
@@ -1121,7 +1122,7 @@ class ModelHandler:
 
     def tuning_objective(
         self,
-        tuning_settings: Dict[str, Any],
+        tuning_settings: dict[str, Any],
         train_data: proloaf.tensorloader.TimeSeriesData,
         validation_data: proloaf.tensorloader.TimeSeriesData,
     ):
@@ -1155,7 +1156,7 @@ class ModelHandler:
                 if key == "model_parameters":
                     continue
 
-                logger.info("Creating parameter: {!s}".format(key))
+                logger.info(f"Creating parameter: {key!s}")
                 func_generator = getattr(trial, hparam["function"])
                 hparams[key] = func_generator(**(hparam["kwargs"]))
 
@@ -1164,7 +1165,7 @@ class ModelHandler:
             if "model_parameters" in tuning_settings:
                 hparams["model_parameters"] = {model_class: {}}
                 for key, hparam in tuning_settings["model_parameters"].get(model_class, {}).items():
-                    logger.info("Creating parameter: {!s}".format(key))
+                    logger.info(f"Creating parameter: {key!s}")
                     func_generator = getattr(trial, hparam["function"])
                     hparams["model_parameters"][model_class][key] = func_generator(**(hparam["kwargs"]))
 
@@ -1260,7 +1261,7 @@ class TrainingRun:
         batch_size: int = None,
         history_horizon: int = 24,
         forecast_horizon: int = 24,
-        id: Union[str, int] = None,
+        id: str | int = None,
         device: str = "cpu",
         log_tb: torch.utils.tensorboard.SummaryWriter = None,
     ):
@@ -1473,7 +1474,7 @@ class TrainingRun:
                 )
             except AttributeError:
                 logger.warning(
-                    "Unable to create model graph in tensorboard. This can happen if the program was executed in a different context like by a profiler." \
+                    "Unable to create model graph in tensorboard. This can happen if the program was executed in a different context like by a profiler."
                     " This should not have any impact on the training itself"
                 )
         self.training_start_time = perf_counter()
@@ -1489,13 +1490,7 @@ class TrainingRun:
             else:
                 logger.warning("No validation data was provided, thus no validation was performed")
             logger.info(
-                "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
-                    epoch + 1,
-                    self.max_epochs,
-                    self.training_loss,
-                    self.validation_loss,
-                    t1_stop - t1_start,
-                )
+                f"Epoch {epoch + 1}/{self.max_epochs}\t train_loss {self.training_loss:.2e}\t val_loss {self.validation_loss:.2e}\t elapsed_time {t1_stop - t1_start:.2e}"
             )
             if self.log_tb:
                 add_tb_element(

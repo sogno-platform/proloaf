@@ -45,7 +45,6 @@ MAIN_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 logger = create_event_logger("preprocess")
 
 if __name__ == "__main__":
-
     ARGS = parse_basic()
     config_file = os.path.join(MAIN_PATH, "targets", ARGS.station, "preprocessing.json")
     PAR = read_config(config_path=config_file)

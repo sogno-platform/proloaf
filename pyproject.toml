@@ -42,7 +42,7 @@ dependencies = [
 
 [project.optional-dependencies]
 tutorial = ["jupyter"]
-dev = ["isort", "black"]
+dev = ["ruff", "pre-commit"]
 
 [project.urls]
 GitHub = "https://github.com/sogno-platform/proloaf"
@@ -51,10 +51,50 @@ GitHub = "https://github.com/sogno-platform/proloaf"
 where = ["src"]
 namespaces = false
 
-[tool.black]
+# Ruff configuration (replaces flake8, isort, pyupgrade, black)
+[tool.ruff]
 line-length = 120
-target-version = ["py312"]
+target-version = "py39"
+# Don't exclude notebooks - we want to lint them too, just with different rules
 
-[tool.isort]
-profile = "black"
-line_length = 120
+# Enable specific rule sets
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort (import sorting)
+    "UP",    # pyupgrade (modernize Python code)
+    "B",     # flake8-bugbear (find likely bugs)
+    "C4",    # flake8-comprehensions
+]
+
+# Ignore errors (most formatting issues handled by ruff-format)
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "B006",  # Do not use mutable data structures for argument defaults
+    "B008",  # Do not perform function calls in argument defaults
+    "B904",  # Within except clause, raise with 'from err'
+    "UP031", # Use format specifiers instead of percent format
+    "C408",  # Unnecessary dict() call
+    "B007",  # Loop control variable not used
+]
+
+# Per-file ignores - different rules for different file types
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Unused imports in __init__.py
+"notebooks/**/*.ipynb" = [
+    "E402",  # Module level import not at top
+    "E701",  # Multiple statements on one line
+    "E711",  # Comparison to None
+    "E712",  # Comparison to True/False
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["proloaf"]
+
+[tool.ruff.format]
+# Use Black-compatible formatting
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
