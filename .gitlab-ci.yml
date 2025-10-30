@@ -1,5 +1,7 @@
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
+  GIT_CLEAN_FLAGS: -ffdx
+  GIT_SUBMODULE_UPDATE_FLAGS: --force
   PUSH_USER: ci_pipeline
   DOCKER_TAG: $CI_COMMIT_REF_SLUG
   DOCKER_IMAGE_DEV: plf
