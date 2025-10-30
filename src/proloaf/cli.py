@@ -253,9 +253,9 @@ def parse_with_loss(args=sys.argv[1:]):
     ret = parser.parse_args(args)
 
     if ret.loss.lower() == "mis":
-        options = dict(alpha=ret.loss_arguments)
+        options = {"alpha": ret.loss_arguments}
     elif ret.loss.lower() == "quantilescore":
-        options = dict(quantiles=ret.loss_arguments)
+        options = {"quantiles": ret.loss_arguments}
     else:
         options = {}
     return ret, options
@@ -288,7 +288,7 @@ def query_true_false(question, default="yes"):
     elif default == "no":
         prompt = " [y/N] "
     else:
-        raise ValueError("invalid default answer: '%s'" % default)
+        raise ValueError(f"invalid default answer: '{default}'")
 
     while True:
         sys.stdout.write(question + prompt)

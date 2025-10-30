@@ -44,10 +44,10 @@ from proloaf.event_logging import create_event_logger
 
 try:
     from pmdarima.arima import auto_arima
-except ValueError:
+except ValueError as err:
     raise ImportError(
         "The pmdarima packackage is currently not compatible with numpy~=2.0. \nFor more information see the related issue: https://github.com/alkaline-ml/pmdarima/issues/577"
-    )
+    ) from err
 # ======================================
 # =======================================
 # save baseline model
@@ -72,7 +72,7 @@ def test_stationarity(timeseries, maxlag):
         ],
     )
     for key, value in dftest[4].items():
-        dfoutput["Critical Value (%s)" % key] = value
+        dfoutput[f"Critical Value ({key})"] = value
     print(round(dfoutput, 3))
 
 

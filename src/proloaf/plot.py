@@ -220,7 +220,7 @@ def plot_boxplot(
     """
     plt.clf()
     ax1 = metrics_per_sample.iloc[::sample_frequency].boxplot(
-        color=dict(boxes="k", whiskers="k", medians="k", caps="k"),
+        color={"boxes": "k", "whiskers": "k", "medians": "k", "caps": "k"},
     )
     ax1.set_xlabel(
         "Mean error per sample with predefined sampling steps: " + str(sample_frequency) + " on prediction horizon",

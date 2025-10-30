@@ -578,14 +578,14 @@ class Transformer(nn.Module):
         n_heads: int = 0,
         out_size: int = 1,
         n_target_features: int = 1,
-        encoder_features: list = [],
-        decoder_features: list = [],
+        encoder_features: list = None,
+        decoder_features: list = None,
         dim_feedforward: int = 1024,
     ):
         super().__init__()
 
-        self.encoder_features = encoder_features
-        self.decoder_features = decoder_features
+        self.encoder_features = encoder_features if encoder_features is not None else []
+        self.decoder_features = decoder_features if decoder_features is not None else []
         self.out_size = out_size
         self.n_target_features = n_target_features
 

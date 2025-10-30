@@ -614,9 +614,12 @@ class ModelHandler:
         tuning_config: dict = None,
         scalers: sklearn.transformer = None,
         loss: str = "nllgauss",
-        loss_kwargs: dict = {},
+        loss_kwargs: dict = None,
         device: str = "cpu",
     ):
+        if loss_kwargs is None:
+            loss_kwargs = {}
+
         self.work_dir = work_dir if work_dir is not None else os.path.dirname(os.path.abspath(sys.argv[0]))
         self.config = deepcopy(config)
         self.tuning_config = deepcopy(tuning_config)
@@ -869,7 +872,7 @@ class ModelHandler:
                     inputs_enc=inputs_enc,
                     inputs_enc_aux=inputs_enc_aux,
                 )
-                performance = list()
+                performance = []
 
                 for metric in test_metrics:
                     if isinstance(model.loss_metric, metrics.AutoEncoderLoss):
@@ -914,7 +917,7 @@ class ModelHandler:
         train_data: proloaf.tensorloader.TimeSeriesData,
         validation_data: proloaf.tensorloader.TimeSeriesData,
         trial_id=None,
-        hparams={},
+        hparams=None,
     ):
         """
         Train the internal model using the given data.
@@ -935,6 +938,9 @@ class ModelHandler:
         ModelWrapper
             The trained model
         """
+        if hparams is None:
+            hparams = {}
+
         # to track the validation loss as the model trains
 
         config = deepcopy(self.config)
@@ -1088,7 +1094,7 @@ class ModelHandler:
     @staticmethod
     def make_study(
         direction: Literal["minimize"] | Literal["maximize"] = "minimize",
-        pruner: optuna.pruners.BasePruner = optuna.pruners.MedianPruner(),
+        pruner: optuna.pruners.BasePruner = None,
     ):
         """
         Creates a optuna study for hyperparameter tuning.
@@ -1109,6 +1115,9 @@ class ModelHandler:
         ValueError
             If direction is not parseable
         """
+        if pruner is None:
+            pruner = optuna.pruners.MedianPruner()
+
         # Set up the median stopping rule as the pruning condition.
         sampler = optuna.samplers.TPESampler(
             # seed=seed

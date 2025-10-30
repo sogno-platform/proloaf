@@ -574,7 +574,7 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
             # find ranges of rows for that column and append to end of list
             new_ranges = ranges(miss_rows)  # all ranges of missing values for column c
             miss_rows_ranges.extend(new_ranges)  # add new ranges to list of all ranges of all columns
-            for n in range(len(new_ranges)):
+            for _ in range(len(new_ranges)):
                 # append x times the number of the column, where x is the number of ranges for that column
                 miss_columns.append(c)  # corresponding columns to "miss_rows_ranges"
 

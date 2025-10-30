@@ -70,7 +70,7 @@ def main(
     config: dict,
     work_dir: str,
     loss: str,
-    loss_kwargs: dict = {},
+    loss_kwargs: dict = None,
     # log_path: str = None,
     device: Union[Literal["cpu"], Literal["cuda"]] = "cpu",
 ):

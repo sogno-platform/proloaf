@@ -11,7 +11,7 @@ MAIN_PATH = os.path.dirname(os.path.abspath(__file__))
 
 def create_event_logger(
     name: str,
-    config_path: os.path = os.path.join(MAIN_PATH, "event_logging_conf.json"),
+    config_path: os.path = None,
     default_logging_level=logging.INFO,
 ) -> logging.Logger:
     """
@@ -38,6 +38,9 @@ def create_event_logger(
     -------
     Object of the Logger class
     """
+    if config_path is None:
+        config_path = os.path.join(MAIN_PATH, "event_logging_conf.json")
+
     try:
         event_log_conf = read_config(config_path=config_path)
         # if 'file' in event_log_conf['handlers']:

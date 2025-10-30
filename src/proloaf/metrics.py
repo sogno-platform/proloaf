@@ -629,10 +629,13 @@ class DualModelLoss(Metric):
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
         avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
-        metrics: list[Metric] = [],
+        metrics: list[Metric] = None,
         weight: float = 0.5,
         **_,
     ) -> torch.tensor:
+        if metrics is None:
+            metrics = []
+
         weights = (weight, 1 - weight)
 
         return torch.sum(

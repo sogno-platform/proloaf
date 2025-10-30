@@ -389,7 +389,7 @@ class SaliencyMapHandler:
 
         return perturbated_predictions  # [batch_size,forecast_horizon, feature, feature_parameter]
 
-    def criterion_loss(self, perturbated_prediction, criterion=metrics.Rmse()):
+    def criterion_loss(self, perturbated_prediction, criterion=None):
         """
 
         Parameters
@@ -401,6 +401,9 @@ class SaliencyMapHandler:
         -------
         the criterion loss between the original model prediction and the prediction after perturbation
         """
+        if criterion is None:
+            criterion = metrics.Rmse()
+
         # model_prediction returns [batch,forecast_horizon, predictions]
         # batch size = 1
         target_prediction = self.model_prediction[0:]  # -> [forecast_horizon, predictions]
