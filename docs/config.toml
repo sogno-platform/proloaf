@@ -7,7 +7,7 @@ enableRobotsTXT = true
 theme = ["docsy"]
 
 # Will give values to .Lastmod etc.
-enableGitInfo = true
+enableGitInfo = false
 
 # Language settings
 contentDir = "content/en"
@@ -16,7 +16,7 @@ defaultContentLanguageInSubdir = false
 # Useful when translating.
 enableMissingTranslationPlaceholders = true
 
-disableKinds = ["taxonomy", "taxonomyTerm"]
+disableKinds = ["taxonomy"]
 
 # Highlighting config
 pygmentsCodeFences = true
@@ -64,6 +64,22 @@ weight = 1
     [markup.goldmark.renderer]
       unsafe = true
 
+# Enable Hugo Modules and mount local node_modules for Bootstrap and Font Awesome
+[module]
+  [module.hugoVersion]
+    extended = true
+    min = "0.146.0"
+  # Mount local node_modules assets so Docsy can find SCSS/JS/webfonts when used as submodule
+  [[module.mounts]]
+    source = "node_modules/bootstrap"
+    target = "assets/vendor/bootstrap"
+  [[module.mounts]]
+    source = "node_modules/@fortawesome/fontawesome-free"
+    target = "assets/vendor/Font-Awesome"
+  [[module.mounts]]
+    source = "node_modules/@fortawesome/fontawesome-free/webfonts"
+    target = "static/webfonts"
+
 # Everything below this are Site Params
 
 [params]
@@ -102,8 +118,12 @@ github_project_repo = "https://github.com/google/docsy"
 # Google Custom Search Engine ID. Remove or comment out to disable search.
 gcs_engine_id = "011737558837375720776:fsdu1nryfng"
 
-# Enable Algolia DocSearch
-algolia_docsearch = false
+# Search configuration
+# Uncomment and configure only ONE search option below
+# [params.search.algolia]
+# appId = "YOUR_APP_ID"
+# apiKey = "YOUR_API_KEY"
+# indexName = "YOUR_INDEX_NAME"
 
 # Enable Lunr.js offline search
 offlineSearch = false
@@ -118,8 +138,8 @@ breadcrumb_disable = false
 sidebar_search_disable = false
 #  Set to false if you don't want to display a logo (/assets/icons/logo.svg) in the top nav bar
 navbar_logo = false
-# Set to true to disable the About link in the site footer
-footer_about_disable = true
+# Set to false to disable the About link in the site footer (replaces deprecated footer_about_disable)
+footer_about_enable = false
 
 # Adds a H2 section titled "Feedback" to the bottom of each doc. The responses are sent to Google Analytics as events.
 # This feature depends on [services.googleAnalytics] and will be disabled if "services.googleAnalytics.id" is not set.

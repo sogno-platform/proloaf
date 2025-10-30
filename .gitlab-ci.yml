@@ -1,7 +1,5 @@
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-  GIT_CLEAN_FLAGS: -ffdx
-  GIT_SUBMODULE_UPDATE_FLAGS: --force
   PUSH_USER: ci_pipeline
   DOCKER_TAG: $CI_COMMIT_REF_SLUG
   DOCKER_IMAGE_DEV: plf
@@ -198,15 +196,19 @@ hugo:
   image: ${DOCKER_IMAGE_DOCS}
   script:
     - cd docs
-    - npm install -D postcss
-    - npm install -D --save autoprefixer
-    - npm install -D --save postcss-cli
+    # Install all npm dependencies (includes Bootstrap, Font Awesome, postcss, autoprefixer)
+    - npm install
+    # Patch Docsy's hugo.yaml to disable Hugo Module imports (incompatible with git submodule + local node_modules)
+    - "sed -i 's/disable: false/disable: true/g' themes/docsy/hugo.yaml"
+    # Initialize Hugo modules if go.mod doesn't exist (for module imports)
+    - hugo mod init proloaf/docs || true
+    - hugo mod tidy
     # - echo $PWD
     - mkdir -p content/en/results/
     - cd content/en/results/
     - git clone https://$PUSH_USER:$CI_ACCESS@git.rwth-aachen.de/acs/public/automation/plf/plf-oracles.git
     - cd ../../..
-    - hugo -v
+    - hugo --gc --minify
     - ls -l
   artifacts:
     when: on_success

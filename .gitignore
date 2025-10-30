@@ -24,3 +24,10 @@ src/__pycache__/
 *.pt
 *.pyc
 *.pyo
+
+# Hugo build artifacts
+docs/.hugo_build.lock
+docs/go.mod
+docs/go.sum
+docs/public/
+docs/resources/
