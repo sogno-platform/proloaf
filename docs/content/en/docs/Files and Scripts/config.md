@@ -1,7 +1,7 @@
 ---
 title: "config.json"
 linkTitle: "config.json"
-date: 2020-19-08
+date: 2020-08-19
 weight: 4
 description: >
   Basic information about the config.json file
