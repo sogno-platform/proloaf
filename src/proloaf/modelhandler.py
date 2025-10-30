@@ -67,8 +67,7 @@ class EarlyStopping:
     Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
 
-    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0, 
-                 training_id: Union[str, int] = None):
+    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0, training_id: Union[str, int] = None):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -76,20 +75,23 @@ class EarlyStopping:
         self.early_stop = False
         self.val_loss_min = np.inf
         self.delta = delta
-        
+
         # Generate unique checkpoint filename
         self.training_id = training_id
         self.checkpoint_path = f"checkpoint_{self.training_id}.pt"
         self.cleanup_on_completion = True
 
-        logger.debug(f"EarlyStopping initialized with checkpoint path: {self.checkpoint_path}, training ID: {self.training_id}")
+        logger.debug(
+            f"EarlyStopping initialized with checkpoint path: {self.checkpoint_path}, training ID: {self.training_id}"
+        )
 
         # Check if checkpoint with this name already exists and prevent overwriting
         if os.path.exists(self.checkpoint_path):
-            logger.warning(f"Checkpoint file {self.checkpoint_path} already exists. Possible overlapping with previous runs.")
-            self.checkpoint_path = f"checkpoint_{self.training_id}_{uuid.uuid4().hex}.pt" 
+            logger.warning(
+                f"Checkpoint file {self.checkpoint_path} already exists. Possible overlapping with previous runs."
+            )
+            self.checkpoint_path = f"checkpoint_{self.training_id}_{uuid.uuid4().hex}.pt"
             logger.debug(f"Creating new checkpoint file: {self.checkpoint_path}")
-            
 
     def __call__(self, val_loss: float, model):
         score = -val_loss
@@ -128,12 +130,12 @@ class EarlyStopping:
     def load_best_checkpoint(self, model):
         """
         Load the best checkpoint into the model
-        
+
         Parameters
         ----------
         model : torch.nn.Module
             The model to load the checkpoint into
-            
+
         Returns
         -------
         bool
@@ -675,7 +677,7 @@ class ModelHandler:
         self.work_dir = work_dir if work_dir is not None else os.path.dirname(os.path.abspath(sys.argv[0]))
         self.config = deepcopy(config)
         self.tuning_config = deepcopy(tuning_config)
-        self.id = f"{self.config.get("model_name", "model")}_{uuid.uuid4().hex}"
+        self.id = f"{self.config.get('model_name', 'model')}_{uuid.uuid4().hex}"
 
         self._model_wrap: ModelWrapper = ModelWrapper(
             name=config.get("model_name"),
@@ -813,11 +815,9 @@ class ModelHandler:
                 index=False,
             )
 
-
-        
         except Exception as err:
             raise RuntimeError("Hyperparameter tuning failed") from err
-        
+
         except KeyboardInterrupt:
             logger.warning("Hyperparameter tuning was interrupted")
             interrupted = True
@@ -825,16 +825,16 @@ class ModelHandler:
         finally:
             if study is not None and len(study.trials) > 0:
                 completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
-                
+
                 if len(completed_trials) == 0:
                     logger.warning("No trials completed successfully")
                     if interrupted:
                         logger.info("Training was interrupted before any trial could complete")
                     return self
-                
+
                 logger.info(f"Number of finished trials: {len(study.trials)}")
                 logger.info(f"Number of successful trials: {len(completed_trials)}")
-                
+
                 trial = study.best_trial
                 logger.info("Best trial")
                 logger.info(" Value: {!s}\n".format(trial.value))
@@ -1049,7 +1049,7 @@ class ModelHandler:
             logger.warning("Training interrupted by user, cleaning up...")
             # end_tensorboard(tb, hparams, {})
             raise
-            
+
         return temp_model_wrap
 
     @timer(logger)
@@ -1271,7 +1271,7 @@ class ModelHandler:
                 # Re-raise KeyboardInterrupt to stop the entire study
                 logger.warning("KeyboardInterrupt received - stopping hyperparameter tuning")
                 raise
-            
+
             # Handle pruning based on the intermediate value.
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
@@ -1385,9 +1385,7 @@ class TrainingRun:
         self.max_epochs = max_epochs
         self.n_epochs = None
         self.early_stopping = EarlyStopping(
-            patience=early_stopping_patience, 
-            delta=early_stopping_margin,
-            training_id=self.id
+            patience=early_stopping_patience, delta=early_stopping_margin, training_id=self.id
         )
         self.log_tb = log_tb
         self.training_start_time = None
@@ -1634,7 +1632,7 @@ class TrainingRun:
             else:
                 # Keep checkpoint for potential warm restart if training was interrupted
                 logger.info(f"Training was interrupted. Checkpoint preserved at: {self.early_stopping.checkpoint_path}")
-                
+
         self.model.eval()
         self.training_end_time = t1_stop
         return self
