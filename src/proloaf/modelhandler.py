@@ -35,6 +35,7 @@ import optuna
 import pandas as pd
 import sklearn
 import torch
+import uuid
 
 import proloaf
 from proloaf import metrics, models
@@ -56,13 +57,17 @@ class EarlyStopping:
         If True, prints a message for each validation loss improvement.
     delta : float, default = 0.0
         Minimum change in the monitored quantity to qualify as an improvement.
+    model_name : str, default = None
+        Name of the model for checkpoint naming. If None, uses "model".
+    training_id : Union[str, int], default = None
+        Unique identifier for this training run.
 
     Notes
     -----
     Reference: https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
 
-    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0):
+    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0, training_id: Union[str, int] = None):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -70,7 +75,23 @@ class EarlyStopping:
         self.early_stop = False
         self.val_loss_min = np.inf
         self.delta = delta
-        self.temp_dir = ""
+
+        # Generate unique checkpoint filename
+        self.training_id = training_id
+        self.checkpoint_path = f"checkpoint_{self.training_id}.pt"
+        self.cleanup_on_completion = True
+
+        logger.debug(
+            f"EarlyStopping initialized with checkpoint path: {self.checkpoint_path}, training ID: {self.training_id}"
+        )
+
+        # Check if checkpoint with this name already exists and prevent overwriting
+        if os.path.exists(self.checkpoint_path):
+            logger.warning(
+                f"Checkpoint file {self.checkpoint_path} already exists. Possible overlapping with previous runs."
+            )
+            self.checkpoint_path = f"checkpoint_{self.training_id}_{uuid.uuid4().hex}.pt"
+            logger.debug(f"Creating new checkpoint file: {self.checkpoint_path}")
 
     def __call__(self, val_loss: float, model):
         score = -val_loss
@@ -101,10 +122,43 @@ class EarlyStopping:
         """
         if self.verbose:
             logger.info(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...")
-        temp_dir = "./"  # tempfile.mktemp()
-        torch.save(model.state_dict(), temp_dir + f"checkpoint.pt")
+
+        torch.save(model.state_dict(), self.checkpoint_path)
         self.val_loss_min = val_loss
-        self.temp_dir = temp_dir
+        logger.debug(f"Checkpoint saved to: {self.checkpoint_path}")
+
+    def load_best_checkpoint(self, model):
+        """
+        Load the best checkpoint into the model
+
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The model to load the checkpoint into
+
+        Returns
+        -------
+        bool
+            True if checkpoint was loaded successfully, False otherwise
+        """
+        if self.checkpoint_path and os.path.exists(self.checkpoint_path):
+            logger.info(f"Loading best checkpoint from: {self.checkpoint_path}")
+            model.load_state_dict(torch.load(self.checkpoint_path))
+            return True
+        else:
+            logger.warning(f"No checkpoint found at: {self.checkpoint_path}")
+            return False
+
+    def cleanup_checkpoint(self):
+        """
+        Remove the checkpoint file if cleanup is enabled
+        """
+        if self.cleanup_on_completion and self.checkpoint_path and os.path.exists(self.checkpoint_path):
+            try:
+                os.remove(self.checkpoint_path)
+                logger.debug(f"Cleaned up checkpoint: {self.checkpoint_path}")
+            except OSError as e:
+                logger.warning(f"Failed to clean up checkpoint {self.checkpoint_path}: {e}")
 
 
 class ModelWrapper:
@@ -514,6 +568,7 @@ class ModelWrapper:
         training_run = TrainingRun(
             self.model,
             id=trial_id,
+            model_name=self.name,  # Pass model name for checkpoint naming
             optimizer_name=self.optimizer_name,
             train_data=train_data,
             validation_data=validation_data,
@@ -622,6 +677,7 @@ class ModelHandler:
         self.work_dir = work_dir if work_dir is not None else os.path.dirname(os.path.abspath(sys.argv[0]))
         self.config = deepcopy(config)
         self.tuning_config = deepcopy(tuning_config)
+        self.id = f"{self.config.get('model_name', 'model')}_{uuid.uuid4().hex}"
 
         self._model_wrap: ModelWrapper = ModelWrapper(
             name=config.get("model_name"),
@@ -697,6 +753,7 @@ class ModelHandler:
         Explores the searchspace of hyperparameters defined during initialization by training
         multiple models and comparing them. The best configuration is then used to update the config.
 
+        When interrupted by a keyboard interrupt the best trial model found so far will be used.
 
         Notes
         -----
@@ -716,54 +773,78 @@ class ModelHandler:
         -------
         self
         """
-        logger.info(
-            "Max. number of iteration trials for hyperparameter tuning: {!s}".format(
-                self.tuning_config["number_of_tests"]
+        study = None
+        interrupted = False
+
+        try:
+            logger.info(
+                "Max. number of iteration trials for hyperparameter tuning: {!s}".format(
+                    self.tuning_config["number_of_tests"]
+                )
             )
-        )
-        study = self.make_study()
-        study.optimize(
-            self.tuning_objective(
-                self.tuning_config["settings"],
-                train_data=train_data,
-                validation_data=validation_data,
-            ),
-            n_trials=self.tuning_config.get("number_of_tests", None),
-            timeout=self.tuning_config.get("timeout", None),
-        )
+            study = self.make_study()
+            study.optimize(
+                self.tuning_objective(
+                    self.tuning_config["settings"],
+                    train_data=train_data,
+                    validation_data=validation_data,
+                ),
+                n_trials=self.tuning_config.get("number_of_tests", None),
+                timeout=self.tuning_config.get("timeout", None),
+            )
 
-        logger.info("Number of finished trials: {!s}".format(len(study.trials)))
-        trials_df = study.trials_dataframe()
+            logger.info("Number of finished trials: {!s}".format(len(study.trials)))
+            trials_df = study.trials_dataframe()
 
-        if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
-            os.mkdir(os.path.join(self.work_dir, self.config["log_path"]))
-        if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
-            os.mkdir(
+            if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
+                os.mkdir(os.path.join(self.work_dir, self.config["log_path"]))
+            if not os.path.exists(os.path.join(self.work_dir, self.config["log_path"])):
+                os.mkdir(
+                    os.path.join(
+                        self.work_dir,
+                        self.config["log_path"],
+                        f"tuning-results_{self.model_wrap.name}",
+                    )
+                )
+            trials_df.to_csv(
                 os.path.join(
                     self.work_dir,
                     self.config["log_path"],
                     f"tuning-results_{self.model_wrap.name}",
-                )
+                ),
+                index=False,
             )
-        trials_df.to_csv(
-            os.path.join(
-                self.work_dir,
-                self.config["log_path"],
-                f"tuning-results_{self.model_wrap.name}",
-            ),
-            index=False,
-        )
 
-        trial = study.best_trial
-        logger.info("Best trial")
-        logger.info(" Value: {!s}\n".format(trial.value))
-        logger.info("Params:")
-        for key, value in trial.params.items():
-            logger.info("    {}: {}".format(key, value))
+        except Exception as err:
+            raise RuntimeError("Hyperparameter tuning failed") from err
 
-        # The order here is important as .get_config() pulls parameters directly from model_wrap
-        self.model_wrap = trial.user_attrs["wrapped_model"]
-        self.config.update(self.get_config())
+        except KeyboardInterrupt:
+            logger.warning("Hyperparameter tuning was interrupted")
+            interrupted = True
+
+        finally:
+            if study is not None and len(study.trials) > 0:
+                completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+
+                if len(completed_trials) == 0:
+                    logger.warning("No trials completed successfully")
+                    if interrupted:
+                        logger.info("Training was interrupted before any trial could complete")
+                    return self
+
+                logger.info(f"Number of finished trials: {len(study.trials)}")
+                logger.info(f"Number of successful trials: {len(completed_trials)}")
+
+                trial = study.best_trial
+                logger.info("Best trial")
+                logger.info(" Value: {!s}\n".format(trial.value))
+                logger.info("Params:")
+                for key, value in trial.params.items():
+                    logger.info("    {}: {}".format(key, value))
+
+                # The order here is important as .get_config() pulls parameters directly from model_wrap
+                self.model_wrap = trial.user_attrs["wrapped_model"]
+                self.config.update(self.get_config())
 
         return self
 
@@ -935,35 +1016,40 @@ class ModelHandler:
             The trained model
         """
         # to track the validation loss as the model trains
+        try:
+            config = deepcopy(self.config)
+            # XXX this is a quick and dirty solution to enable continuing the training of a loaded model, should be refactored
+            if hparams:
+                model_parameters = hparams.pop("model_parameters", None)
+                config.update(hparams)
 
-        config = deepcopy(self.config)
-        # XXX this is a quick and dirty solution to enable continuing the training of a loaded model, should be refactored
-        if hparams:
-            model_parameters = hparams.pop("model_parameters", None)
-            config.update(hparams)
+                if model_parameters is not None:
+                    hparams["model_parameters"] = model_parameters
+                    for model_class, params in model_parameters.items():
+                        config["model_parameters"][model_class].update(params)
 
-            if model_parameters is not None:
-                hparams["model_parameters"] = model_parameters
-                for model_class, params in model_parameters.items():
-                    config["model_parameters"][model_class].update(params)
+                temp_model_wrap: ModelWrapper = (self.model_wrap.copy().update(**hparams).init_model()).to(self._device)
+            else:
+                # XXX if no hparams the model is copied
+                temp_model_wrap = self.model_wrap.copy().to(self._device)
+            tb = log_tensorboard(
+                work_dir=self.work_dir,
+                exploration=self.config["exploration"],
+                trial_id=trial_id,
+            )
+            temp_model_wrap.run_training(train_data, validation_data, trial_id, tb, config.get("batch_size"))
 
-            temp_model_wrap: ModelWrapper = (self.model_wrap.copy().update(**hparams).init_model()).to(self._device)
-        else:
-            # XXX if no hparams the model is copied
-            temp_model_wrap = self.model_wrap.copy().to(self._device)
-        tb = log_tensorboard(
-            work_dir=self.work_dir,
-            exploration=self.config["exploration"],
-            trial_id=trial_id,
-        )
-        temp_model_wrap.run_training(train_data, validation_data, trial_id, tb, config.get("batch_size"))
+            values = {
+                "hparam/hp_total_time": temp_model_wrap.last_training.training_end_time
+                - temp_model_wrap.last_training.training_start_time,
+                "hparam/score": temp_model_wrap.last_training.validation_loss,
+            }
+            end_tensorboard(tb, hparams, values)
+        except KeyboardInterrupt:
+            logger.warning("Training interrupted by user, cleaning up...")
+            # end_tensorboard(tb, hparams, {})
+            raise
 
-        values = {
-            "hparam/hp_total_time": temp_model_wrap.last_training.training_end_time
-            - temp_model_wrap.last_training.training_start_time,
-            "hparam/score": temp_model_wrap.last_training.validation_loss,
-        }
-        end_tensorboard(tb, hparams, values)
         return temp_model_wrap
 
     @timer(logger)
@@ -1000,7 +1086,7 @@ class ModelHandler:
             self.model_wrap = self.run_training(
                 train_data,
                 validation_data,
-                trial_id="main",
+                trial_id=self.id,
             )
         return self
 
@@ -1167,21 +1253,30 @@ class ModelHandler:
                     logger.info("Creating parameter: {!s}".format(key))
                     func_generator = getattr(trial, hparam["function"])
                     hparams["model_parameters"][model_class][key] = func_generator(**(hparam["kwargs"]))
+            try:
+                model_wrap = self.run_training(
+                    train_data,
+                    validation_data,
+                    hparams=hparams,
+                    trial_id=f'{self.id}_trial{trial.number}',
+                )
+                if model_wrap.last_training is not None:
+                    model_wrap.last_training.remove_data()
+                    trial.set_user_attr("wrapped_model", model_wrap)
+                    trial.set_user_attr("training_run", model_wrap.last_training)
+                    validation_loss = model_wrap.last_training.validation_loss
+                else:
+                    raise optuna.exceptions.TrialPruned()
+            except KeyboardInterrupt:
+                # Re-raise KeyboardInterrupt to stop the entire study
+                logger.warning("KeyboardInterrupt received - stopping hyperparameter tuning")
+                raise
 
-            model_wrap = self.run_training(
-                train_data,
-                validation_data,
-                hparams=hparams,
-                trial_id=trial.number,
-            )
-            model_wrap.last_training.remove_data()
-            trial.set_user_attr("wrapped_model", model_wrap)
-            trial.set_user_attr("training_run", model_wrap.last_training)
             # Handle pruning based on the intermediate value.
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
-            return model_wrap.last_training.validation_loss
+            return validation_loss
 
         return search_params
 
@@ -1217,6 +1312,8 @@ class TrainingRun:
         Timesteps of data given to the decoder.
     id: Union[str, int] = None,
         identifier for a training run, consecutive number by default, only stored in memory (reset on each restart).
+    model_name: str = None,
+        Name of the model for checkpoint identification.
     device: str = "cpu",
         Device the training is run on. See `torch.Tensor.to(...)` for additional inforamtion.
     log_tb: torch.utils.tensorboard.SummaryWriter, default = None,
@@ -1261,6 +1358,7 @@ class TrainingRun:
         history_horizon: int = 24,
         forecast_horizon: int = 24,
         id: Union[str, int] = None,
+        model_name: str = None,
         device: str = "cpu",
         log_tb: torch.utils.tensorboard.SummaryWriter = None,
     ):
@@ -1286,7 +1384,9 @@ class TrainingRun:
         self.step_counter = 0
         self.max_epochs = max_epochs
         self.n_epochs = None
-        self.early_stopping = EarlyStopping(patience=early_stopping_patience, delta=early_stopping_margin)
+        self.early_stopping = EarlyStopping(
+            patience=early_stopping_patience, delta=early_stopping_margin, training_id=self.id
+        )
         self.log_tb = log_tb
         self.training_start_time = None
         self.training_end_time = None
@@ -1479,45 +1579,60 @@ class TrainingRun:
         self.training_start_time = perf_counter()
         logger.info("Begin training...")
         self.model.train()
-        for epoch in range(self.max_epochs):
-            t1_start = perf_counter()
-            self.step()
-            t1_stop = perf_counter()
-            if self.validation_dl:
-                self.validate()
-                self.early_stopping(self.validation_loss, self.model)
-            else:
-                logger.warning("No validation data was provided, thus no validation was performed")
-            logger.info(
-                "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
-                    epoch + 1,
-                    self.max_epochs,
-                    self.training_loss,
-                    self.validation_loss,
-                    t1_stop - t1_start,
-                )
-            )
-            if self.log_tb:
-                add_tb_element(
-                    net=self.model,
-                    tb=self.log_tb,
-                    epoch_loss=self.training_loss,
-                    validation_loss=self.validation_loss,
-                    training_start=self.training_start_time,
-                    epoch_stop=t1_stop,
-                    epoch_start=t1_start,
-                    next_epoch=epoch + 1,
-                    step_counter=self.step_counter,
-                )
-            self.n_epochs = epoch + 1
-            if self.early_stopping.early_stop:
+        training_completed = False
+        try:
+            for epoch in range(self.max_epochs):
+                t1_start = perf_counter()
+                self.step()
+                t1_stop = perf_counter()
+                if self.validation_dl:
+                    self.validate()
+                    self.early_stopping(self.validation_loss, self.model)
+                else:
+                    logger.warning("No validation data was provided, thus no validation was performed")
                 logger.info(
-                    f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
+                    "Epoch {}/{}\t train_loss {:.2e}\t val_loss {:.2e}\t elapsed_time {:.2e}".format(
+                        epoch + 1,
+                        self.max_epochs,
+                        self.training_loss,
+                        self.validation_loss,
+                        t1_stop - t1_start,
+                    )
                 )
-                # load the last checkpoint with the best model
-                self.model.load_state_dict(torch.load(self.early_stopping.temp_dir + "checkpoint.pt"))
-                self.validation_loss = self.early_stopping.val_loss_min
-                break
+                if self.log_tb:
+                    add_tb_element(
+                        net=self.model,
+                        tb=self.log_tb,
+                        epoch_loss=self.training_loss,
+                        validation_loss=self.validation_loss,
+                        training_start=self.training_start_time,
+                        epoch_stop=t1_stop,
+                        epoch_start=t1_start,
+                        next_epoch=epoch + 1,
+                        step_counter=self.step_counter,
+                    )
+                self.n_epochs = epoch + 1
+                if self.early_stopping.early_stop:
+                    logger.info(
+                        f"No improvement has been achieved in the last {self.early_stopping.patience} epochs. Aborting training and loading best model."
+                    )
+                    # load the last checkpoint with the best model
+                    if self.early_stopping.load_best_checkpoint(self.model):
+                        self.validation_loss = self.early_stopping.val_loss_min
+                    # Training completed with early stopping
+                    training_completed = True
+                    break
+            else:
+                # Training completed without early stopping
+                training_completed = True
+        finally:
+            # Clean up checkpoint if training completed successfully
+            if training_completed:
+                self.early_stopping.cleanup_checkpoint()
+            else:
+                # Keep checkpoint for potential warm restart if training was interrupted
+                logger.info(f"Training was interrupted. Checkpoint preserved at: {self.early_stopping.checkpoint_path}")
+
         self.model.eval()
         self.training_end_time = t1_stop
         return self
