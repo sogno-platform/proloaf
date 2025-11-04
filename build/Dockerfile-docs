@@ -7,7 +7,7 @@ RUN dnf -y install \
   wget \
   git \
   nodejs \
-  golang 
+  golang
 
 WORKDIR /hugo
 RUN wget https://github.com/gohugoio/hugo/releases/download/v0.152.0/hugo_extended_0.152.0_Linux-64bit.tar.gz && \

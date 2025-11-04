@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Use `timestep` instead of `hour` encoding
     - 1 `timestep` feature per timesteps i. e. 15 min time delta leads to 96 timestep columns
-- Cyclical time of day now continues instead of "full-hour" based. 
+- Cyclical time of day now continues instead of "full-hour" based.
 
 ## [0.3.0] - 2024-10-23
 ### Fixed
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Unified internal data structure
 - Plotting for multiple features
 - Documentation updates
-  
+
 ### Added
 - Additional preparation steps for extending the dataframe when no decoder input is in the original data and adding 0 columns for non-present onehot features
 - Ability to do multi feature forecasts
@@ -42,11 +42,11 @@ The comparison with baseline methods like Arima is currently not working due to 
 
 ### Changed
 - Datatloader returns aux features separately
-- Dataloader returns final datapoint separately 
+- Dataloader returns final datapoint separately
 - replace `setup.py` and `requirements.txt` with `pyproject.toml`
 - Internal tensores are now 4D, [batch, time, feature, subfeature (e.g. mean, variance)]
 - Adjust all performance metrics to operate on the last dimension
-- Evaluate creates one plot per feature 
+- Evaluate creates one plot per feature
 
 ### Added
 - Possibility to forecast multiple features at a time (quantitative testing required)

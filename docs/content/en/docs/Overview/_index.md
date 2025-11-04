@@ -29,7 +29,7 @@ The current version requires Python version >=3.9.
 A complete list of dependencies including version restrictions can be found in the `pyproject.toml` of the project.
 
 ## Project structure
-The codebase splits into two parts, the library of ProLoaF is found in `src/proloaf` and contains all the functions and classes to prepare train and evalute a forecasting models. 
+The codebase splits into two parts, the library of ProLoaF is found in `src/proloaf` and contains all the functions and classes to prepare train and evalute a forecasting models.
 The remaining scripts in the `src/` folder use what is provided in the library to perform the work.
 Data should be stored in a subfolder of the `data/` folder, outputs can be found in the `oracles/` folder. Most of these pathes can be adjusted in the [config(s)](../Files%20and%20Scripts/config.md).
 For a normal user, using these scripts after adapting the these should be sufficient to train and evaluate a model.

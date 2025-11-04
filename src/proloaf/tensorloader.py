@@ -20,9 +20,11 @@
 """
 Provides structures for storing and loading data (e.g. training, validation or test data)
 """
+
 from __future__ import annotations
 
-from typing import Callable, Iterable, Optional, Tuple, Union
+from collections.abc import Iterable
+from typing import Callable
 
 import pandas as pd
 import torch
@@ -86,14 +88,14 @@ class TimeSeriesData(Dataset):
     def __init__(
         self,
         df: pd.DataFrame,
-        history_horizon: Optional[int] = None,
-        forecast_horizon: Optional[int] = None,
-        encoder_features: Optional[Iterable[str]] = None,
-        decoder_features: Optional[Iterable[str]] = None,
-        aux_features: Optional[Iterable[str]] = None,
-        target_id: Union[str, Iterable[str], None] = None,
-        preparation_steps: Optional[Iterable[Callable[[pd.DataFrame], pd.DataFrame]]] = None,
-        device: Union[int, str] = "cpu",
+        history_horizon: int | None = None,
+        forecast_horizon: int | None = None,
+        encoder_features: Iterable[str] | None = None,
+        decoder_features: Iterable[str] | None = None,
+        aux_features: Iterable[str] | None = None,
+        target_id: str | Iterable[str] | None = None,
+        preparation_steps: Iterable[Callable[[pd.DataFrame], pd.DataFrame]] | None = None,
+        device: int | str = "cpu",
         **_,
     ):
         self.data = df
@@ -267,7 +269,7 @@ class TimeSeriesData(Dataset):
 
     def get_as_frame(
         self, idx
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.DataFrame]:
         """Gives a sample as it would be given to the model but in pandas.DataFrames instead of torch.Tensors.
 
         Parameters
@@ -333,7 +335,7 @@ class TimeSeriesData(Dataset):
             self.target_tensor[decoder_slice],
         )
 
-    def to(self, device: Union[str, int]):
+    def to(self, device: str | int):
         """Moves Tensor data to specified device.
         Will not move data if it has to be reformated anyways but will do that when reformating.
 
@@ -360,7 +362,7 @@ class TimeSeriesData(Dataset):
         encoder_features: Iterable[str] = None,
         decoder_features: Iterable[str] = None,
         aux_features: Iterable[str] = None,
-        target_id: Union[str, Iterable[str]] = None,
+        target_id: str | Iterable[str] = None,
         batch_size: int = None,
         shuffle: bool = True,
         drop_last: bool = True,

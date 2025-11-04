@@ -32,10 +32,10 @@ Notes
 """
 
 import os
-from typing import Literal, Union
 import warnings
 from copy import deepcopy
 from functools import partial
+from typing import Literal, Union
 
 import pandas as pd
 
@@ -70,7 +70,7 @@ def main(
     config: dict,
     work_dir: str,
     loss: str,
-    loss_kwargs: dict = {},
+    loss_kwargs: dict = None,
     # log_path: str = None,
     device: Union[Literal["cpu"], Literal["cuda"]] = "cpu",
 ):
@@ -93,7 +93,7 @@ def main(
     device : "cpu" | "cuda", optional
         Which device to run the training on, by default "cpu". "cuda is recommended if available.
     """
-    logger.info("Current working directory is {:s}".format(work_dir))
+    logger.info(f"Current working directory is {work_dir:s}")
 
     # Read load data
     config = deepcopy(config)
@@ -168,7 +168,7 @@ def main(
             logger.warning("Training interrupted by user. Saving best model found so far...")
         finally:
             train_dataset = None  # unbind data to save some memory
-            
+
             # Try to load existing model for comparison
             try:
                 ref_model_1 = modelhandler.load_model(
@@ -186,7 +186,7 @@ def main(
                 logger.warning(
                     "An older version of this model was found but could not be loaded, this is likely due to diverging ProLoaF versions."
                 )
-            
+
             # Compare models if old model exists
             try:
                 if ref_model_1 is not None:
@@ -199,7 +199,7 @@ def main(
                 logger.warning(
                     f"An older version of this model was found but could not be compared to the new one: {e}"
                 )
-            
+
             # Always save the model (select_model already updated model_wrap to the best one)
             modelhandler.save_current_model(
                 os.path.join(work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl")

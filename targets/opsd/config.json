@@ -20,7 +20,7 @@
     "optimizer_name": "adam",
     "exploration": false,
     "cuda_id": null,
-    "stack_columns":{},
+    "stack_columns": {},
     "feature_groups": [
         {
             "name": "main",

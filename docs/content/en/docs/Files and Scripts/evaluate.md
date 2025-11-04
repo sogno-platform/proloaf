@@ -11,7 +11,7 @@ This script runs the trained net on test data and evaluates the result. It provi
 The output path can be changed under the the `"evaluation_path": ` option in the corresponding [config file](./config.md).
 
 ### Inputs
-- A [config file](./config.md#main-config) 
+- A [config file](./config.md#main-config)
 - Test data. All in one `.csv` file. This can also include the validation and training data (see `test_split` in [config description](./config.md#training-settings)). Path is defined in the config.
 - A trained model, path is also defined in the config.
 
@@ -28,5 +28,5 @@ The output consists of the actual load prediction graph split up into multiple .
 If you need more details on which deterministic and probabilistic metrics we take to quantify if the produced forecast is considered "good" or "bad", please take a look at the [Tutorial Notebook]({{< resource url="https://github.com/sogno-platform/proloaf/blob/master/notebooks/A%20User%20Guide%20on%20the%20ProLoaF%20Forecast%20Performance%20Metrics.ipynb" >}}).
 
 ### Reference Documentation
-If you need more details, please take a look at the [reference]({{< resource url="reference/proloaf/proloaf/src/evaluate.html" >}}) for 
+If you need more details, please take a look at the [reference]({{< resource url="reference/proloaf/proloaf/src/evaluate.html" >}}) for
 this script.
