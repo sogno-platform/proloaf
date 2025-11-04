@@ -72,6 +72,7 @@ select = [
 # Ignore errors (most formatting issues handled by ruff-format)
 ignore = [
     "E501",  # Line too long (handled by formatter)
+    "UP007", # Upgrade typehints from Union[] to |
 ]
 
 # Per-file ignores - different rules for different file types
