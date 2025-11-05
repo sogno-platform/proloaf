@@ -13,7 +13,7 @@ The CI implementation of this Repository features two different types of pipelin
 
 ### Training Pipeline 
 
-![Training Pipeline Diagram](./train_pipeline_diagram.png)
+![Training Pipeline Diagram](./pictures/train_pipeline_diagram.png)
 
 #### Overview
 
