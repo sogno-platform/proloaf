@@ -694,7 +694,7 @@ def stack_features(df: pd.DataFrame, map: Optional[dict[str, list]] = None):
     idx_time = df.index.get_indexer(new_df.index.get_level_values(0))
     for i, (key, cols) in enumerate(map.items()):
         new_df = new_df.swaplevel(1, i + 1, axis="index")
-        new_df[key] = df.filter(cols, axis="columns").stack().rename(key).to_frame()
+        new_df[key] = df.filter(cols, axis="columns").stack(dropna=False).rename(key)
     new_df = new_df.swaplevel(1, -1, axis="index")
     new_df[remaining_cols] = df[remaining_cols].to_numpy()[idx_time]
     return new_df
@@ -705,7 +705,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
     SciKit-learn style scaler, that combines multiple scalers
     into one, then just applies them to their corresponding data columns.
     The MultiScaler is callable and will try to transform the data without fitting.
-    If that false fit_tranform is called.
+    If that false fit_transform is called.
 
     Note: While this should work with numpy.ndarrays as input (dim 0 being the "columns")
     this is not tested and should only be used with caution.

@@ -10,10 +10,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Preparation step for adding onehot-encoding for holidays
     - 3 categories: weekday, saturday, sunday. Holidays are sundays
     - `country_code` is an attribute to add to the config, specifying the holiday lookup. [More details](https://holidays.readthedocs.io/en/latest/#available-countries)
+- It is now possible to stack data columns treating them as a single feature during training.
+- The `Timeseries` class now has a method, `get_tensor_input(...)` that can be used when the `Timeseries` is used at inference time to prepare input data. 
+
 ### Changed
 - Use `timestep` instead of `hour` encoding
     - 1 `timestep` feature per timesteps i. e. 15 min time delta leads to 96 timestep columns
 - Cyclical time of day now continues instead of "full-hour" based.
+
+### Fixed
+- Multiple bugs related to calculating the length of the dataloader, resulting in incomplete batches as the iteration continued further than it should have.
+
 
 ## [0.3.0] - 2024-10-23
 ### Fixed

@@ -24,7 +24,8 @@ Provides structures for storing and loading data (e.g. training, validation or t
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Callable
+from datetime import datetime
+from typing import Callable, Iterable, Optional, Tuple, Union
 
 import pandas as pd
 import torch
@@ -112,6 +113,7 @@ class TimeSeriesData(Dataset):
         self.frame_prepared = False
         self.preparation_steps = list(preparation_steps) if preparation_steps is not None else []
         self._idx_mod = None
+        self._ref_index = None
 
     @property
     def encoder_features(self):
@@ -187,7 +189,15 @@ class TimeSeriesData(Dataset):
             )
         # If the prep steps change the length it is necessary to reflect this from the prepared data
         if self.tensor_prepared:
-            return max(0, self.encoder_tensor.shape[0] - self.history_horizon - self.forecast_horizon) + 1
+            # If data was stacked the tensors have 3 dimensions, dim 1 beining iterating over the stacked features
+            if len(self.encoder_tensor.shape) == 3:
+                stack_mult = self.encoder_tensor.shape[1]
+            else:
+                stack_mult = 1
+            return stack_mult * (
+                max(0, self.encoder_tensor.shape[0] - self.history_horizon - self.forecast_horizon) + 1
+            )
+        # TODO this does not result in the same length as the tensor version if
         return max(0, len(self.data) - self.history_horizon - self.forecast_horizon) + 1
 
     def __iter__(self):
@@ -355,6 +365,35 @@ class TimeSeriesData(Dataset):
                 self.target_tensor.to(device)
         return self
 
+    def get_input_tensors(
+        self,
+        forecast_start: datetime | int,
+        history_horizon: int = None,
+        forecast_horizon: int = None,
+        encoder_features: Iterable[str] = None,
+        decoder_features: Iterable[str] = None,
+        aux_features: Iterable[str] = None,
+        target_id: Union[str, Iterable[str]] = None,
+        batch_size: int = None,
+        shuffle: bool = False,
+        drop_last: bool = True,
+    ):
+        return next(
+            iter(
+                self.make_data_loader(
+                    history_horizon,
+                    forecast_horizon,
+                    encoder_features,
+                    decoder_features,
+                    aux_features,
+                    target_id,
+                    batch_size,
+                    shuffle,
+                    drop_last,
+                )
+            )
+        )[:-1]
+
     def make_data_loader(
         self,
         history_horizon: int = None,
@@ -461,6 +500,7 @@ class TimeSeriesData(Dataset):
             .float()
             .to(self.device)
         )
+        self._ref_index = df.index
         if isinstance(df.index, pd.MultiIndex):
             idx_shape = [len(lvl) for lvl in df.index.levels]
             self._idx_mod = [1]
