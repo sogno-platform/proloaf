@@ -785,7 +785,7 @@ class NllGauss(Metric):
         )
 
 
-class PinnballLoss(Metric):
+class PinballLoss(Metric):
     """Calculates pinball loss or quantile loss against the specified quantiles.
 
     Parameters
@@ -886,7 +886,7 @@ class PinnballLoss(Metric):
         return avg_over_dims(loss, over_dims=avg_over)
 
 
-class SmoothedPinnballLoss(Metric):
+class SmoothedPinballLoss(Metric):
     """Calculates an approximated pinball loss or quantile loss against the specified quantiles.
     To avoid discontinous gradients it has been modified to return a quandratic error instead when close to the correct value
      as described in https://ieeexplore.ieee.org/document/8832203
@@ -987,7 +987,7 @@ class SmoothedPinnballLoss(Metric):
             When 'avg_over' is set to anything but "all", "time" or "sample".
         """
         target = target.unsqueeze(-1)
-        loss = SmoothedPinnballLoss._huber_metric(predictions=predictions, target=target, eps=eps)
+        loss = SmoothedPinballLoss._huber_metric(predictions=predictions, target=target, eps=eps)
 
         mask_greater = predictions >= target
         mask_lesser = predictions < target

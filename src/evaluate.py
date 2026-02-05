@@ -124,7 +124,7 @@ if __name__ == "__main__":
             metrics.Mae(),
             metrics.Mis(),
             metrics.Mase(),
-            metrics.PinnballLoss(),
+            metrics.PinballLoss(),
             metrics.Residuals(),
         ]
         results_total_per_forecast = (

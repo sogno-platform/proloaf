@@ -170,10 +170,10 @@ def parse_with_loss(args=sys.argv[1:]):
         "--quantiles",
         dest_const="loss",
         dest="loss_arguments",
-        metavar=" q1 q2",
+        metavar="q1 q2",
         nargs="+",
         type=float,
-        const="PinnballLoss",
+        const="PinballLoss",
         help="train with pinball loss and MSE with q1 and q2 being the upper and lower quantiles",
         action=flag_and_store,
     )
@@ -182,10 +182,10 @@ def parse_with_loss(args=sys.argv[1:]):
         "--smoothed_quantiles",
         dest_const="loss",
         dest="loss_arguments",
-        metavar=" q1 q2",
+        metavar="q1 q2",
         nargs="+",
         type=float,
-        const="SmoothedPinnballLoss",
+        const="SmoothedPinballLoss",
         help="train with pinball loss and MSE with q1 and q2 being the upper and lower quantiles",
         action=flag_and_store,
     )
@@ -254,7 +254,7 @@ def parse_with_loss(args=sys.argv[1:]):
 
     if ret.loss.lower() == "mis":
         options = {"alpha": ret.loss_arguments}
-    elif ret.loss.lower() == "quantilescore":
+    elif ret.loss.lower() in ["quantilescore","smoothedpinballloss","pinballloss"]:
         options = {"quantiles": ret.loss_arguments}
     else:
         options = {}

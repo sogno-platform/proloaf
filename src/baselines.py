@@ -422,7 +422,7 @@ def main(infile, target_id):
             metrics.Mae(),
             metrics.Mis(),
             metrics.Mase(),
-            metrics.PinnballLoss(),
+            metrics.PinballLoss(),
             metrics.Residuals(),
         ]
 
@@ -433,7 +433,7 @@ def main(infile, target_id):
             metrics.Picp(),
             metrics.Rae(),
             metrics.Mis(),
-            metrics.PinnballLoss(),
+            metrics.PinballLoss(),
             metrics.Residuals(),
         ]
 
