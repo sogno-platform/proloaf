@@ -1,9 +1,9 @@
-import sys
 import os
-import subprocess
+import sys
+
 from create_hugo_header import create_frontmatter
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     input = str(sys.argv[1])
     split = input.split("/")
 
@@ -11,8 +11,8 @@ if __name__ == '__main__':
 
     for s in split:
         path = os.path.join(path, s)
-        if os.path.exists(os.path.join(path,"_index.md")):
+        if os.path.exists(os.path.join(path, "_index.md")):
             continue
-        with open("_index.md","w") as index_file:
+        with open("_index.md", "w") as index_file:
             index_file.write(create_frontmatter(title=str(path), link=str(path)))
         # subprocess.call(['sh', './shell/make_station_folder_index.sh', str(path)])

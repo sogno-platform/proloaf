@@ -31,7 +31,7 @@ To install all required packages first change into the directory then install th
 cd proloaf
 pip install .
 ```
-There are two variants with extra dependencies. To install jupyter for being able to use the tutorial notebooks use 
+There are two variants with extra dependencies. To install jupyter for being able to use the tutorial notebooks use
 ```bash
 pip install .[tutorial]
 ```
@@ -66,5 +66,3 @@ This project contains 4 scripts that can be used in conjunction with one another
 5. Evaluate the model using ``python3 ./src/evaluate.py.py -s <name_of_folder_containing_configs>` in the same fashion.
 
 6. To understand how to generate a single prediction have a look at the examples.
-
-

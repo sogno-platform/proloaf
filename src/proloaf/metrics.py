@@ -20,13 +20,15 @@
 """
 Provides implementations of different loss functions, as well as functions for evaluating model performance
 """
+
 from __future__ import annotations
 
 import inspect
 import sys
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from statistics import NormalDist
-from typing import Iterable, List, Literal, Optional, Tuple, Union
+from typing import Literal
 
 import numpy as np
 import torch
@@ -223,14 +225,14 @@ class Metric(ABC):
 
     def __init__(self, **options):
         self.options: dict = options
-        self.input_labels: List[str]
+        self.input_labels: list[str]
         self.id: str = self.__class__.__name__
 
     def __call__(
         self,
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **kwargs,
     ) -> torch.tensor:
         """
@@ -276,7 +278,7 @@ class Metric(ABC):
 
     # @abstractmethod
     def get_quantile_prediction(
-        self, predictions: torch.tensor, quantiles: Optional[List[float]], **kwargs
+        self, predictions: torch.tensor, quantiles: list[float] | None, **kwargs
     ) -> QuantilePrediction:
         """
         Calculates the values for each quantile for the metric.
@@ -297,7 +299,7 @@ class Metric(ABC):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]],
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]],
         **kwargs,
     ) -> torch.tensor:
         """
@@ -326,7 +328,7 @@ class Metric(ABC):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **kwargs,
     ) -> torch.tensor:
         """
@@ -349,7 +351,6 @@ class Metric(ABC):
             Negative-log-Likelihood, which depending on the value of 'avg_over'
             is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
         """
-        pass
 
 
 def tensor_mean_helper(tens: torch.Tensor, every_dim_but: int):
@@ -369,7 +370,7 @@ def tensor_mean_helper(tens: torch.Tensor, every_dim_but: int):
 
 def avg_over_dims(
     tens: torch.tensor,
-    over_dims: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+    over_dims: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
 ):
     """
     Calculates the mean over every specified dimension by name.
@@ -388,7 +389,7 @@ def avg_over_dims(
     if over_dims == "all" or "all" in over_dims:
         dims = (0, 1, 2)
     else:
-        dims = tuple((dim_index[name] for name in over_dims))
+        dims = tuple(dim_index[name] for name in over_dims)
     return torch.mean(tens, dim=dims, keepdim=True, dtype=torch.float32)
 
 
@@ -420,7 +421,7 @@ class AutoEncoderLoss(Metric):
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
         target: torch.Tensor = None,
-        quantiles: Optional[List[float]] = None,
+        quantiles: list[float] | None = None,
         **kwargs,
     ) -> QuantilePrediction:
         """
@@ -459,7 +460,7 @@ class AutoEncoderLoss(Metric):
         quantile_prediction: QuantilePrediction,
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]],
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]],
         **kwargs,
     ) -> torch.tensor:
         """Calculates the value of the metric based on the values for each quantile over the timeframe.
@@ -500,12 +501,12 @@ class AutoEncoderLoss(Metric):
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
         metric: Metric,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         flip_target = torch.flip(torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,))
         return metric(
-            torch.flip(torch.cat((inputs_enc, inputs_enc_aux), dim=2)[:, :-1], dims=(1,)),
+            flip_target,
             predictions,
             avg_over,
         )
@@ -538,9 +539,9 @@ class DualModelLoss(Metric):
     def get_quantile_prediction(
         self,
         predictions: torch.tensor,
-        quantiles: Optional[List[float]] = None,
+        quantiles: list[float] | None = None,
         **kwargs,
-    ) -> Tuple[QuantilePrediction]:
+    ) -> tuple[QuantilePrediction]:
         """Calculates the values for each quantile for the metric.
         For metrics using the normal distribution this will correspond to the confidence interval.
 
@@ -575,10 +576,10 @@ class DualModelLoss(Metric):
     def from_quantiles(
         self,
         target: torch.tensor,
-        quantile_prediction: Tuple[QuantilePrediction],
+        quantile_prediction: tuple[QuantilePrediction],
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -627,11 +628,14 @@ class DualModelLoss(Metric):
         predictions: torch.Tensor,
         inputs_enc: torch.Tensor,
         inputs_enc_aux: torch.Tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
-        metrics: List[Metric] = [],
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        metrics: list[Metric] = None,
         weight: float = 0.5,
         **_,
     ) -> torch.tensor:
+        if metrics is None:
+            metrics = []
+
         weights = (weight, 1 - weight)
 
         return torch.sum(
@@ -674,7 +678,7 @@ class NllGauss(Metric):
     def get_quantile_prediction(
         self,
         predictions: torch.tensor,
-        quantiles: Optional[Iterable[float]] = None,
+        quantiles: Iterable[float] | None = None,
         **_,
     ) -> QuantilePrediction:
         """
@@ -705,7 +709,7 @@ class NllGauss(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -742,7 +746,7 @@ class NllGauss(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -781,7 +785,7 @@ class NllGauss(Metric):
         )
 
 
-class PinnballLoss(Metric):
+class PinballLoss(Metric):
     """Calculates pinball loss or quantile loss against the specified quantiles.
 
     Parameters
@@ -792,7 +796,7 @@ class PinnballLoss(Metric):
         For information on the global default see 'Metrics.set_global_default(...)'
     """
 
-    def __init__(self, quantiles: List[float] = None):
+    def __init__(self, quantiles: list[float] = None):
         if quantiles is None:
             quantiles = [1.0 - Metric.alpha / 2, Metric.alpha / 2, 0.5]
         super().__init__(quantiles=quantiles)
@@ -801,7 +805,7 @@ class PinnballLoss(Metric):
     def get_quantile_prediction(
         self,
         predictions: torch.tensor,
-        quantiles: Optional[Iterable[float]] = None,
+        quantiles: Iterable[float] | None = None,
         **_,
     ) -> QuantilePrediction:
         if quantiles is None:
@@ -813,7 +817,7 @@ class PinnballLoss(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -846,8 +850,8 @@ class PinnballLoss(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        quantiles: List[float],
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        quantiles: list[float],
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -882,7 +886,7 @@ class PinnballLoss(Metric):
         return avg_over_dims(loss, over_dims=avg_over)
 
 
-class SmoothedPinnballLoss(Metric):
+class SmoothedPinballLoss(Metric):
     """Calculates an approximated pinball loss or quantile loss against the specified quantiles.
     To avoid discontinous gradients it has been modified to return a quandratic error instead when close to the correct value
      as described in https://ieeexplore.ieee.org/document/8832203
@@ -899,7 +903,7 @@ class SmoothedPinnballLoss(Metric):
 
     def __init__(
         self,
-        quantiles: List[float] = None,
+        quantiles: list[float] = None,
         eps: float = 1.0e-6,
     ):
         if quantiles is None:
@@ -908,7 +912,7 @@ class SmoothedPinnballLoss(Metric):
         self.input_labels = [f"quant[{quant}]" for quant in quantiles]
 
     def get_quantile_prediction(
-        self, predictions: torch.tensor, quantiles: Optional[List[float]] = None, **_
+        self, predictions: torch.tensor, quantiles: list[float] | None = None, **_
     ) -> QuantilePrediction:
         if quantiles is None:
             return QuantilePrediction(predictions, self.options["quantiles"])
@@ -921,7 +925,7 @@ class SmoothedPinnballLoss(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **kwargs,
     ):
         """
@@ -954,7 +958,7 @@ class SmoothedPinnballLoss(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        quantiles: List[float],
+        quantiles: list[float],
         eps: float = 1e-6,
         avg_over: Literal["all"] = "all",
         **_,
@@ -983,7 +987,7 @@ class SmoothedPinnballLoss(Metric):
             When 'avg_over' is set to anything but "all", "time" or "sample".
         """
         target = target.unsqueeze(-1)
-        loss = SmoothedPinnballLoss._huber_metric(predictions=predictions, target=target, eps=eps)
+        loss = SmoothedPinballLoss._huber_metric(predictions=predictions, target=target, eps=eps)
 
         mask_greater = predictions >= target
         mask_lesser = predictions < target
@@ -1053,7 +1057,7 @@ class CRPSGauss(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
     ):
         """
         Calculates the value of the metric based on the values for each quantile over the timeframe.
@@ -1080,7 +1084,7 @@ class CRPSGauss(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1146,7 +1150,7 @@ class Residuals(Metric):
         self,
         target: torch.tensor,
         predictions: torch.tensor,
-        quantiles: Optional[List[float]] = None,
+        quantiles: list[float] | None = None,
         **_,
     ) -> QuantilePrediction:
         """
@@ -1179,7 +1183,7 @@ class Residuals(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -1207,7 +1211,7 @@ class Residuals(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1262,7 +1266,7 @@ class Mse(Metric):
         self,
         target: torch.tensor,
         predictions: torch.tensor,
-        quantiles: Optional[List[float]] = None,
+        quantiles: list[float] | None = None,
         **_,
     ) -> QuantilePrediction:
         """
@@ -1295,7 +1299,7 @@ class Mse(Metric):
         self,
         target: torch.Tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -1326,7 +1330,7 @@ class Mse(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1383,7 +1387,7 @@ class Rmse(Metric):
         self,
         target: torch.tensor,
         predictions: torch.tensor,
-        quantiles: Optional[List[float]] = None,
+        quantiles: list[float] | None = None,
         **_,
     ) -> QuantilePrediction:
         """
@@ -1416,7 +1420,7 @@ class Rmse(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -1447,7 +1451,7 @@ class Rmse(Metric):
     def func(
         target: torch.Tensor,
         predictions: torch.Tensor,
-        avg_over: List[Literal["time"], Literal["sample"], Literal["all"]] = "all",
+        avg_over: list[Literal["time"], Literal["sample"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1509,7 +1513,7 @@ class Mase(Metric):
         self,
         target: torch.tensor,
         predictions: torch.tensor,
-        quantiles: Optional[List[float]] = None,
+        quantiles: list[float] | None = None,
         **_,
     ) -> QuantilePrediction:
         """
@@ -1542,7 +1546,7 @@ class Mase(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         freq=None,
         **_,
     ) -> torch.tensor:
@@ -1579,7 +1583,7 @@ class Mase(Metric):
         target: torch.tensor,
         predictions: torch.tensor,
         freq=1,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         insample_target=None,
         **_,
     ):
@@ -1654,7 +1658,7 @@ class Sharpness(Metric):
         self,
         target: torch.tensor,
         predictions: torch.tensor,
-        quantiles: Optional[List[float]] = None,
+        quantiles: list[float] | None = None,
         **_,
     ) -> QuantilePrediction:
         """
@@ -1685,7 +1689,7 @@ class Sharpness(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ) -> torch.tensor:
         """
@@ -1720,7 +1724,7 @@ class Sharpness(Metric):
     def func(
         # target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1768,7 +1772,7 @@ class Picp(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: Union[Literal["sample"], Literal["all"]] = "all",
+        avg_over: Literal["sample"] | Literal["all"] = "all",
         **_,
     ):
         """
@@ -1802,7 +1806,7 @@ class Picp(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["sample"], Literal["all"]] = "all",
+        avg_over: Literal["sample"] | Literal["all"] = "all",
         **_,
     ):
         """
@@ -1842,7 +1846,7 @@ class PicpLoss(Picp):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: Union[Literal["sample"], Literal["all"]] = "all",
+        avg_over: Literal["sample"] | Literal["all"] = "all",
         **_,
     ):
         return 1 - Picp.func(target, predictions, avg_over)
@@ -1871,7 +1875,7 @@ class Mis(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1914,7 +1918,7 @@ class Mis(Metric):
         target: torch.tensor,
         predictions: torch.tensor,
         alpha: float = None,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -1983,7 +1987,7 @@ class Rae(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -2051,9 +2055,9 @@ class Rae(Metric):
         return avg_over_dims(res_test, over_dims=avg_over) / avg_over_dims(res_naive, over_dims=avg_over)
 
 
-class Mae(Metric):
+class Mape(Metric):
     """Calculates mean absolute error
-    MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+    MAPE is different from MAE in that the average of mean error is normalized over the average of all the actual values is taken in MAPE but not in MAE
     """
 
     def __init__(self):
@@ -2064,7 +2068,7 @@ class Mae(Metric):
         self,
         target: torch.tensor,
         quantile_prediction: QuantilePrediction,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
@@ -2092,12 +2096,78 @@ class Mae(Metric):
     def func(
         target: torch.tensor,
         predictions: torch.tensor,
-        avg_over: List[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
         **_,
     ):
         """
         Calculates mean absolute error
-        MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values
+        MAPE is different from MAE in that the average of mean error is normalized over the average of all the actual values is taken in MAPE but not in MAE
+
+        Parameters
+        ----------
+        target : torch.tensor
+            true values of the target variable
+        predictions :  torch.tensor
+            Predicted values over samples and time. Dimension have to be (sample number, timestep,1).
+        avg_over: str, default = "all"
+            Averages the results over the coresponding axis.
+
+        Returns
+        -------
+        torch.tensor
+            A scalar with the overall mae (the lower the better)
+
+        """
+        return avg_over_dims(torch.abs((target - predictions[..., 0]) / target), over_dims=avg_over)
+
+
+class Mae(Metric):
+    """Calculates mean absolute error
+    MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values is taken in MAPE but not in MAE
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.input_labels = ["expected_value"]
+
+    def from_quantiles(
+        self,
+        target: torch.tensor,
+        quantile_prediction: QuantilePrediction,
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        **_,
+    ):
+        """
+        Calculates the value of the metric based on the values for each quantile over the timeframe.
+
+        Parameters
+        ----------
+        target: torch.tensor
+            Target values from the training or validation dataset. Dimensions have to be (sample number, timestep, 1).
+         quantile_prediction: QuantilePrediction
+            A prediction for several quantiles. Has to contain atleast the median prediction.
+            The mean is estimated to be the median as it would be for a gaussian distribution.
+        avg_over: str
+            One of "time", "sample", "feature", "all", averages the the results over the coresponding axis.
+
+        Returns
+        -------
+        torch.tensor
+            Value of the metric, which depending on the value of 'avg_over'
+            is either a 0d-tensor (overall loss) or 1d-tensor over the horizon or the sample.
+        """
+        return self(target, quantile_prediction.get_gauss_params()[..., 0:1], avg_over=avg_over)
+
+    @staticmethod
+    def func(
+        target: torch.tensor,
+        predictions: torch.tensor,
+        avg_over: list[Literal["sample"], Literal["time"], Literal["feature"], Literal["all"]] = "all",
+        **_,
+    ):
+        """
+        Calculates mean absolute error
+        MAE is different from MAPE in that the average of mean error is normalized over the average of all the actual values is taken in MAPE but not in MAE
 
         Parameters
         ----------

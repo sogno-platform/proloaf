@@ -1,9 +1,10 @@
-import pytest
 import numpy as np
 import pandas as pd
-from proloaf.datahandler import MultiScaler, scale_all
-from sklearn.utils.validation import check_is_fitted
+import pytest
 from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
+
+from proloaf.datahandler import MultiScaler, scale_all
 
 
 @pytest.fixture
@@ -68,12 +69,10 @@ class TestMultiScaler:
             check_is_fitted(sc)
         check_is_fitted(scaler)
 
-    def test_fit_prefit_scalers(self, feature_groups, dataframe):
+    def test_fit_partial_prefit_scalers(self, feature_groups, dataframe):
         aux_scaler = MultiScaler(feature_groups)
         aux_scaler.fit(dataframe)
-        scaler = MultiScaler(
-            feature_groups, scalers={"feat1": aux_scaler.scalers["feat1"]}
-        )
+        scaler = MultiScaler(feature_groups, scalers={"feat1": aux_scaler.scalers["feat1"]})
         with pytest.raises(NotFittedError):
             check_is_fitted(scaler)
 
@@ -84,18 +83,14 @@ class TestMultiScaler:
 
     def test_manual_transform(self, multi_scaler_fit, dataframe):
         direct_result = multi_scaler_fit.transform(dataframe)[["feat2"]]
-        indirect_result = multi_scaler_fit.manual_transform(
-            dataframe[["feat2"]], "feat2"
-        )
+        indirect_result = multi_scaler_fit.manual_transform(dataframe[["feat2"]], "feat2")
         print(direct_result)
         print(indirect_result)
         assert (direct_result == indirect_result).all(None)
 
     def test_manual_inverse_transform(self, multi_scaler_fit, dataframe):
         direct_result = multi_scaler_fit.inverse_transform(dataframe)[["feat2"]]
-        indirect_result = multi_scaler_fit.manual_inverse_transform(
-            dataframe[["feat2"]], "feat2"
-        )
+        indirect_result = multi_scaler_fit.manual_inverse_transform(dataframe[["feat2"]], "feat2")
         print(direct_result)
         print(indirect_result)
         assert (direct_result == indirect_result).all(None)

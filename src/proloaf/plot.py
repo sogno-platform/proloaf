@@ -20,6 +20,7 @@
 """
 Provides handy plot functions to visualize predictions and performance over selected timeseries
 """
+
 import os
 
 import matplotlib
@@ -83,7 +84,7 @@ def plot_timestep(
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
         new_labels = labels[positions]
         plt.xticks(positions, new_labels)
-    except:
+    except Exception:
         ax.set_title("Forecast along horizon", fontsize=22)
     ax.fill_between(
         np.arange(pred.shape[0]),
@@ -109,7 +110,7 @@ def plot_timestep(
     ax.grid()
     ax.set_xlabel("Time of Day", fontsize=20)  # assuming hourly resolution in most of the evaluations
     plt.autoscale(enable=True, axis="x", tight=True)
-    plt.savefig(OUTPATH + "eval_hour{}".format(timestep))
+    plt.savefig(OUTPATH + f"eval_hour{timestep}")
     plt.show()
     plt.close(fig)
 
@@ -219,7 +220,7 @@ def plot_boxplot(
     """
     plt.clf()
     ax1 = metrics_per_sample.iloc[::sample_frequency].boxplot(
-        color=dict(boxes="k", whiskers="k", medians="k", caps="k"),
+        color={"boxes": "k", "whiskers": "k", "medians": "k", "caps": "k"},
     )
     ax1.set_xlabel(
         "Mean error per sample with predefined sampling steps: " + str(sample_frequency) + " on prediction horizon",
@@ -257,7 +258,7 @@ def plot_hist(
     No return value
     """
     with plt.style.context("seaborn"):
-        fig = plt.figure(figsize=(16, 12))  # plt.figure()
+        plt.figure(figsize=(16, 12))  # plt.figure()
         # print("Residuals DataFrame Head:",results.head())
         for element in data.columns:
             ax1 = data[element].plot(kind="hist", bins=bins, alpha=0.5, label=element)

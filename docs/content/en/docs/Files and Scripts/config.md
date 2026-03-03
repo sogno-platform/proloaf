@@ -1,7 +1,7 @@
 ---
 title: "config.json"
 linkTitle: "config.json"
-date: 2020-19-08
+date: 2020-08-19
 weight: 4
 description: >
   Basic information about the config.json file
@@ -12,19 +12,19 @@ This page describes the different config files used in ProLoaF.
 
 #### Main Config
 ProLoaF's configuration file is written using JSON. As such, whitespace is allowed and ignored in your syntax.
-We mostly use strings, boolean, and ``null``, to specify the paths, and parameters of our targeted forecasting project. 
+We mostly use strings, boolean, and ``null``, to specify the paths, and parameters of our targeted forecasting project.
 Numbers and booleans should be  unquoted.
 
-For better readability, we assume in the examples below, 
-that your working directory is set to the main project path of the cloned 
+For better readability, we assume in the examples below,
+that your working directory is set to the main project path of the cloned
 [repository](https://github.com/sogno-platform/proloaf). There is also template config file availble in the [targets folder](https://github.com/sogno-platform/proloaf/tree/master/targets/opsd).
 
-We will split this config superficially into multiple thematical parts and discuss all available options. 
+We will split this config superficially into multiple thematical parts and discuss all available options.
 
 
 ##### Path Settings
 
-Through the config file the user specifies the data source location, and the directories for logging, 
+Through the config file the user specifies the data source location, and the directories for logging,
 exporting performance analyses and most importantly, the trained RNN model binary.
 
 **Path Specs:**
@@ -32,7 +32,7 @@ exporting performance analyses and most importantly, the trained RNN model binar
     "data_path": "./data/<FILE-NAME>.csv",
     "evaluation_path": "./oracles/eval_<MODEL-NAME>/",
     "output_path": "./oracles/",
-    "exploration_path": "./targets/opsd/tuning.json", 
+    "exploration_path": "./targets/opsd/tuning.json",
     "log_path": "./logs/"
 ```
 The output-, exploration- and log- paths may stay unchanged, but the data path and evaluation path must be specified.
@@ -86,12 +86,12 @@ These settings describe the data and how it should be used.
 * start_date: All value before this date will be cut off.
 * history_horizon: Number of timesteps taken into account in the past to create a forecast. It is possible to change this value between training and running the model if an RNN model is used, this might however negatively impact performance.
 * forecast_horizon: Number of timesteps that are being forecast as well as how many other forecasted values (from external sources) are considered for this. It is possible to change this value between training and running the model if an RNN model is used, this might however negatively impact performance.
-* frequency: Frequency of the data, number and unit. For hourly data use `"1h"` for quarter-hourly `"15min"`. 
+* frequency: Frequency of the data, number and unit. For hourly data use `"1h"` for quarter-hourly `"15min"`.
 * train_split: Float between 0.0 and 1.0, should be smaller than `validation_split`. Gives the ratio of the whole dataset is to be used for training as opposed to validation and evaluataion. It is also possible to specify the split by time in the iso 8601 (`YYYY-MM-DD HH:MM:SS`) format.
 * validation_split: Float between 0.0 and 1.0. should be larger than `train_split`. Defines the second split between validation data and evaluation data. It is also possible to specify the split by time in the iso 8601 (`YYYY-MM-DD HH:MM:SS`) format.
 * periodicity: The expected period of the data in number of timesteps. For data following a daily cycle and 15 min frequency this should be 95 (= 24 * 4). This is used to extrapolate gaps in data.
 * feature_groups: A list of json object that define groups of features and how they should be scaled. Features are usually scaled so the relative magnitude of their values (and chosen units) does not impact the forecasting model. Features are only grouped to reduce the number parameters that need to be set.
-These groups consist of 
+These groups consist of
     * name: Some name, only for identifaction. The name "aux" implies that there should not be a warning for not scaling these features.
     * scaler: Name of the scaler, available are ["minmax"](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html), ["standard"](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html) and ["robust"](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.RobustScaler.html). The numbers following are the arguments given to its constructor. For more information refer to the provided links.
     * features: List of feature names that are to be scaled.
@@ -99,7 +99,7 @@ These groups consist of
 ##### Model Settings
 These settings describe the model itself, including inputs, outputs and model structure.
 
-**Model Specs** 
+**Model Specs**
 ```json
     "model_name": "opsd_recurrent",
     "target_id": [
@@ -164,7 +164,7 @@ These settings, configure how the training is conducted.
 * exploration: Boolean value that determines whether hyper parameter exploration is performed. If this is `true` a an `exploration_path` needs to be provided in the [path settings](#path-settings)
 * cuda_id: ID of a CUDA capabale GPU incase multiple are available and a specific one should be used. If this is null or ommited a GPU will be selected automatically.
 * max_epochs: Maximum number of epochs during training. In each epoch the training dataset is completely run through once. It is generally recommend to use a rather high setting as there is an early stopping mechanism that stops on convergence.
-* batch_size: Number samples per batch. Each batch is evaluated at once before doing an optimization step. 
+* batch_size: Number samples per batch. Each batch is evaluated at once before doing an optimization step.
 * learning_rate: Factor for the stepsiez in optimization step. Very dependent on the specific use-case. Generally a higher learning rate leads to faster convergence but less accurate results.
 * early_stopping_patience: Number of epoch without improvement in validation error after which training is stopped.
 * early_stopping_margin: Minimum improvement in validation error to considered an improvement in terms of early stopping. This is an absolute change.
@@ -176,7 +176,7 @@ In this config specify the tumber of test runs that should be conducted using th
 ```json
 "number_of_tests": 5
 ```
-In each test a model will be trained and evaluate against each other. 
+In each test a model will be trained and evaluate against each other.
 The remainder of the config is under the key `"settings"`.
 Its value is an object that represents the structure of the [main config](#main-config) only the values work differently and none of the parameters is required, the main config will be used for absent parameters.
 ```json
@@ -215,23 +215,23 @@ The saliency config dictates how the generation of [saliency maps]({{< resource 
 * lr_low: Lower bound for the learning rate during noise optimization.
 * lr_high: Upper bound for the learning rate during noise optimization.
 * relative_errors: Boolean that switchen between relative and absolute weighting of errors. If true (recommended) the terms for "low amount of noise applied" and "quality deterioration" are normalized according to their values from the initial naive guess for a noise mask. For more detail see ({{< resource url="docs/files-and-scripts/evaluate_saliency/" >}})
-* lambda: Weighting of the two errors against eachother. If `realatve_erros: true` this is a relative weighting Value >1 increases the value on applying as much noise as possible, <1 increases the focus on not negatively impacting the prediction quality. If `realatve_erros: false` this is absolute and the value might vary greatly (e. g. `lambda: 1e-4 might be reasonable) and is highly dependent on the use-case. 
+* lambda: Weighting of the two errors against eachother. If `realatve_erros: true` this is a relative weighting Value >1 increases the value on applying as much noise as possible, <1 increases the focus on not negatively impacting the prediction quality. If `realatve_erros: false` this is absolute and the value might vary greatly (e. g. `lambda: 1e-4 might be reasonable) and is highly dependent on the use-case.
 * cuda_id: ID of a CUDA capabale GPU incase multiple are available and a specific one should be used. If this is null or ommited a GPU will be selected automatically.
 
 
 #### Specifying a config file
 
-The default location of the main configuration file is `./targets/` or better `./targets/<STATION>`. 
-The best practice is to generate sub-directories for each forecasting exercise, i.e. a new *station*. 
-As the project originated from electrical load forecasting on substation-level, 
+The default location of the main configuration file is `./targets/` or better `./targets/<STATION>`.
+The best practice is to generate sub-directories for each forecasting exercise, i.e. a new *station*.
+As the project originated from electrical load forecasting on substation-level,
 the term *station* or *target-station* is used to refer to the location or substation identifier
-from which the measurement data is originating.   
-Most of the example scripts in ProLoaF use the config file for training and evaluation, 
+from which the measurement data is originating.
+Most of the example scripts in ProLoaF use the config file for training and evaluation,
 as it serves as a central place for parametrization.
 
 At this stage you should have the main config file for your forecasting project: `./targets/<STATION>/config.json`.
-[ProLoaF](https://github.com/sogno-platform/proloaf/tree/master/src/proloaf) comes with basic functions to parse, 
-edit and store the config file. We make use of this when calling e.g. our example training script: 
+[ProLoaF](https://github.com/sogno-platform/proloaf/tree/master/src/proloaf) comes with basic functions to parse,
+edit and store the config file. We make use of this when calling e.g. our example training script:
 
 ```sh
 $ python src/train.py -s opsd
@@ -242,5 +242,3 @@ statement. The equivalent statement would be:
 ```sh
 $ python src/train.py -c ./targets/opsd/config.json
 ```
-
-

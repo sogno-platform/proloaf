@@ -23,36 +23,33 @@ That is helpful if the trainingrun is purely technically but everything else sho
 """
 
 import json
-import sys
 import os
+import sys
+
 from proloaf.event_logging import create_event_logger
-
-
 
 logger = create_event_logger(__name__)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Read configs
     main_path = os.path.dirname(os.path.realpath(__file__))
     config_path = sys.argv[1]
-    with open(config_path, 'r') as input:
+    with open(config_path) as input:
         main_config = json.load(input)
     tuning_path = main_config.get("exploration_path")
     main_config["max_epochs"] = 2
     tuning_config = None
     if tuning_path:
         try:
-            with open(tuning_path, 'r') as input:
+            with open(tuning_path) as input:
                 tuning_config = json.load(input)
         except RuntimeError:
             logger.info("tuning config could not be loaded")
     if tuning_config:
         main_config["exploration"] = True
         tuning_config["number_of_tests"] = 2
-        with open(tuning_path, 'w') as output:
+        with open(tuning_path, "w") as output:
             json.dump(tuning_config, output, indent=4)
 
-    with open(config_path, 'w') as output:
+    with open(config_path, "w") as output:
         json.dump(main_config, output, indent=4)
-    
-

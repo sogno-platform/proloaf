@@ -32,7 +32,6 @@ in the corresponding config file.
 
 """
 
-
 import os
 from functools import partial
 
@@ -98,8 +97,10 @@ if __name__ == "__main__":
                 partial(dh.set_to_hours, freq=PAR.get("frequency", "1h"), timecolumn=PAR.get("timecolumn", "Time")),
                 partial(dh.fill_if_missing, periodicity=PAR.get("periodicity", 24)),
                 dh.add_cyclical_features,
-                dh.add_onehot_features,
                 net.scalers.transform,
+                partial(dh.add_onehot_features, timestep=PAR["frequency"]),
+                partial(dh.add_onehot_daytype, country=PAR.get("country_code")),
+                partial(dh.stack_features, map=PAR.get("stack_columns")),
                 dh.check_continuity,
             ],
             **PAR,
@@ -123,7 +124,7 @@ if __name__ == "__main__":
             metrics.Mae(),
             metrics.Mis(),
             metrics.Mase(),
-            metrics.PinnballLoss(),
+            metrics.PinballLoss(),
             metrics.Residuals(),
         ]
         results_total_per_forecast = (
@@ -190,9 +191,7 @@ if __name__ == "__main__":
                 inputs_dec_aux,
                 last_value,
                 targets,
-            ) = test_data[
-                i
-            ]  # No Error over time for autoencoder
+            ) = test_data[i]  # No Error over time for autoencoder
             if isinstance(net.model, models.AutoEncoder):
                 logger.warning(
                     "Autoencoders do not create a prediction for the future, no plot will be generated comparing the prediciton to the target."
@@ -234,7 +233,7 @@ if __name__ == "__main__":
                 )
 
         results_total_per_forecast.to_csv(os.path.join(OUTDIR, f"{net.name}.csv"), sep=";", index=True)
-        logger.info("Results total per forecast:\n{!s}".format(results_total_per_forecast))
+        logger.info(f"Results total per forecast:\n{results_total_per_forecast!s}")
         (
             inputs_enc,
             inputs_enc_aux,

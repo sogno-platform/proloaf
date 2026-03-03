@@ -63,7 +63,7 @@ def main(infile, target_id):
     df = dh.fill_if_missing(df, periodicity=SEASONALITY)
 
     df = dh.set_to_hours(df, freq=RESOLUTION)
-    logger.info(f"{df.head() = }")
+    logger.info(f"{df.head()=}")
     if "col_list" in PAR:
         if PAR["col_list"] is not None:
             df[target_id] = df[PAR["col_list"]].sum(axis=1)
@@ -192,7 +192,7 @@ def main(infile, target_id):
                     train_limit=LIMIT_HISTORY,
                 )
             else:
-                logger.info("Loaded existing fitted ARIMA model from {!s}".format(OUTDIR))
+                logger.info(f"Loaded existing fitted ARIMA model from {OUTDIR!s}")
             (
                 ARIMA_expected_values,
                 ARIMA_y_pred_upper,
@@ -236,7 +236,7 @@ def main(infile, target_id):
                     grid_search=PAR["exploration"],
                 )
             else:
-                logger.info("Loaded existing fitted SARIMA model from {!s}".format(OUTDIR))
+                logger.info(f"Loaded existing fitted SARIMA model from {OUTDIR!s}")
             (
                 SARIMA_expected_values,
                 SARIMA_y_pred_upper,
@@ -276,7 +276,7 @@ def main(infile, target_id):
                     grid_search=False,
                 )
             else:
-                logger.info("Loaded existing fitted ARIMAX model from {!s}".format(OUTDIR))
+                logger.info(f"Loaded existing fitted ARIMAX model from {OUTDIR!s}")
             (
                 ARIMAX_expected_values,
                 ARIMAX_y_pred_upper,
@@ -316,7 +316,7 @@ def main(infile, target_id):
                     grid_search=False,
                 )
             else:
-                logger.info("Loaded existing fitted SARIMAX model from {!s}".format(OUTDIR))
+                logger.info(f"Loaded existing fitted SARIMAX model from {OUTDIR!s}")
             (
                 SARIMAX_expected_values,
                 SARIMAX_y_pred_upper,
@@ -355,10 +355,10 @@ def main(infile, target_id):
                 limit_steps=PAR["history_horizon"] + NUM_PRED,
                 online=True,
             )
-            mean_forecast.append(ets_expected_values[PAR["history_horizon"] :])
-            upper_pi.append(ets_y_pred_upper[PAR["history_horizon"] :])
-            lower_pi.append(ets_y_pred_lower[PAR["history_horizon"] :])
-            baseline_method.append("ets")
+        mean_forecast.append(ets_expected_values[PAR["history_horizon"] :])
+        upper_pi.append(ets_y_pred_upper[PAR["history_horizon"] :])
+        lower_pi.append(ets_y_pred_lower[PAR["history_horizon"] :])
+        baseline_method.append("ets")
 
         # GARCH
         if "garch" in CALC_BASELINES:
@@ -422,7 +422,7 @@ def main(infile, target_id):
             metrics.Mae(),
             metrics.Mis(),
             metrics.Mase(),
-            metrics.PinnballLoss(),
+            metrics.PinballLoss(),
             metrics.Residuals(),
         ]
 
@@ -433,7 +433,7 @@ def main(infile, target_id):
             metrics.Picp(),
             metrics.Rae(),
             metrics.Mis(),
-            metrics.PinnballLoss(),
+            metrics.PinballLoss(),
             metrics.Residuals(),
         ]
 
@@ -455,8 +455,8 @@ def main(infile, target_id):
             if mean is None:
                 # skip if no mean prediciton
                 continue
-            print(f"{mean = }")
-            print(f"{y_val_1d = }")
+            print(f"{mean=}")
+            print(f"{y_val_1d=}")
             (
                 results[baseline_method[i]],
                 results_per_timestep[baseline_method[i]],
@@ -491,15 +491,14 @@ def main(infile, target_id):
             results_per_timestep_per_baseline.xs("Mis", axis=1, level=1, drop_level=False),
             OUTDIR + "baselines",
         )
-        print(f"{results = }")
+        print(f"{results=}")
 
         plot.plot_hist(
             data=results_per_sample.xs("Residuals", axis=1, level=1, drop_level=True),
             save_to=OUTDIR + "baselines",
             bins=80,
         )
-
-        logger.info("results: \n {!s}".format(results))
+        logger.info(f"results: \n {results!s}")
         results.to_csv(f"{OUTDIR}/baselines.csv", sep=";", index=True)
 
     except KeyboardInterrupt:

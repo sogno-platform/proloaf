@@ -20,8 +20,11 @@
 """
 Provides structures for storing and loading data (e.g. training, validation or test data)
 """
+
 from __future__ import annotations
 
+from collections.abc import Iterable
+from datetime import datetime
 from typing import Callable, Iterable, Optional, Tuple, Union
 
 import pandas as pd
@@ -86,14 +89,14 @@ class TimeSeriesData(Dataset):
     def __init__(
         self,
         df: pd.DataFrame,
-        history_horizon: Optional[int] = None,
-        forecast_horizon: Optional[int] = None,
-        encoder_features: Optional[Iterable[str]] = None,
-        decoder_features: Optional[Iterable[str]] = None,
-        aux_features: Optional[Iterable[str]] = None,
-        target_id: Union[str, Iterable[str], None] = None,
-        preparation_steps: Optional[Iterable[Callable[[pd.DataFrame], pd.DataFrame]]] = None,
-        device: Union[int, str] = "cpu",
+        history_horizon: int | None = None,
+        forecast_horizon: int | None = None,
+        encoder_features: Iterable[str] | None = None,
+        decoder_features: Iterable[str] | None = None,
+        aux_features: Iterable[str] | None = None,
+        target_id: str | Iterable[str] | None = None,
+        preparation_steps: Iterable[Callable[[pd.DataFrame], pd.DataFrame]] | None = None,
+        device: int | str = "cpu",
         **_,
     ):
         self.data = df
@@ -108,7 +111,9 @@ class TimeSeriesData(Dataset):
         self.device = device
         self.tensor_prepared = False
         self.frame_prepared = False
-        self.preparation_steps = preparation_steps
+        self.preparation_steps = list(preparation_steps) if preparation_steps is not None else []
+        self._idx_mod = None
+        self._ref_index = None
 
     @property
     def encoder_features(self):
@@ -184,7 +189,15 @@ class TimeSeriesData(Dataset):
             )
         # If the prep steps change the length it is necessary to reflect this from the prepared data
         if self.tensor_prepared:
-            return max(0, self.encoder_tensor.shape[0] - self.history_horizon - self.forecast_horizon) + 1
+            # If data was stacked the tensors have 3 dimensions, dim 1 beining iterating over the stacked features
+            if len(self.encoder_tensor.shape) == 3:
+                stack_mult = self.encoder_tensor.shape[1]
+            else:
+                stack_mult = 1
+            return stack_mult * (
+                max(0, self.encoder_tensor.shape[0] - self.history_horizon - self.forecast_horizon) + 1
+            )
+        # TODO this does not result in the same length as the tensor version if
         return max(0, len(self.data) - self.history_horizon - self.forecast_horizon) + 1
 
     def __iter__(self):
@@ -229,7 +242,7 @@ class TimeSeriesData(Dataset):
             raise AttributeError(
                 "The preparationsteps were already applied to the Dataframe and can not be removed anymore"
             )
-        self.preparation_steps = None
+        self.preparation_steps = []
         self.tensor_prepared = False
         return self
 
@@ -257,7 +270,7 @@ class TimeSeriesData(Dataset):
             The object itself
 
         """
-        if self.preparation_steps is None or self.frame_prepared:
+        if len(self.preparation_steps) == 0 or self.frame_prepared:
             self.frame_prepared = True
             return self
         self.data = self._apply_prep_to_frame(self.data, self.preparation_steps)
@@ -266,7 +279,7 @@ class TimeSeriesData(Dataset):
 
     def get_as_frame(
         self, idx
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.DataFrame]:
         """Gives a sample as it would be given to the model but in pandas.DataFrames instead of torch.Tensors.
 
         Parameters
@@ -280,6 +293,7 @@ class TimeSeriesData(Dataset):
             6 DataFrames (data for encoder, auxillary data for encoder, Data for decoder, auxillary data for decoder, last historic target, targets)
 
         """
+        # TODO check implications of multiindex on this method
         if not isinstance(idx, int):
             idx = self.data.index.get_loc(idx)
         assert isinstance(idx, int)
@@ -310,16 +324,28 @@ class TimeSeriesData(Dataset):
             6 Tensor (data for encoder, auxillary data for encoder, Data for decoder, auxillary data for decoder, last historic target, Targets)
 
         """
+        # this makes getitem cyclical aswell
+        # TODO make sure this still works with a single index (which it should not atm)
+        idx_aux = [idx % self._idx_mod[i] // self._idx_mod[i + 1] for i in range(len(self._idx_mod) - 1)]
+        encoder_slice = (slice(idx_aux[0], idx_aux[0] + self.history_horizon), *idx_aux[1:])
+        decoder_slice = (
+            slice(idx_aux[0] + self.history_horizon, idx_aux[0] + self.history_horizon + self.forecast_horizon),
+            *idx_aux[1:],
+        )
+        last_value_slice = (
+            slice(idx_aux[0] + self.history_horizon - 1, idx_aux[0] + self.history_horizon),
+            *idx_aux[1:],
+        )
         return (
-            self.encoder_tensor[idx : idx + self.history_horizon],
-            self.aux_tensor[idx : idx + self.history_horizon],
-            self.decoder_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
-            self.aux_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
-            self.target_tensor[idx + self.history_horizon - 1 : idx + self.history_horizon],
-            self.target_tensor[idx + self.history_horizon : idx + self.history_horizon + self.forecast_horizon],
+            self.encoder_tensor[encoder_slice],
+            self.aux_tensor[encoder_slice],
+            self.decoder_tensor[decoder_slice],
+            self.aux_tensor[decoder_slice],
+            self.target_tensor[last_value_slice],
+            self.target_tensor[decoder_slice],
         )
 
-    def to(self, device: Union[str, int]):
+    def to(self, device: str | int):
         """Moves Tensor data to specified device.
         Will not move data if it has to be reformated anyways but will do that when reformating.
 
@@ -339,6 +365,35 @@ class TimeSeriesData(Dataset):
                 self.target_tensor.to(device)
         return self
 
+    def get_input_tensors(
+        self,
+        forecast_start: datetime | int,
+        history_horizon: int = None,
+        forecast_horizon: int = None,
+        encoder_features: Iterable[str] = None,
+        decoder_features: Iterable[str] = None,
+        aux_features: Iterable[str] = None,
+        target_id: Union[str, Iterable[str]] = None,
+        batch_size: int = None,
+        shuffle: bool = False,
+        drop_last: bool = True,
+    ):
+        return next(
+            iter(
+                self.make_data_loader(
+                    history_horizon,
+                    forecast_horizon,
+                    encoder_features,
+                    decoder_features,
+                    aux_features,
+                    target_id,
+                    batch_size,
+                    shuffle,
+                    drop_last,
+                )
+            )
+        )[:-1]
+
     def make_data_loader(
         self,
         history_horizon: int = None,
@@ -346,7 +401,7 @@ class TimeSeriesData(Dataset):
         encoder_features: Iterable[str] = None,
         decoder_features: Iterable[str] = None,
         aux_features: Iterable[str] = None,
-        target_id: Union[str, Iterable[str]] = None,
+        target_id: str | Iterable[str] = None,
         batch_size: int = None,
         shuffle: bool = True,
         drop_last: bool = True,
@@ -445,6 +500,22 @@ class TimeSeriesData(Dataset):
             .float()
             .to(self.device)
         )
+        self._ref_index = df.index
+        if isinstance(df.index, pd.MultiIndex):
+            idx_shape = [len(lvl) for lvl in df.index.levels]
+            self._idx_mod = [1]
+            for i, lvl in enumerate(reversed(idx_shape)):
+                self._idx_mod.append(self._idx_mod[i] * lvl)
+            self._idx_mod = tuple(reversed(self._idx_mod))
+
+            idx_shape.append(-1)
+            self.encoder_tensor = self.encoder_tensor.reshape(*idx_shape)
+            self.decoder_tensor = self.decoder_tensor.reshape(*idx_shape)
+            self.aux_tensor = self.aux_tensor.reshape(*idx_shape)
+            self.target_tensor = self.target_tensor.reshape(*idx_shape)
+        else:
+            self._idx_mod = (len(df), 1)
+
         self.tensor_prepared = True
         return self
 

@@ -20,10 +20,11 @@
 """
 Provides functions for logging training results and reading and writing those logs to/from csv or tensorboard files.
 """
+
 import os
 import shutil
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 import torch
@@ -34,7 +35,7 @@ from proloaf.event_logging import create_event_logger
 
 logger = create_event_logger(__name__)
 
-## TensorBoard ##
+# TensorBoard
 
 
 def clean_up_tensorboard_dir(run_dir):
@@ -101,7 +102,7 @@ def log_tensorboard(
     run_dir = os.path.join(work_dir, "runs", logname)
     tb = SummaryWriter(log_dir=run_dir)
 
-    logger.info("Tensorboard log here:\t {!s}".format(tb.log_dir))
+    logger.info(f"Tensorboard log here:\t {tb.log_dir!s}")
     return tb
 
 
@@ -154,11 +155,11 @@ def add_tb_element(
     for name, weight in net.named_parameters():
         try:
             tb.add_histogram(name, weight, next_epoch)
-        except:
+        except Exception:
             logger.warning(f"{name} could not be logged to tensorboard")
         try:
             tb.add_histogram(f"{name}.grad", weight.grad, next_epoch)
-        except:
+        except Exception:
             logger.warning(f"{name}.grad could not be logged to tensorboard")
         # .add_scalar(f'{name}.grad', weight.grad, epoch + 1)
     return tb
@@ -166,8 +167,8 @@ def add_tb_element(
 
 def end_tensorboard(
     tb: SummaryWriter,
-    params: Dict[str, Any],
-    metric_dict: Dict[str, Union[bool, str, int, float, None]],
+    params: dict[str, Any],
+    metric_dict: dict[str, Union[bool, str, int, float, None]],
 ):
     """
     Wrap up TensorBoard's SummaryWriter
@@ -199,7 +200,7 @@ def end_tensorboard(
     clean_up_tensorboard_dir(tb.get_logdir())
 
 
-## DataFrame Logging ##
+# DataFrame Logging
 
 
 # Loads a logfile if one exists, else creates a pd dataframe (create log)
@@ -229,7 +230,7 @@ def create_log(log_path=None, station_path=None) -> Optional[pd.DataFrame]:
     """
     try:
         feature_list = [x["name"] for x in read_config(config_path=os.path.join(station_path, "log.json"))["features"]]
-    except:
+    except Exception:
         logger.error("--- Couldn't load log feature set from config file ---")
         return None
 
@@ -240,7 +241,7 @@ def create_log(log_path=None, station_path=None) -> Optional[pd.DataFrame]:
         if features_to_add_list:
             log_df = pd.concat([log_df, pd.DataFrame(columns=features_to_add_list)])
 
-    except:
+    except Exception:
         logger.info("--- No existing log file found, creating... ---")
         log_df = pd.DataFrame(columns=feature_list)
 
@@ -384,12 +385,7 @@ def init_logging(
     )
 
     log_df = create_log(
-        os.path.join(
-            work_dir,
-            config["log_path"],
-            config["model_name"],
-            config["model_name"] + "_training.csv",
-        ),
+        path,
         os.path.join(work_dir, "targets", model_name),
     )
     return log_df

@@ -48,7 +48,7 @@ if __name__ == "__main__":
     STATION_NAME = STATION_PATH.split("targets/")[1]
 
     if sys.argv[1] == "--mod":
-        with open(sys.argv[2], "r") as input:
+        with open(sys.argv[2]) as input:
             par = json.load(input)
 
     # When modifying a config file, only select the parameters that are changed or create new ones. The others will

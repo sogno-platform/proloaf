@@ -26,9 +26,22 @@ Some functions are no longer used directly in the project, but may nonetheless b
 useful for testing or future applications.
 """
 
-from datetime import datetime
-from typing import Any, Dict, List, Union
+from datetime import datetime, timedelta
 
+try:
+    from enum import StrEnum
+except ImportError:
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
+
+
+from collections.abc import Iterable
+from itertools import chain
+from typing import Any, Optional, Union
+
+import holidays
 import numpy as np
 import pandas as pd
 import sklearn
@@ -122,7 +135,81 @@ def load_raw_data_xlsx(files, path):
     return individual_files
 
 
-def load_raw_data_csv(files: List[Dict[str, Any]], path: str):
+def extract_timeindex(df: pd.DataFrame, time_index_level: str | int | None = None) -> pd.DatetimeIndex:
+    """Extract the part of the dataframes index that represents the time.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe to extract the timeindex from
+    time_index_level : str | int | None, optional
+        Level of the multi index to look for the timeindex at. Can be either index or name of the level, by default None.
+        If None the first index level that is a datetimeindex will be returend.
+        Will be ignore for simple index
+
+    Returns
+    -------
+    pd.DatetimeIndex
+        Datetime part of the index if
+
+    Raises
+    ------
+    ValueError
+        If the dataframe has not timeindex component on the indicated level
+    """
+    if isinstance(df.index, pd.MultiIndex):
+        if time_index_level is None:
+            for i, lvl in enumerate(df.index.levels):
+                if isinstance(lvl, pd.DatetimeIndex):
+                    # returning lvl directly will not have the correct dimensions (total len of dataframe)
+                    timeindex = df.index.get_level_values(i)
+                    break
+        else:
+            timeindex = df.index.get_level_values(time_index_level)
+    else:
+        timeindex = df.index
+    if not isinstance(timeindex, pd.DatetimeIndex):
+        raise ValueError("data frame is not a timeseries, cylical time features can not be generated.")
+    return timeindex
+
+
+class CategoryDay(StrEnum):
+    WEEKDAY = "weekday"
+    SATURDAY = "saturday"
+    SUNDAY = "sunday"
+
+
+def type_day(dt: datetime, days: Iterable[datetime] | holidays.HolidayBase):
+    if dt.date() in days:
+        return CategoryDay.SUNDAY
+    if dt.weekday() == 5:
+        return CategoryDay.SATURDAY
+    if dt.weekday() == 6:
+        return CategoryDay.SUNDAY
+    else:
+        return CategoryDay.WEEKDAY
+
+
+def add_onehot_daytype(df: pd.DataFrame, country: str | None = None):
+    if country is None:
+        logger.warning("You are trying to add a encoding for holidays but no country has been specified")
+    timeindex = extract_timeindex(df)
+    if country is None:
+        days = []
+    else:
+        days = holidays.country_holidays(country)
+    daytype = timeindex.map(lambda x: type_day(x, days))
+    onehot = pd.get_dummies(daytype, dtype=int, prefix="daytype")
+    onehot.index = df.index
+    expected_onehot_columns = [CategoryDay.WEEKDAY, CategoryDay.SATURDAY, CategoryDay.SUNDAY]
+    for feat in expected_onehot_columns:
+        if feat not in onehot.columns:
+            onehot[feat] = 0
+
+    return df.join(onehot)
+
+
+def load_raw_data_csv(files: list[dict[str, Any]], path: str):
     """
     Load data from a csv file
 
@@ -213,19 +300,22 @@ def add_cyclical_features(df: pd.DataFrame) -> pd.DataFrame:
         The modified DataFrame
 
     """
-    if not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError("data frame is not a timeseries, cylical time features can not be generated.")
+    timeindex = extract_timeindex(df)
     # source http://blog.davidkaleko.com/feature-engineering-cyclical-features.html
-    df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
-    df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
-    df["weekday_sin"] = np.sin((df.index.weekday) * (2.0 * np.pi / 7))
-    df["weekday_cos"] = np.cos((df.index.weekday) * (2.0 * np.pi / 7))
-    df["mnth_sin"] = np.sin((df.index.month - 1) * (2.0 * np.pi / 12))
-    df["mnth_cos"] = np.cos((df.index.month - 1) * (2.0 * np.pi / 12))
+
+    # df["hour_sin"] = np.sin(df.index.hour * (2.0 * np.pi / 24))
+    # df["hour_cos"] = np.cos(df.index.hour * (2.0 * np.pi / 24))
+    day_ratio = timeindex.hour / 24 + timeindex.minute / (24 * 60) + timeindex.second / (24 * 60 * 60)
+    df["hour_sin"] = np.sin(day_ratio * (2.0 * np.pi))
+    df["hour_cos"] = np.cos(day_ratio * (2.0 * np.pi))
+    df["weekday_sin"] = np.sin((timeindex.weekday) * (2.0 * np.pi / 7))
+    df["weekday_cos"] = np.cos((timeindex.weekday) * (2.0 * np.pi / 7))
+    df["mnth_sin"] = np.sin((timeindex.month - 1) * (2.0 * np.pi / 12))
+    df["mnth_cos"] = np.cos((timeindex.month - 1) * (2.0 * np.pi / 12))
     return df
 
 
-def add_onehot_features(df):
+def add_onehot_features(df, timestep: timedelta = timedelta(hours=1)):
     """
     Generates and adds one-hot encoded values to the DataFrame in respect to the index 'Time'.
 
@@ -240,24 +330,37 @@ def add_onehot_features(df):
         The modified DataFrame
 
     """
+    if isinstance(timestep, str):
+        timestep = pd.Timedelta(timestep)
+    timeindex = extract_timeindex(df)
+    if timedelta(hours=1) > timestep:
+        # create continous timesteps
+        steps_per_hour = timedelta(hours=1) / timestep
+        timestep_index = (
+            timeindex.hour * steps_per_hour + ((60 * timeindex.minute + timeindex.second) / timestep.total_seconds())
+        ).astype(int)
+    # timesteps per hour, bound at 1 hour
+    else:
+        timestep_index = timeindex.hour
+
     # add one-hot encoding for Hour, Month & Weekdays
-    hours = pd.get_dummies(df.index.hour, prefix="hour").set_index(df.index)  # one-hot encoding of hours
-    month = pd.get_dummies(df.index.month, prefix="month").set_index(df.index)  # one-hot encoding of month
-    weekday = pd.get_dummies(df.index.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
+    timesteps = pd.get_dummies(timestep_index, prefix="timestep").set_index(df.index)  # one-hot encoding of hours
+    month = pd.get_dummies(timeindex.month, prefix="month").set_index(df.index)  # one-hot encoding of month
+    weekday = pd.get_dummies(timeindex.dayofweek, prefix="weekday").set_index(df.index)  # one-hot encoding of weekdays
     # df = pd.concat([df, hours, month, weekday], axis=1)
     # if these columns already exist but are not in the time interval of df they should be filled with 0
     # month not in timeframe -> timestamp can not be in that month
-    other_hours = [
+    other_timesteps = [
         col
         for col in df.columns
-        if col.startswith("hour_")
-        and col not in hours.columns
+        if col.startswith("timestep_")
+        and col not in timesteps.columns
         and not col.endswith("_sin")
         and not col.endswith("_cos")
     ]
-    if other_hours:
-        df[other_hours] = 0
-    df[hours.columns] = hours
+    if other_timesteps:
+        df[other_timesteps] = 0
+    df[timesteps.columns] = timesteps
 
     other_month = [
         col
@@ -286,7 +389,7 @@ def add_onehot_features(df):
     return df
 
 
-def add_missing_features(df: pd.DataFrame, all_columns: List[str], fill_value=0):
+def add_missing_features(df: pd.DataFrame, all_columns: list[str], fill_value=0):
     for col in all_columns:
         if col not in df.columns:
             df[col] = fill_value
@@ -308,10 +411,21 @@ def check_continuity(df: pd.DataFrame) -> pd.DataFrame:
         If index of DataFrame is not a continous datetime index.
 
     """
-    if not hasattr(df.index, "freq") or not df.index.equals(
-        pd.date_range(min(df.index), max(df.index), freq=df.index.freq)
+
+    timeindex = None
+    if isinstance(df.index, pd.MultiIndex):
+        for lvl in df.index.levels:
+            if isinstance(lvl, pd.DatetimeIndex):
+                timeindex = lvl
+                break
+    else:
+        timeindex = df.index
+    if (
+        timeindex is None
+        or not hasattr(timeindex, "freq")
+        or not timeindex.equals(pd.date_range(min(timeindex), max(timeindex), freq=timeindex.freq))
     ):
-        raise ValueError("DateTime index is not continuous")
+        raise ValueError("DateTime index is not continuous or not present")
     return df
 
 
@@ -410,8 +524,11 @@ def extend_df(df: pd.DataFrame, add_steps: int) -> pd.DataFrame:
     pd.DataFrame
         The extended dataframe.
     """
-    freq = df.index.freq if df.index.freq else df.index.inferred_freq
-    add_index = pd.date_range(df.index[-1], periods=add_steps + 1, freq=freq, inclusive="right", name=df.index.name)
+    timeindex = extract_timeindex(df)
+    assert not isinstance(df.index, pd.MultiIndex), "Dataframe extention has not been implemented for multi index"
+    # TODO does this need to be adjusted for multiindex
+    freq = timeindex.freq if timeindex.freq else timeindex.inferred_freq
+    add_index = pd.date_range(timeindex[-1], periods=add_steps + 1, freq=freq, inclusive="right", name=timeindex.name)
     add_df = pd.DataFrame(columns=df.columns, index=add_index)
     df = pd.concat((df, add_df))
     return df
@@ -457,12 +574,14 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
             # find ranges of rows for that column and append to end of list
             new_ranges = ranges(miss_rows)  # all ranges of missing values for column c
             miss_rows_ranges.extend(new_ranges)  # add new ranges to list of all ranges of all columns
-            for n in range(len(new_ranges)):
+            for _ in range(len(new_ranges)):
                 # append x times the number of the column, where x is the number of ranges for that column
                 miss_columns.append(c)  # corresponding columns to "miss_rows_ranges"
 
     last_index = df.shape[0] - 1
-    assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
+    if not np.isnan(df.iloc[last_index, 0]):
+        # XXX nan != nan
+        assert df.iloc[last_index, 0] == df.iloc[-1, 0]  # should be the last value
     # loop over all ranges
     for col, (start, end) in zip(miss_columns, miss_rows_ranges):
         assert isinstance(col, int)
@@ -485,7 +604,6 @@ def custom_interpolate(df: pd.DataFrame, periodicity=1) -> pd.DataFrame:
         else:
             # now we are dealing with a range
             if (start - p) <= 0 or (end + p) > (df.shape[0]):  # if the range is close to the beginning or end
-
                 if start == 0:  # special case: range begins with first value
                     # fill all beginning NaN values with the next existing value
                     df.iloc[start : end + 1, col] = df.iloc[end + 1, col]
@@ -547,12 +665,47 @@ def fill_if_missing(df: pd.DataFrame, periodicity: int = 24) -> pd.DataFrame:
     return df
 
 
+# TODO flesh out description
+def stack_features(df: pd.DataFrame, map: Optional[dict[str, list]] = None):
+    """Stacks multiple features into one by creating a multi index. This step is succeptible to the position in data prep steps.
+    Most importantly, if scaling is done first there will not be a scaler for a general feature (not availble during training).
+    You will have to have enough data to fit a scaler for the new feature.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Pandas dataframe containing the original data
+    map : Optional[dict[str, Sequence]], optional
+        If set stack all features in the values part of the dict into a column with the key as name, by default None
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with the stacked features.
+    """
+    if map is None or len(map) == 0:
+        return df
+    keys, vals = zip(*tuple(map.items()))
+    new_index = pd.MultiIndex.from_product([df.index, *vals], names=[df.index.name, *keys])
+    remaining_cols = [col for col in df.columns if col not in chain(*vals)]
+    new_cols = remaining_cols + list(keys)
+    new_df = pd.DataFrame(index=new_index, columns=new_cols)
+    # create index mapping from time in old df to new df
+    idx_time = df.index.get_indexer(new_df.index.get_level_values(0))
+    for i, (key, cols) in enumerate(map.items()):
+        new_df = new_df.swaplevel(1, i + 1, axis="index")
+        new_df[key] = df.filter(cols, axis="columns").stack(dropna=False).rename(key)
+    new_df = new_df.swaplevel(1, -1, axis="index")
+    new_df[remaining_cols] = df[remaining_cols].to_numpy()[idx_time]
+    return new_df
+
+
 class MultiScaler(sklearn.base.TransformerMixin):
     """
     SciKit-learn style scaler, that combines multiple scalers
     into one, then just applies them to their corresponding data columns.
     The MultiScaler is callable and will try to transform the data without fitting.
-    If that false fit_tranform is called.
+    If that false fit_transform is called.
 
     Note: While this should work with numpy.ndarrays as input (dim 0 being the "columns")
     this is not tested and should only be used with caution.
@@ -573,8 +726,8 @@ class MultiScaler(sklearn.base.TransformerMixin):
 
     def __init__(
         self,
-        feature_groups: List[Dict] = None,
-        scalers: Dict[str, sklearn.base.TransformerMixin] = None,
+        feature_groups: list[dict] = None,
+        scalers: dict[str, sklearn.base.TransformerMixin] = None,
     ):
         if feature_groups is None:
             feature_groups = []
@@ -587,7 +740,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
             self._mark_if_fitted()
 
     @staticmethod
-    def _extract_scaler_from_config(scaler_dict: Dict) -> sklearn.base.TransformerMixin:
+    def _extract_scaler_from_config(scaler_dict: dict) -> sklearn.base.TransformerMixin:
         if scaler_dict[0] == "standard":
             return StandardScaler()
         elif scaler_dict[0] == "robust":
@@ -782,7 +935,7 @@ class MultiScaler(sklearn.base.TransformerMixin):
         self.is_fitted_ = True
 
 
-def split(df: pd.DataFrame, splits: List[Union[float, datetime]]):
+def split(df: pd.DataFrame, splits: list[Union[float, datetime]]):
     """Splits a dataframe at the specified points.
 
     Parameters

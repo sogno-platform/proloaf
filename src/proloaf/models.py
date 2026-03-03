@@ -20,8 +20,8 @@
 """
 Holds the functions and classes of the general model architecture
 """
+
 import importlib
-from typing import Tuple
 
 import torch
 import torch.nn as nn
@@ -58,8 +58,7 @@ class Encoder(nn.Module):
         dropout_core: float = 0.0,
         core_net="torch.nn.GRU",
     ):
-
-        super(Encoder, self).__init__()
+        super().__init__()
         parse = core_net.rsplit(".", 1)
         mod = importlib.__import__(parse[0], fromlist=parse[1])
         net_constructor = getattr(mod, parse[1])
@@ -138,8 +137,7 @@ class Decoder(nn.Module):
         core_net="torch.nn.GRU",
         relu_leak=0.01,
     ):
-
-        super(Decoder, self).__init__()
+        super().__init__()
 
         parse = core_net.rsplit(".", 1)
         mod = importlib.__import__(parse[0], fromlist=parse[1])
@@ -258,7 +256,7 @@ class EncoderDecoder(nn.Module):
         core_hidden_size = int(rel_core_hidden_size * (enc_size + dec_size))
         self.out_size = out_size
         self.n_target_features = n_target_features
-        super(EncoderDecoder, self).__init__()
+        super().__init__()
         self.encoder = Encoder(enc_size, core_hidden_size, core_layers, dropout_core, core_net)
         self.decoder = Decoder(
             dec_size,
@@ -360,7 +358,7 @@ class AutoEncoder(nn.Module):
         core_hidden_size = int(rel_core_hidden_size * (enc_size + dec_size))
         self.enc_size = enc_size
         self.out_size = out_size
-        super(AutoEncoder, self).__init__()
+        super().__init__()
         self.encoder = Encoder(enc_size, core_hidden_size, core_layers, dropout_core, core_net)
         self.decoder = Decoder(
             input_size=dec_size,
@@ -461,7 +459,7 @@ class DualModel(nn.Module):
         self,
         enc_size: int,
         dec_size: int = 0,
-        out_size: Tuple[int, int] = (1, 1),
+        out_size: tuple[int, int] = (1, 1),
         n_target_features: int = 1,
         rel_linear_hidden_size: float = 1.0,
         rel_core_hidden_size: float = 1.0,
@@ -477,7 +475,7 @@ class DualModel(nn.Module):
         self.enc_size = enc_size
         self.n_target_features = n_target_features
 
-        super(DualModel, self).__init__()
+        super().__init__()
         self.encoder = Encoder(enc_size, core_hidden_size, core_layers, dropout_core, core_net)
         self.auto_decoder = Decoder(
             input_size=0,
@@ -579,14 +577,17 @@ class Transformer(nn.Module):
         dropout: float = 0.0,
         n_heads: int = 0,
         out_size: int = 1,
-        encoder_features: list = [],
-        decoder_features: list = [],
+        n_target_features: int = 1,
+        encoder_features: list = None,
+        decoder_features: list = None,
         dim_feedforward: int = 1024,
     ):
-        super(Transformer, self).__init__()
+        super().__init__()
 
-        self.encoder_features = encoder_features
-        self.decoder_features = decoder_features
+        self.encoder_features = encoder_features if encoder_features is not None else []
+        self.decoder_features = decoder_features if decoder_features is not None else []
+        self.out_size = out_size
+        self.n_target_features = n_target_features
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=feature_size,
@@ -596,7 +597,7 @@ class Transformer(nn.Module):
             dim_feedforward=dim_feedforward,
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.decoder = nn.Linear(feature_size, out_size)
+        self.decoder = nn.Linear(feature_size, out_size * n_target_features)
 
         self.init_weights()
 
@@ -607,7 +608,7 @@ class Transformer(nn.Module):
 
     def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, float(0.0))
+        mask = mask.float().masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, 0.0)
         return mask
 
     def prepare_input(self, inputs_enc, inputs_dec, device):
@@ -658,4 +659,12 @@ class Transformer(nn.Module):
         attention = self.transformer_encoder(inputs, mask)
         output = self.decoder(attention).unsqueeze(2)
 
-        return output[:, -inputs_dec.shape[1] :, ...], attention
+        return (
+            output[:, -inputs_dec.shape[1] :, ...].reshape(
+                inputs_dec.size(0),
+                inputs_dec.size(1),
+                self.n_target_features,
+                self.out_size,
+            ),
+            attention,
+        )

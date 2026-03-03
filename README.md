@@ -43,7 +43,7 @@ To install all required packages first change into the directory then install th
 cd proloaf
 pip install .
 ```
-There are two variants with extra dependencies. To install jupyter for being able to use the tutorial notebooks use 
+There are two variants with extra dependencies. To install jupyter for being able to use the tutorial notebooks use
 ```bash
 pip install .[tutorial]
 ```
@@ -63,6 +63,20 @@ pip install . --no-cache-dir
 might be necessary.
 
 ProLoaF supports Python 3.8 and higher. For further information see [Getting Started](https://acs.pages.rwth-aachen.de/public/automation/plf/proloaf/docs/getting-started/)
+
+## Contributing
+
+If you plan to contribute to this project, please install the pre-commit hooks to ensure code quality:
+
+```bash
+# Install pre-commit
+pipx install pre-commit  # or: pip install pre-commit (including in dev dependencies already)
+
+# Install git hooks
+pre-commit install
+```
+
+The hooks will automatically format code with ruff precommit, and run linting checks before each commit. See `DEVELOPMENT.md` for more instructions.
 
 ## Gettings started, Key Capabilities, Example Workflows & References
 

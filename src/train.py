@@ -32,10 +32,10 @@ Notes
 """
 
 import os
-from typing import Literal, Union
 import warnings
 from copy import deepcopy
 from functools import partial
+from typing import Literal, Union
 
 import pandas as pd
 
@@ -70,18 +70,18 @@ def main(
     config: dict,
     work_dir: str,
     loss: str,
-    loss_kwargs: dict = {},
+    loss_kwargs: dict = None,
     # log_path: str = None,
     device: Union[Literal["cpu"], Literal["cuda"]] = "cpu",
 ):
-    """This function trains a model and comparse it to an existing model with the same name,
+    """This function trains a model and compares it to an existing model with the same name,
      if it exists. It then discards the model performing worse.
      It does everything but loading the config and parsing cli arguments.
 
     Parameters
     ----------
     infile : str
-
+        Path to input data file
     config : dict
         Refers to the training config. For more information view (TODO add link)
     work_dir : str
@@ -93,7 +93,7 @@ def main(
     device : "cpu" | "cuda", optional
         Which device to run the training on, by default "cpu". "cuda is recommended if available.
     """
-    logger.info("Current working directory is {:s}".format(work_dir))
+    logger.info(f"Current working directory is {work_dir:s}")
 
     # Read load data
     config = deepcopy(config)
@@ -102,7 +102,6 @@ def main(
         df = pd.read_csv(infile, sep=";", index_col=0)
 
         train_df, val_df = dh.split(df, [config.get("train_split", 0.7)])
-
         scaler = dh.MultiScaler(config["feature_groups"])
         train_dataset = tl.TimeSeriesData(
             train_df,
@@ -113,9 +112,11 @@ def main(
                 ),
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
-                dh.add_onehot_features,
+                partial(dh.add_onehot_features, timestep=config["frequency"]),
+                partial(dh.add_onehot_daytype, country=config.get("country_code")),
                 scaler.fit_transform,
                 partial(dh.add_missing_features, all_columns=config["aux_features"]),
+                partial(dh.stack_features, map=config.get("stack_columns")),
                 dh.check_continuity,
             ],
             **config,
@@ -130,9 +131,11 @@ def main(
                 # TODO check if periodicity is correct
                 partial(dh.fill_if_missing, periodicity=config.get("periodicity", 24)),
                 dh.add_cyclical_features,
-                dh.add_onehot_features,
+                partial(dh.add_onehot_features, timestep=config["frequency"]),
+                partial(dh.add_onehot_daytype, country=config.get("country_code")),
                 scaler.transform,
                 partial(dh.add_missing_features, all_columns=config["aux_features"]),
+                partial(dh.stack_features, map=config.get("stack_columns")),
                 dh.check_continuity,
             ],
             **config,
@@ -156,52 +159,62 @@ def main(
             device=device,
         )
 
-        modelhandler.fit(
-            train_dataset,
-            val_dataset,
-        )
-        train_dataset = None  # unbind data to save some memory
         try:
-            ref_model_1 = modelhandler.load_model(
-                os.path.join(
-                    work_dir,
-                    config.get("output_path", ""),
-                    f"{config['model_name']}.pkl",
+            modelhandler.fit(
+                train_dataset,
+                val_dataset,
+            )
+        except KeyboardInterrupt:
+            logger.warning("Training interrupted by user. Saving best model found so far...")
+        finally:
+            train_dataset = None  # unbind data to save some memory
+
+            # Try to load existing model for comparison
+            try:
+                ref_model_1 = modelhandler.load_model(
+                    os.path.join(
+                        work_dir,
+                        config.get("output_path", ""),
+                        f"{config['model_name']}.pkl",
+                    )
                 )
-            )
-        except FileNotFoundError:
-            ref_model_1 = None
-            logger.info("No old version of the trained model was found for the new one to compare to")
-        except Exception:
-            ref_model_1 = None
-            logger.warning(
-                "An older version of this model was found but could not be loaded, this is likely due to diverignig ProLoaF versions."
-            )
-        try:
-            if ref_model_1 is not None:
-                modelhandler.select_model(
-                    val_dataset,
-                    [ref_model_1, modelhandler.model_wrap],
-                    modelhandler._model_wrap.loss_metric,
+            except FileNotFoundError:
+                ref_model_1 = None
+                logger.info("No old version of the trained model was found for the new one to compare to")
+            except Exception:
+                ref_model_1 = None
+                logger.warning(
+                    "An older version of this model was found but could not be loaded, this is likely due to diverging ProLoaF versions."
                 )
-        except:
-            logger.warning(
-                "An older version of this model was found but could not be compared to the new one, this might be due to diverging model structures."
+
+            # Compare models if old model exists
+            try:
+                if ref_model_1 is not None:
+                    modelhandler.select_model(
+                        val_dataset,
+                        [ref_model_1, modelhandler.model_wrap],
+                        modelhandler._model_wrap.loss_metric,
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"An older version of this model was found but could not be compared to the new one: {e}"
+                )
+
+            # Always save the model (select_model already updated model_wrap to the best one)
+            modelhandler.save_current_model(
+                os.path.join(work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl")
             )
-            # TODO should the old model be overwritten anyways?
-        modelhandler.save_current_model(
-            os.path.join(work_dir, config.get("output_path", ""), f"{config['model_name']}.pkl")
-        )
-        config.update(modelhandler.get_config())
-        ch.write_config(
-            config,
-            model_name=ARGS.station,
-            config_path=ARGS.config,
-            main_path=work_dir,
-        )
+            config.update(modelhandler.get_config())
+            ch.write_config(
+                config,
+                model_name=ARGS.station,
+                config_path=ARGS.config,
+                main_path=work_dir,
+            )
+            logger.info("Model and config saved")
 
     except KeyboardInterrupt:
-        logger.info("manual interrupt")
+        logger.info("Manual interrupt - exiting")
 
 
 if __name__ == "__main__":
